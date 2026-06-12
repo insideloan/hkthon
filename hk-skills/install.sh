@@ -17,7 +17,7 @@
 #   ./install.sh --version v1.0.0        # pin release version (default: latest)
 #   ./install.sh --source tarball        # force tarball download (skip local mode)
 #
-set -euo pipefail
+set -eo pipefail
 
 SKILLS_DIR="${HOME}/.claude/skills"
 REF_DIR="${HOME}/.claude/reference"
@@ -28,7 +28,17 @@ REPO_OWNER="insideloan"
 REPO_NAME="hkthon"
 REPO_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}"
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# SCRIPT_DIR must default gracefully when piped from curl (BASH_SOURCE[0] is empty)
+# Use ${BASH_SOURCE[0]+set} check to avoid "unbound variable" under set -u.
+SCRIPT_DIR=""
+if [[ -n "${BASH_SOURCE+x}" ]] && [[ "${BASH_SOURCE[0]:-}" != "" ]] \
+   && [[ "${BASH_SOURCE[0]}" != "bash" ]] && [[ "${BASH_SOURCE[0]}" != "/dev/stdin" ]]; then
+  SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+fi
+if [[ -z "${SCRIPT_DIR}" ]]; then
+  # Piped install — default to a placeholder, will be replaced after tarball download.
+  SCRIPT_DIR="${TMPDIR:-/tmp}/hk-skills-piped-$$"
+fi
 SKILL_NAMES=(
   hk-vision
   hk-onboard
@@ -53,7 +63,11 @@ ACTION="install"
 SETUP_PROJECT_ARGS=()
 VERSION="latest"
 FORCE_TARBALL=0
-for arg in "$@"; do
+# Use a manual loop so we can safely shift inside the iteration.
+ARGS=("$@")
+i=0
+while [[ $i -lt ${#ARGS[@]} ]]; do
+  arg="${ARGS[$i]}"
   case "$arg" in
     --install)  ACTION="install" ;;
     --uninstall) ACTION="uninstall" ;;
@@ -63,12 +77,15 @@ for arg in "$@"; do
     --source)   FORCE_TARBALL=1 ;;
     --version=*) VERSION="${arg#--version=}" ;;
     --version)
-      shift
-      VERSION="${1:-latest}"
+      i=$((i+1))
+      VERSION="${ARGS[$i]:-latest}"
       ;;
     --module|--name)
       SETUP_PROJECT_ARGS+=("$arg")
-      shift
+      if [[ $((i+1)) -lt ${#ARGS[@]} ]]; then
+        i=$((i+1))
+        SETUP_PROJECT_ARGS+=("${ARGS[$i]}")
+      fi
       ;;
     --module=*|--name=*)
       SETUP_PROJECT_ARGS+=("$arg")
@@ -107,6 +124,7 @@ EOF
       ;;
     *) err "unknown arg: $arg"; exit 2 ;;
   esac
+  i=$((i+1))
 done
 
 # -------- mode detection: tarball (curl|bash) vs clone --------
