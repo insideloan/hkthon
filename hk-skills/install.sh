@@ -194,6 +194,9 @@ download_and_extract() {
   if [[ -f "${tmpdir}/install.sh" ]]; then
     has_install_sh_at_root=1
   fi
+  log "DEBUG: top_count=${top_count}, has_install_sh_at_root=${has_install_sh_at_root}"
+  log "DEBUG: tmpdir contents:"
+  find "${tmpdir}" -mindepth 1 -maxdepth 1 | while read f; do log "  - $f"; done
   if [[ "${top_count}" -eq 1 && "${has_install_sh_at_root}" -eq 0 ]]; then
     # Wrapped layout: move the single top dir
     local extracted
