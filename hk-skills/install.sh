@@ -186,18 +186,16 @@ download_and_extract() {
 
   # Detect layout: either the tarball wraps everything in a single top-level
   # directory (old layout), or files are at the root of the tarball (current).
-  # Heuristic: if the only thing at depth 1 is a single directory, move it.
-  # Otherwise, move tmpdir itself.
-  local top_count
-  top_count=$(find "${tmpdir}" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  # Heuristic: if install.sh is at the root of the tarball, it's flat layout.
   local has_install_sh_at_root=0
   if [[ -f "${tmpdir}/install.sh" ]]; then
     has_install_sh_at_root=1
   fi
-  log "DEBUG: top_count=${top_count}, has_install_sh_at_root=${has_install_sh_at_root}"
-  log "DEBUG: tmpdir contents:"
-  find "${tmpdir}" -mindepth 1 -maxdepth 1 | while read f; do log "  - $f"; done
-  if [[ "${top_count}" -eq 1 && "${has_install_sh_at_root}" -eq 0 ]]; then
+  if [[ "${has_install_sh_at_root}" -eq 1 ]]; then
+    # Flat layout: move tmpdir contents directly to target
+    mv "${tmpdir}" "${target}"
+    tmpdir=""
+  else
     # Wrapped layout: move the single top dir
     local extracted
     extracted="$(find "${tmpdir}" -mindepth 1 -maxdepth 1 -type d | head -n1)"
@@ -206,10 +204,6 @@ download_and_extract() {
       return 1
     fi
     mv "${extracted}" "${target}"
-  else
-    # Flat layout: move tmpdir contents
-    mv "${tmpdir}" "${target}"
-    tmpdir=""
   fi
   rm -rf "${tmpdir}"
 
