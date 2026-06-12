@@ -183,14 +183,31 @@ download_and_extract() {
   mkdir -p "${INSTALL_ROOT}"
   tar xzf "${tarball}" -C "${tmpdir}"
   rm -rf "${target}"
-  # The tarball's top-level is expected to be hk-skills-<ver>/ (or hk-skills/)
-  local extracted
-  extracted="$(find "${tmpdir}" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-  if [[ -z "${extracted}" ]]; then
-    err "could not find extracted directory in tarball"
-    return 1
+
+  # Detect layout: either the tarball wraps everything in a single top-level
+  # directory (old layout), or files are at the root of the tarball (current).
+  # Heuristic: if the only thing at depth 1 is a single directory, move it.
+  # Otherwise, move tmpdir itself.
+  local top_count
+  top_count=$(find "${tmpdir}" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  local has_install_sh_at_root=0
+  if [[ -f "${tmpdir}/install.sh" ]]; then
+    has_install_sh_at_root=1
   fi
-  mv "${extracted}" "${target}"
+  if [[ "${top_count}" -eq 1 && "${has_install_sh_at_root}" -eq 0 ]]; then
+    # Wrapped layout: move the single top dir
+    local extracted
+    extracted="$(find "${tmpdir}" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+    if [[ -z "${extracted}" ]]; then
+      err "could not find extracted directory in tarball"
+      return 1
+    fi
+    mv "${extracted}" "${target}"
+  else
+    # Flat layout: move tmpdir contents
+    mv "${tmpdir}" "${target}"
+    tmpdir=""
+  fi
   rm -rf "${tmpdir}"
 
   log "Extracted to ${target}"
