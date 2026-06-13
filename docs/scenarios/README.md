@@ -544,7 +544,7 @@ gh issue edit 12 --remove-label "status:in-review" --add-label "status:in-progre
 - E섹션 (LLM): 0/3 성공 → FAIL
 
 **대응**:
-1. `.env`에 임시로 `OPENAI_API_KEY=sk-fake` → LLM router가 graceful 에러
+1. `.env`에 임시로 `AWS_ACCESS_KEY_ID=fake`, `AWS_SECRET_ACCESS_KEY=fake` → LLM router가 graceful 에러
 2. **데모용 fallback**: state machine에 hardcoded script (F15, P1) → LLM timeout 시 자동 전환
 3. 이 fallback이 [22:00]에 polish되었으므로 OK
 4. 실제 API key는 팀원 1명(B)가 가지고 있으니 공유
