@@ -78,7 +78,7 @@ uv init --no-readme
 # 또는 pip-tools
 # pyproject.toml에 STACK §2의 의존성 추가
 uv add fastapi 'uvicorn[standard]' websockets duckdb duckdb-engine pydantic pydantic-settings httpx boto3 python-multipart
-# 또는 OpenAI만 쓸 거면 boto3 제외
+# Bedrock Claude Sonnet 4.6만 사용
 
 # .env.example 복사
 # (STACK.md §2에 있는 env vars 그대로)

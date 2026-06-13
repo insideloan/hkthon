@@ -177,7 +177,6 @@ frontend/
 ### LLM
 
 - **Primary**: AWS Bedrock — `anthropic.claude-3-5-sonnet-20241022` (현재 Sonnet 4.6)
-- **Alternative**: OpenAI — `gpt-4o` (또는 후속 모델)
 - **교체 방법**: `.env`의 `LLM_PROVIDER`만 변경
 - **System prompt 위치**: `app/llm/prompts/system_ko.txt`
 

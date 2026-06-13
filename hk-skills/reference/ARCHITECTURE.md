@@ -66,7 +66,7 @@
                               ▼
                   ┌──────────────────────┐
                   │ External services    │
-                  │ - Bedrock / OpenAI   │
+                  │ - Bedrock Claude Sonnet 4.6   │
                   │ - AWS Transcribe/AWS Polly        │
                   │   (STT + TTS)        │
                   └──────────────────────┘

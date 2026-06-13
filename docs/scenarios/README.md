@@ -72,7 +72,7 @@ Claude는 5개 질문을 **한 번에 하나씩** 한국어로 던짐:
 - `backend/`: `uv init`, `uv add fastapi 'uvicorn[standard]' websockets sqlmodel duckdb-engine pydantic pydantic-settings httpx boto3 python-multipart`
 - `frontend/`: `pnpm create next-app@latest frontend --typescript --tailwind --app --src-dir --import-alias "@/*" --no-eslint --use-pnpm`
 - `pnpm add @xyflow/react lucide-react zustand zod clsx`
-- `.env` 작성 (각자): `OPENAI_API_KEY=sk-...` (OpenAI만 쓸 거라 boto3 안 씀)
+- `.env` 작성 (각자): `AWS_ACCESS_KEY_ID=...`, `AWS_SECRET_ACCESS_KEY=...` (Bedrock Claude Sonnet 4.6용)
 - Backend stub: `app/main.py`에 `CORSMiddleware(allow_origins=["http://localhost:3000"])` + `/health` endpoint
 - Frontend stub: `src/app/page.tsx`에 "Hello from API" + fetch `/health`
 - 통합 smoke: backend :8000 + frontend :3000 동시 실행 → 페이지에 "Hello from API" 보임
@@ -96,7 +96,7 @@ Claude가 백로그 생성:
 | F07 | S2 fraud detection node | S2 | BE | D | 1.5 | P0 |
 | F08 | Memo popup + LLM draft | cross | FE | C | 1.5 | P0 |
 | F09 | Mic channel toggle | cross | FE | B | 1.0 | P0 |
-| F10 | LLM router (OpenAI ↔ Bedrock) | cross | BE | D | 1.0 | P0 |
+| F10 | LLM router (Bedrock Claude Sonnet 4.6) | cross | BE | D | 1.0 | P0 |
 | F11 | WebSocket schema + agent/customer WS | cross | BE | D | 1.0 | P0 |
 | F12 | Demo seed data (2 시나리오용 1명씩) | cross | BE | D | 0.5 | P0 |
 | F13 | TTS 음성 폴리시 (mijin) | polish | BE | D | 0.5 | P1 |
@@ -533,7 +533,7 @@ gh issue edit 12 --remove-label "status:in-review" --add-label "status:in-progre
 
 ### 2.9 Edge: API key 없음 (.env 비어있음)
 
-**시간**: [4:00], 수민이 OpenAI API key가 없음. 또는 quota 초과.
+**시간**: [4:00], 수민이 AWS API key가 없음. 또는 Bedrock quota 초과.
 
 **상황**:
 - LLM router가 401/429 반환
