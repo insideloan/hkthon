@@ -1,0 +1,18 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.bak
+
+# Local-only files
+CLAUDE.md.bak
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code transient state
+.claude/plans/
+.claude/transcripts/

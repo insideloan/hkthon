@@ -1,0 +1,7 @@
+# hk-skills repo (this repo, not the bootstrapped project)
+
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.bak
