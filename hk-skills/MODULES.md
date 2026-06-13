@@ -108,7 +108,6 @@ modules:
       - backend/app/scenarios/*
       - backend/app/llm/router.py
       - backend/app/llm/bedrock.py
-      - backend/app/llm/openai_compat.py
       - backend/app/llm/prompts/*
       - backend/app/stt/*
       - backend/app/tts/*
@@ -178,7 +177,6 @@ modules:
 | `backend/app/scenarios/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/router.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/bedrock.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/llm/openai_compat.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/prompts/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/stt/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/tts/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |

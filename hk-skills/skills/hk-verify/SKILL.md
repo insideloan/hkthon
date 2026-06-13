@@ -98,7 +98,7 @@ Issue의 `## Acceptance` 각 항목을 **실제로 실행**해서 확인.
 - 한국어 자연스러움
 - **Provider switch**:
   ```bash
-  # .env의 LLM_PROVIDER=openai로 바꾼 뒤 backend 재시작
+  # .env의 LLM_PROVIDER=bedrock으로 설정되어 있고 동작
   # 같은 입력 3번, 동작
   ```
 

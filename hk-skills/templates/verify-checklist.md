@@ -59,7 +59,7 @@ slice spec의 §6에서 그대로 복사. 각 줄을 확인:
 - [ ] **System prompt** 가 의도대로 작동
 - [ ] **JSON parse** 가 안정적 (3/3 성공)
 - [ ] **Streaming** 첫 토큰 < 2초
-- [ ] **Provider switch** `.env`의 `LLM_PROVIDER=openai`로 바꿔도 동작
+- [ ] **Provider check** `.env`의 `LLM_PROVIDER=bedrock`로 설정되어 있고 동작
 - [ ] **한국어 자연스러움** — 어색한 번역투 없음
 - [ ] **가드레일** — forbidden 응답 (욕설, 무관한 답) 안 나옴
 

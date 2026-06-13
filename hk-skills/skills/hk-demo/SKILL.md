@@ -129,7 +129,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 ## 5. 발표 중 팁 / Presentation Tips
 
 1. **첫 15초가 가장 중요** — "이게 뭔가요?"가 한 문장으로. 심사위원 1명당 집중 시간 1분.
-2. **기술 자랑 < 사용자 가치** — "저희는 React 19, FastAPI, WebSocket streaming, Naver Clova STT/TTS를..." ❌ → "AI가 직접 전화를 걸고, 고객이 화내면 사람 상담원에게 자동으로 넘깁니다" ⭕
+2. **기술 자랑 < 사용자 가치** — "저희는 React 19, FastAPI, WebSocket streaming, AWS Transcribe/AWS Polly를..." ❌ → "AI가 직접 전화를 걸고, 고객이 화내면 사람 상담원에게 자동으로 넘깁니다" ⭕
 3. **데모가 1번 망가져도 멘탈 유지** — "아, 잘 보이시죠? (재시도)" 한 마디로 살림.
 4. **숫자 3개 외우기** — 예: "3가지 시나리오, 0.8초 응답, 4분 안에 풀 데모"
 5. **질문 시간에 "잘 모르겠습니다" OK** — 없는 knowledge를 지어내는 것보다 100배 낫다.
@@ -154,7 +154,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 | 함정 | 증상 | 해결 |
 |---|---|---|
 | LLM이 너무 느림 | 첫 토큰 3초+ | prompt 짧게, max_tokens 작게, stream 켜기 |
-| STT가 한국어 인식 못함 | transcript가 영어 또는 빈값 | Clova `lang=ko-KR` 명시 |
+| STT가 한국어 인식 못함 | transcript가 영어 또는 빈값 | AWS Transcribe `language_code=ko-KR` 명시 |
 | iPhone UI가 안 울림 | 데모에서 "전화 옴" 표현 약함 | `afplay`로 .m4a 링톤 재생 (Mac) |
 | AI 분석 패널이 너무 작아 안 보임 | 데모 projector에서 글씨 안 보임 | 폰트 키우기 (tw-2xl), 줌 디폴트 1.5배 |
 | 통화 중 backend 죽음 | 30분 데모 중 1번 | supervisor로 자동 재시작, 또는 발표 전 재시작 |

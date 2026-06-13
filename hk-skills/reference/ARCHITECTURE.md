@@ -43,9 +43,9 @@
 │  │            ▼            ▼              ▼                       │   │
 │  │  ┌──────────┐  ┌──────────┐    ┌──────────┐                   │   │
 │  │  │ STT      │  │ TTS      │    │ LLM      │                   │   │
-│  │  │ (Clova)  │  │ (Clova)  │    │ Router   │                   │   │
+│  │  │ (AWS Transcribe) │  │ (AWS Polly)  │    │ Router   │                   │   │
 │  │  │ WebSocket│  │ REST     │    │ (bedrock │                   │   │
-│  │  │ client   │  │ client   │    │  openai) │                   │   │
+│  │  │ client   │  │ client   │    │ bedrock) │                   │   │
 │  │  └──────────┘  └──────────┘    └──────────┘                   │   │
 │  │            │            │              │                       │   │
 │  │            ▼            ▼              ▼                       │   │
@@ -67,7 +67,7 @@
                   ┌──────────────────────┐
                   │ External services    │
                   │ - Bedrock / OpenAI   │
-                  │ - Naver Clova        │
+                  │ - AWS Transcribe/AWS Polly        │
                   │   (STT + TTS)        │
                   └──────────────────────┘
 ```
@@ -90,9 +90,9 @@
        └─→ Backend starts STT stream on customer mic
 
 4. Loop (per utterance):
-   Customer speaks → mic chunk (2-3s) → STT (Clova) → text
+   Customer speaks → mic chunk (2-3s) → STT (AWS Transcribe) → text
    → LLM (system + scenario state + history) → response text
-   → TTS (Clova) → MP3
+   → TTS (AWS Polly) → MP3
    → push to /ws/customer (audio out)
    → push to /ws/agent (transcript chunk, node_entered)
    → update graph node

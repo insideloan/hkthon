@@ -31,9 +31,8 @@ duckdb = ">=0.10"            # DuckDB Python client
 duckdb-engine = ">=0.10"      # SQLAlchemy/DuckDB integration
 pydantic = ">=2.9"
 pydantic-settings = ">=2.6"   # .env
-httpx = ">=0.27"              # Naver Clova 호출
+httpx = ">=0.27"              # AWS API 호출
 boto3 = ">=1.35"              # Bedrock
-openai = ">=1.54"             # OpenAI (대체)
 python-multipart = ">=0.0.20" # WebSocket audio upload
 ```
 
@@ -53,13 +52,12 @@ backend/
 │   │   ├── transcript.py
 │   │   └── memo.py
 │   ├── llm/
-│   │   ├── router.py           # provider 선택 (bedrock | openai)
+│   │   ├── router.py           # provider 선택 (bedrock only)
 │   │   ├── bedrock.py
-│   │   └── openai_compat.py
 │   ├── stt/
-│   │   └── clova_stt.py        # Naver Clova STT (WebSocket)
+│   │   └── aws_transcribe.py   # AWS Transcribe (WebSocket)
 │   ├── tts/
-│   │   └── clova_tts.py        # Naver Clova TTS (REST)
+│   │   └── aws_polly.py        # AWS Polly (REST)
 │   ├── scenarios/
 │   │   ├── state_machine.py    # 3개 시나리오 state graph
 │   │   ├── S1_product_interest.py
@@ -78,19 +76,13 @@ backend/
 
 ```bash
 # LLM
-LLM_PROVIDER=bedrock          # bedrock | openai
+LLM_PROVIDER=bedrock          # bedrock only
 LLM_MODEL=anthropic.claude-3-5-sonnet-20241022
 AWS_REGION=ap-northeast-2
-# OpenAI (대체 시)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o
 
-# Naver Clova
-CLOVA_STT_URL=wss://clovaspeech-gw.ncloud.com:8443/recog/v1/...
-CLOVA_STT_SECRET=...
-CLOVA_TTS_URL=https://naveropenapi.apigw.ntruss.com/tts-pre/v1
-CLOVA_TTS_CLIENT_ID=...
-CLOVA_TTS_CLIENT_SECRET=...
+# AWS Transcribe/AWS Polly
+AWS_TRANSCRIBE_REGION=ap-northeast-2
+AWS_POLLY_REGION=ap-northeast-2
 
 # App
 DATABASE_URL=duckdb:///./app.duckdb
@@ -99,7 +91,7 @@ LOG_LEVEL=INFO
 
 ### LLM Provider 라우팅
 
-- `app/llm/router.py`가 `LLM_PROVIDER` env를 보고 bedrock/openai 모듈 선택
+- `app/llm/router.py`가 `LLM_PROVIDER` env를 보고 bedrock 모듈만 사용
 - 두 provider 모두 **stream=True** 인터페이스로 통일
 - 함수 시그니처: `async def stream_chat(messages, system, tools=None) -> AsyncIterator[str]`
 
@@ -189,19 +181,19 @@ frontend/
 - **교체 방법**: `.env`의 `LLM_PROVIDER`만 변경
 - **System prompt 위치**: `app/llm/prompts/system_ko.txt`
 
-### STT (Naver Clova Speech)
+### STT (AWS Transcribe)
 
 - **Protocol**: WebSocket streaming
-- **Endpoint**: `wss://clovaspeech-gw.ncloud.com:8443/recog/v1/...`
+- **Region**: `ap-northeast-2` (Seoul)
 - **입력 모드**: chunked (2-3초 단위 음성 blob)
 - **출력**: JSON `{text, isFinal, channel}` → `transcript` 테이블에 저장
-- **언어**: 한국어 (`lang=ko-KR`)
+- **언어**: 한국어 (`language_code=ko-KR`)
 
-### TTS (Naver Clova Voice)
+### TTS (AWS Polly)
 
 - **Protocol**: REST
-- **Endpoint**: `https://naveropenapi.apigw.ntruss.com/tts-pre/v1`
-- **Voice**: `nara` 또는 `mijin` (한국어 여성)
+- **Region**: `ap-northeast-2` (Seoul)
+- **Voice**: `Seoyeon` (한국어 여성)
 - **출력**: MP3 → customer UI로 WebSocket 전송
 
 ---
@@ -213,7 +205,7 @@ frontend/
 | `/ws/agent` | 상담원 UI ↔ backend | queue update, call state, transcript chunk, LLM guide |
 | `/ws/customer` | 고객 iPhone UI ↔ backend | incoming call, audio out, transcript in |
 | (내부) | backend ↔ LLM | stream chat |
-| (내부) | backend ↔ Naver Clova | stream STT, REST TTS |
+| (내부) | backend ↔ AWS Transcribe/AWS Polly | stream STT, REST TTS |
 
 ### 메시지 스키마 (TypeScript)
 
@@ -258,8 +250,8 @@ type AgentCmd =
 - ❌ **새 의존성 추가 금지** (해커톤 중). 정말 필요하면 팀 합의 + 이 문서 업데이트.
 - ❌ **직접 SQL 작성 금지** — SQLModel ORM만 사용.
 - ❌ **Inline `style={{...}}` 금지** — Tailwind 클래스만.
-- ❌ **새 LLM provider 추가 금지** (bedrock/openai만).
-- ❌ **새 STT/TTS provider 추가 금지** (Clova만).
+- ❌ **새 LLM provider 추가 금지** (bedrock only).
+- ❌ **새 STT/TTS provider 추가 금지** (AWS Transcribe/AWS Polly만).
 - ❌ **인증/인가 추가 금지** — 데모는 그냥 open.
 
 위반 발견 시 → `hk-iterate` skill로 가드레일 재확인.

@@ -49,7 +49,7 @@
 - Claude Code 최신 버전 (https://docs.claude.com/claude-code)
 - Python 3.11+
 - Node.js 20+
-- (선택) Naver Clova API 키, AWS Bedrock 또는 OpenAI API 키
+- (선택) AWS Bedrock API 키, AWS Transcribe API 키, AWS Polly API 키
 
 ### 원라이너 설치 (권장) / One-liner Install
 
@@ -271,7 +271,7 @@ git push --force-with-lease
   2. 보이스피싱 피해 의심 → AI가 위험 안내 후 통화 종료
 - 상담원 UI: 대시보드 (대기 콜/진행 중/상담원 연결 필요) + 실시간 통화 모니터링 (고객 정보/위험도/AI 분석) + 통화 요약
 
-**아키텍처 / Stack**: FastAPI + Next.js + Tailwind + SQLite + Bedrock Claude / OpenAI + Naver Clova STT/TTS
+**아키텍처 / Stack**: FastAPI + Next.js + Tailwind + DuckDB + Bedrock Claude Sonnet 4.6 + AWS Transcribe/AWS Polly
 상세는 `reference/ARCHITECTURE.md`, `reference/STACK.md` 참고.
 
 > 다른 제품에도 적용 가능합니다 — 이 경우 `reference/PRODUCT-BRIEF.md`만 갈아끼우면 됩니다.

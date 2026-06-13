@@ -77,7 +77,7 @@ mkdir -p backend && cd backend
 uv init --no-readme
 # 또는 pip-tools
 # pyproject.toml에 STACK §2의 의존성 추가
-uv add fastapi 'uvicorn[standard]' websockets duckdb duckdb-engine pydantic pydantic-settings httpx boto3 openai python-multipart
+uv add fastapi 'uvicorn[standard]' websockets duckdb duckdb-engine pydantic pydantic-settings httpx boto3 python-multipart
 # 또는 OpenAI만 쓸 거면 boto3 제외
 
 # .env.example 복사
@@ -189,7 +189,7 @@ cd frontend && pnpm dev
 ✅ Onboard 완료
 - Backend: http://localhost:8000 OK (CORS 설정됨)
 - Frontend: http://localhost:3000 OK
-- Stack: FastAPI + Next.js + DuckDB + Bedrock/OpenAI + Naver Clova
+- Stack: FastAPI + Next.js + DuckDB + Bedrock Claude Sonnet 4.6 + AWS Transcribe/AWS Polly
 - Template: <사용했으면 URL, 안 했으면 "placeholder wrapper 사용 중">
 
 문서:

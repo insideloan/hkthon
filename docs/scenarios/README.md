@@ -69,7 +69,7 @@ Claude는 5개 질문을 **한 번에 하나씩** 한국어로 던짐:
 4명이 **각자** 본인 노트북에서:
 
 - Preflight 4개 PASS (claude, python3, node, pnpm)
-- `backend/`: `uv init`, `uv add fastapi 'uvicorn[standard]' websockets sqlmodel aiosqlite pydantic pydantic-settings httpx boto3 openai python-multipart`
+- `backend/`: `uv init`, `uv add fastapi 'uvicorn[standard]' websockets sqlmodel duckdb-engine pydantic pydantic-settings httpx boto3 python-multipart`
 - `frontend/`: `pnpm create next-app@latest frontend --typescript --tailwind --app --src-dir --import-alias "@/*" --no-eslint --use-pnpm`
 - `pnpm add @xyflow/react lucide-react zustand zod clsx`
 - `.env` 작성 (각자): `OPENAI_API_KEY=sk-...` (OpenAI만 쓸 거라 boto3 안 씀)
@@ -470,13 +470,13 @@ app.include_router(memos_router)
 - A섹션 (lint/tsc): PASS
 - B섹션 (acceptance): 부분 FAIL
   - API 200 OK ✅
-  - **DB에 row 생성이 안 됨** ❌ (`sqlite3` 확인)
+  - **DB에 row 생성이 안 됨** ❌ (`duckdb` 확인)
 - C섹션: PASS
 
 **수민의 FAIL 처리**:
 ```bash
 gh pr review 12 --request-changes --body "## What
-- VERIFY.md B#2: POST /api/calls/{id}/approve 200이지만 calls 테이블에 approval row 생성 안 됨 (sqlite3 확인)
+- VERIFY.md B#2: POST /api/calls/{id}/approve 200이지만 calls 테이블에 approval row 생성 안 됨 (duckdb 확인)
 - 예상: row created with product_id
 - 실제: row 0 created
 
