@@ -9,7 +9,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 팀 | **수민(A=QUEUE)**, **지훈(B=PHONE)**, **예린(C=CALL+MEMO)**, **도윤(D=ORCH)** |
+| 팀 | **수민(A=QUEUE)**, **은경(B=PHONE)**, **주실(C=CALL+MEMO)**, **지원(D=ORCH)**, **일조(E=ORCH)** |
 | 데모 | AI Outbound 금융상품 Sales Call Bot (PRODUCT-BRIEF 기준) |
 | 환경 | 각자 macOS 14, Python 3.12, Node 22, pnpm 9, uv 0.5 |
 | GitHub | `https://github.com/aifin-hackathon/hk-2026` (private, 4명 collaborator) |
