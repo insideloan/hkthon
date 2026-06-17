@@ -1,0 +1,468 @@
+# openapi.yaml — REST subset (machine-readable)
+#
+# SCOPE: REST endpoints only. WebSocket (/ws/agent, /ws/customer) and the
+# audio/STT/TTS pipeline are NOT expressible in OpenAPI — see reference/API.md §2.
+#
+# SOURCES OF TRUTH (in order):
+#   1. reference/PRODUCT-BRIEF.md  — product (SSOT)
+#   2. reference/API.md            — design SSOT (REST + WS + screens)
+#   3. THIS FILE                   — REST subset, for codegen / contract-tests / mocks
+#   4. GET /openapi.json (runtime) — FastAPI auto-generates from Pydantic models;
+#                                    this is the RUNTIME truth for REST. Keep this
+#                                    file in sync with API.md §1; verify against
+#                                    /openapi.json after implementing (hk-verify).
+#
+# Change rule: REST schema is defined by ORCH. Edit API.md §1 AND this file together,
+# then open an ORCH PR (docs/WORKFLOW.md §3.1).
+
+openapi: 3.1.0
+info:
+  title: AI Outbound 금융상품 Sales Call Bot — REST API
+  version: "1.0.0"
+  description: >
+    콜센터 관리자 대시보드 + AI콜봇 아웃바운드 데모의 REST 계약.
+    WebSocket 메시지는 reference/API.md §2 참고. 데모 한정, 인증 없음 (localhost only).
+servers:
+  - url: http://localhost:8000
+    description: Local demo backend
+
+tags:
+  - name: queue
+    description: 관리자 대시보드 / 아웃바운드 대기콜 (QUEUE 모듈)
+  - name: calls
+    description: 통화 생성 / 제어 (ORCH 정의, CALL 사용)
+  - name: customers
+    description: 고객 정보 (ORCH 정의, CALL 사용)
+  - name: products
+    description: 상품 목록
+  - name: summaries
+    description: 통화 종료 인계 요약 (SUMMARY 모듈, ORCH 콜백)
+
+paths:
+  /api/queue:
+    get:
+      tags: [queue]
+      summary: 관리자 대시보드 (요약 카드 + 대기콜 리스트)
+      operationId: getQueue
+      parameters:
+        - name: highlight_only
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: 큐 + 요약
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueueResponse" }
+
+  /api/calls/start:
+    post:
+      tags: [calls]
+      summary: AI콜봇 자동 발신 트리거 (관리자 행 클릭이 아님)
+      operationId: startCall
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartCallRequest" }
+      responses:
+        "201":
+          description: 생성된 콜 (state=DIALING)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/calls/{id}:
+    get:
+      tags: [calls]
+      summary: 실시간 통화 모니터링 스냅샷 (고객정보 + AI 분석 패널 + transcript)
+      operationId: getCall
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      responses:
+        "200":
+          description: 모니터링 화면 데이터
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CallMonitor" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/calls/{id}/approve:
+    post:
+      tags: [calls]
+      summary: 상품 가입 승인 (거절은 호출 안 함)
+      operationId: approveProduct
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id: { type: string, example: "PROD-001" }
+      responses:
+        "200":
+          description: 승인 결과
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approved: { type: boolean }
+                  product_id: { type: string }
+        "409": { $ref: "#/components/responses/InvalidState" }
+
+  /api/calls/{id}/transfer:
+    post:
+      tags: [calls]
+      summary: S1 상담원 연결 상태 전환 (state → TRANSFER_PENDING)
+      operationId: transferToAgent
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      responses:
+        "200":
+          description: 전환된 콜
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "409": { $ref: "#/components/responses/InvalidState" }
+
+  /api/calls/{id}/send-link:
+    post:
+      tags: [calls]
+      summary: 문자URL발송 (데모, 실제 SMS 미발송 — 기록만)
+      operationId: sendLink
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri }
+      responses:
+        "200":
+          description: 발송 기록됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { sent: { type: boolean } }
+
+  /api/calls/{id}/hangup:
+    post:
+      tags: [calls]
+      summary: 통화 종료 (state → ENDED) → AI 인계 요약 생성 트리거
+      operationId: hangupCall
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      responses:
+        "200":
+          description: 종료된 콜
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+
+  /api/calls/{id}/summary:
+    get:
+      tags: [summaries]
+      summary: 통화 종료·인계 요약 화면 (대화 이력 + AI 요약)
+      operationId: getCallSummary
+      parameters: [ { $ref: "#/components/parameters/CallId" } ]
+      responses:
+        "200":
+          description: 요약 + transcript
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SummaryView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/customers:
+    get:
+      tags: [customers]
+      summary: 시드된 데모 고객 목록 (10명)
+      operationId: listCustomers
+      responses:
+        "200":
+          description: 고객 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Customer" }
+
+  /api/customers/{id}:
+    get:
+      tags: [customers]
+      summary: 고객 정보 (페르소나 + 금융 정보)
+      operationId: getCustomer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 고객
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/products:
+    get:
+      tags: [products]
+      summary: 승인 대상 상품 목록
+      operationId: listProducts
+      responses:
+        "200":
+          description: 상품 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+
+  /api/summaries:
+    post:
+      tags: [summaries]
+      summary: AI 인계 요약 저장 (ORCH 콜백 또는 SUMMARY 생성)
+      operationId: createSummary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SummaryCreate" }
+      responses:
+        "201":
+          description: 생성된 요약
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+components:
+  parameters:
+    CallId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ValidationError:
+      description: 요청 본문 검증 실패
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    InvalidState:
+      description: 현재 call 상태에서 불가능한 동작
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    Scenario:
+      type: string
+      enum: [S1]
+      description: S1=한도조회→상담원연결 (현재 시나리오는 1개)
+
+    CallState:
+      type: string
+      enum: [DIALING, RINGING, ACCEPTED, REJECTED, IN_CALL, TRANSFER_PENDING, AGENT_JOINED, ENDED]
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, LLM_TIMEOUT, STT_ERROR, TTS_ERROR, INTERNAL]
+            message: { type: string }
+            fallback_message:
+              type: string
+              nullable: true
+              description: 외부 API 실패 시 통화 흐름 유지용 한국어 기본 안내
+            detail: { nullable: true }
+
+    QueueSummary:
+      type: object
+      properties:
+        waiting: { type: integer }
+        in_progress: { type: integer }
+        needs_agent: { type: integer }
+        ended: { type: integer }
+
+    QueueRow:
+      type: object
+      properties:
+        call_id: { type: string }
+        customer_id: { type: string }
+        customer_name: { type: string }
+        target_product: { type: string }
+        state: { $ref: "#/components/schemas/CallState" }
+        scenario: { $ref: "#/components/schemas/Scenario" }
+        highlight:
+          type: string
+          nullable: true
+          enum: [null, needs_agent]
+        highlight_since: { type: string, format: date-time, nullable: true }
+        elapsed_sec: { type: integer }
+
+    QueueResponse:
+      type: object
+      properties:
+        summary: { $ref: "#/components/schemas/QueueSummary" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/QueueRow" }
+
+    StartCallRequest:
+      type: object
+      required: [customer_id]
+      properties:
+        customer_id: { type: string }
+        scenario_hint:
+          allOf: [ { $ref: "#/components/schemas/Scenario" } ]
+          nullable: true
+          description: 테스트/데모용. 미지정 시 LLM classify가 런타임 결정.
+
+    Call:
+      type: object
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        state: { $ref: "#/components/schemas/CallState" }
+        scenario: { $ref: "#/components/schemas/Scenario" }
+        started_at: { type: string, format: date-time, nullable: true }
+        ended_at: { type: string, format: date-time, nullable: true }
+        agent_joined_at: { type: string, format: date-time, nullable: true }
+
+    Customer:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string }
+        target_product: { type: string }
+        rate: { type: string }
+        limit: { type: integer }
+        existing_loans:
+          type: object
+          properties:
+            own: { type: integer }
+            other: { type: integer }
+        has_vehicle: { type: boolean }
+        credit_score: { type: integer }
+        persona:
+          type: object
+          additionalProperties: true
+        scenario_hint:
+          allOf: [ { $ref: "#/components/schemas/Scenario" } ]
+          nullable: true
+
+    Analysis:
+      type: object
+      properties:
+        churn_risk: { type: integer, minimum: 0, maximum: 100 }
+        emotion: { type: string }
+        ai_action:
+          type: object
+          properties:
+            comment: { type: string }
+            action: { type: string }
+        rationale: { type: string }
+        data:
+          type: object
+          properties:
+            live: { type: object, additionalProperties: true }
+            static: { type: object, additionalProperties: true }
+
+    Transcript:
+      type: object
+      properties:
+        id: { type: integer }
+        speaker: { type: string, enum: [bot, customer, agent] }
+        text: { type: string }
+        node_id: { type: string, nullable: true }
+        ts: { type: string, format: date-time }
+        highlight:
+          type: boolean
+          description: 요약 화면 응답에서만 부여 (중요 발화 강조)
+
+    CallMonitor:
+      type: object
+      properties:
+        call: { $ref: "#/components/schemas/Call" }
+        customer: { $ref: "#/components/schemas/Customer" }
+        analysis: { $ref: "#/components/schemas/Analysis" }
+        transcript:
+          type: array
+          items: { $ref: "#/components/schemas/Transcript" }
+        current_node: { type: string }
+
+    ResultType:
+      type: string
+      enum: [한도조회_상담원연결, 가입승인, 거절]
+
+    SummaryCreate:
+      type: object
+      required: [call_id, result_type, content]
+      properties:
+        call_id: { type: string }
+        result_type: { $ref: "#/components/schemas/ResultType" }
+        content: { type: string, description: AI 종합 요약 (고객 반응/주요 발화/최종 의사) }
+        flow:
+          type: array
+          items: { type: string }
+          description: 상담 flow 요약 (LangGraph 노드 경로)
+        categories:
+          type: array
+          items: { type: string }
+
+    Summary:
+      allOf:
+        - $ref: "#/components/schemas/SummaryCreate"
+        - type: object
+          properties:
+            id: { type: string }
+            created_at: { type: string, format: date-time }
+
+    SummaryView:
+      type: object
+      properties:
+        summary: { $ref: "#/components/schemas/Summary" }
+        transcript:
+          type: array
+          items: { $ref: "#/components/schemas/Transcript" }
+        handoff_reason:
+          type: string
+          nullable: true
+          description: 상담원 연결 사유
+
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        monthly_fee: { type: integer }

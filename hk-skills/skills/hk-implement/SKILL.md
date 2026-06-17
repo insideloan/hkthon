@@ -28,6 +28,7 @@ description: 본인 owner의 GitHub issue 1개를 실제로 구현. pre-push hoo
 - 본인 GitHub issue (`gh issue view <num>`)
 - `docs/MODULES.md` §2 (file ownership matrix — **반드시 확인**)
 - `reference/ARCHITECTURE.md`, `STACK.md`, `CONVENTIONS.md`
+- `reference/API.md` (REST/WS 스펙 시트 — endpoint/메시지 구현 시 **반드시 확인**)
 - `OWNER.md` (본인 issue가 in_progress로 표시되어야 함)
 
 > **본인 issue가 아니면 시작 금지.** `OWNER.md` 또는 `gh issue view --json assignees`로 확인.
@@ -98,8 +99,9 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 
 - `reference/ARCHITECTURE.md` §5의 디렉토리 위치
 - type hints, `logging`, ORM (SQLModel) only, raw SQL 금지
-- LLM: `app/llm/router.py`의 `stream_chat`만 호출
-- WebSocket: schema (`STACK.md` §5) 준수
+- LLM: 에이전트 로직은 `app/agent/` (LangGraph — `graph.py` / `nodes.py` / `state.py`) 에 위치. LLM 접근은 `app/llm/router.py`를 통해 LangChain `BaseChatModel`을 반환받아 호출 (`.astream()` 사용)
+- REST endpoint: `reference/API.md` §1의 요청/응답 schema 그대로 구현 (path, 본문 필드, 에러 envelope §0.3). machine-readable 계약은 `reference/openapi.yaml`. 구현 후 FastAPI가 생성한 `GET /openapi.json` / `/docs`와 대조
+- WebSocket: `reference/API.md` §2 + `STACK.md` §5 schema 준수 (type 값, payload 필드)
 
 #### Frontend (TypeScript/Next.js)
 
@@ -139,7 +141,7 @@ issue가 1.5시간 이상 걸릴 것 같으면:
 ```bash
 # 예시: API 200 + row 생성
 curl -X POST http://localhost:8000/api/foo -H "Content-Type: application/json" -d '{...}'
-sqlite3 backend/app.db 'SELECT * FROM calls ORDER BY started_at DESC LIMIT 3;'
+duckdb backend/app.duckdb 'SELECT * FROM calls ORDER BY started_at DESC LIMIT 3;'
 ```
 
 모두 [x] 가 될 때까지.

@@ -9,10 +9,10 @@
 
 | 영역 | 선택 | 버전 | 비고 |
 |---|---|---|---|
-| Backend | Python | 3.11+ | FastAPI 호환 |
+| Backend | Python | 3.13+ | FastAPI 호환 |
 | Frontend | TypeScript | 5.4+ | Next.js 15 + React 19 |
 | Frontend styling | Tailwind CSS | 3.4+ | config 기반 theme |
-| Database | SQLite | 3.45+ | 단일 파일, file-based |
+| Database | DuckDB | 1.0+ | 단일 파일, file-based |
 | Package manager (FE) | pnpm | 9+ | npm/yarn 대체 가능 |
 | Package manager (BE) | uv 또는 pip | uv 0.4+ | pip-tools 대안 |
 
@@ -28,12 +28,16 @@ fastapi = ">=0.115"
 uvicorn[standard] = ">=0.32"
 websockets = ">=13"
 sqlmodel = ">=0.0.22"        # ORM (Pydantic + SQLAlchemy)
-aiosqlite = ">=0.20"          # async SQLite
+duckdb = ">=1.0"              # DuckDB (단일 파일 DB)
 pydantic = ">=2.9"
 pydantic-settings = ">=2.6"   # .env
-httpx = ">=0.27"              # Naver Clova 호출
-boto3 = ">=1.35"              # Bedrock
-openai = ">=1.54"             # OpenAI (대체)
+httpx = ">=0.27"              # 기타 HTTP 호출
+boto3 = ">=1.35"              # AWS (Bedrock + Transcribe + Polly)
+langchain = ">=0.3"           # LLM 추상화
+langgraph = ">=0.2"           # Agent state graph (오케스트레이터)
+langchain-aws = ">=0.2"       # Bedrock (ChatBedrockConverse)
+langchain-openai = ">=0.2"    # OpenAI (대체, ChatOpenAI)
+amazon-transcribe = ">=0.6"   # AWS Transcribe streaming STT
 python-multipart = ">=0.0.20" # WebSocket audio upload
 ```
 
@@ -51,27 +55,29 @@ backend/
 │   │   ├── customer.py
 │   │   ├── call.py
 │   │   ├── transcript.py
-│   │   └── memo.py
+│   │   └── summary.py
+│   ├── agent/                  # LangGraph 오케스트레이터
+│   │   ├── graph.py            # StateGraph 빌드/컴파일 (build_graph, run_turn)
+│   │   ├── state.py            # CallState (messages, scenario, node, intent...)
+│   │   └── nodes.py            # 노드 함수 (greeting, classify, transfer, warn...)
 │   ├── llm/
-│   │   ├── router.py           # provider 선택 (bedrock | openai)
-│   │   ├── bedrock.py
-│   │   └── openai_compat.py
+│   │   ├── router.py           # LangChain chat model 선택 (bedrock | openai)
+│   │   ├── bedrock.py          # ChatBedrockConverse (langchain-aws)
+│   │   └── openai_compat.py    # ChatOpenAI (langchain-openai)
 │   ├── stt/
-│   │   └── clova_stt.py        # Naver Clova STT (WebSocket)
+│   │   └── transcribe_stt.py   # AWS Transcribe streaming STT
 │   ├── tts/
-│   │   └── clova_tts.py        # Naver Clova TTS (REST)
+│   │   └── polly_tts.py        # AWS Polly TTS
 │   ├── scenarios/
-│   │   ├── state_machine.py    # 3개 시나리오 state graph
-│   │   ├── S1_signup.py
-│   │   ├── S2_escalation.py
-│   │   └── S3_fraud.py
+│   │   ├── state_machine.py    # S1 시나리오 LangGraph 그래프 조립
+│   │   └── S1_handoff.py
 │   ├── ws/
 │   │   ├── agent_ws.py         # /ws/agent
 │   │   └── customer_ws.py      # /ws/customer
 │   └── api/
 │       ├── queue.py            # /api/queue
 │       ├── calls.py            # /api/calls/*
-│       └── memos.py
+│       └── summaries.py        # /api/summaries
 └── tests/
 ```
 
@@ -86,23 +92,24 @@ AWS_REGION=ap-northeast-2
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o
 
-# Naver Clova
-CLOVA_STT_URL=wss://clovaspeech-gw.ncloud.com:8443/recog/v1/...
-CLOVA_STT_SECRET=...
-CLOVA_TTS_URL=https://naveropenapi.apigw.ntruss.com/tts-pre/v1
-CLOVA_TTS_CLIENT_ID=...
-CLOVA_TTS_CLIENT_SECRET=...
+# AWS STT/TTS (Transcribe + Polly)
+# 자격증명은 표준 AWS 체인 사용 (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 또는 프로필)
+# AWS_REGION 는 위 LLM 섹션과 공유
+TRANSCRIBE_LANGUAGE=ko-KR
+POLLY_VOICE=Seoyeon           # 한국어 여성
+POLLY_ENGINE=neural
 
 # App
-DATABASE_URL=sqlite:///./app.db
+DATABASE_URL=duckdb:///./app.duckdb
 LOG_LEVEL=INFO
 ```
 
-### LLM Provider 라우팅
+### LLM Provider 라우팅 + Agent 그래프
 
-- `app/llm/router.py`가 `LLM_PROVIDER` env를 보고 bedrock/openai 모듈 선택
-- 두 provider 모두 **stream=True** 인터페이스로 통일
-- 함수 시그니처: `async def stream_chat(messages, system, tools=None) -> AsyncIterator[str]`
+- `app/llm/router.py`가 `LLM_PROVIDER` env를 보고 LangChain chat model 선택 (bedrock → `ChatBedrockConverse`, openai → `ChatOpenAI`) → `BaseChatModel` 반환
+- 두 provider 모두 LangChain `.astream()` 스트리밍 인터페이스로 통일
+- 오케스트레이터는 **LangGraph `StateGraph`** (`app/agent/graph.py`). 노드가 LangChain model을 호출하고, conditional edge로 시나리오 분기 (§4 참고)
+- 함수 시그니처: `async def run_turn(state: CallState) -> CallState` (그래프 1턴 실행)
 
 ---
 
@@ -141,7 +148,7 @@ frontend/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx
-│   │   ├── page.tsx             # / → agent queue
+│   │   ├── page.tsx             # / → 관리자 대시보드 (outbound queue)
 │   │   ├── call/[id]/page.tsx   # /call/[id] → agent 통화 화면
 │   │   └── phone/page.tsx       # /phone → customer iPhone UI
 │   ├── components/
@@ -157,7 +164,7 @@ frontend/
 │   │   ├── call/GuidancePanel.tsx
 │   │   ├── call/PersonaCard.tsx
 │   │   ├── call/ProductApproval.tsx
-│   │   ├── call/MemoPopup.tsx
+│   │   ├── call/SummaryPanel.tsx
 │   │   └── phone/PhoneFrame.tsx        # iPhone UI
 │   ├── lib/
 │   │   ├── api.ts               # REST client
@@ -169,7 +176,8 @@ frontend/
 │   └── types/                   # backend와 공유되는 types
 │       ├── call.ts
 │       ├── customer.ts
-│       └── transcript.ts
+│       ├── transcript.ts
+│       └── summary.ts
 └── public/
 ```
 
@@ -181,28 +189,40 @@ frontend/
 
 ---
 
-## 4. LLM / STT / TTS
+## 4. Agent (LangGraph) / LLM / STT / TTS
 
-### LLM
+### Agent 그래프 (LangGraph)
 
-- **Primary**: AWS Bedrock — `anthropic.claude-3-5-sonnet-20241022` (현재 Sonnet 4.6)
-- **Alternative**: OpenAI — `gpt-4o` (또는 후속 모델)
-- **교체 방법**: `.env`의 `LLM_PROVIDER`만 변경
+오케스트레이터는 LangGraph `StateGraph`. S1 시나리오를 conditional edge로 분기:
+
+```
+START → greeting → intro_product → classify
+classify ─(limit_inquiry|connect)──→ handle_objection → transfer_to_agent → generate_summary → END  (S1)
+classify ─(not_interested)─────────→ closing ──────────────────────────→ generate_summary → END
+```
+
+- `classify` = LLM 라우팅 노드. 한도조회/상담원 연결 요청 또는 상품 관심 → S1 인계, 무관심 → 종료
+- `transfer_to_agent` = S1 상담원 연결 상태 전환 (인계)
+- `generate_summary` = 통화 종료 시 실행 → `summaries` 테이블에 AI 인계 요약 기록
+- State: `CallState` (`app/agent/state.py`) — messages, scenario, current_node, customer, intent, next, summary
+
+### LLM (LangChain)
+
+- **Model**: AWS Bedrock — `global.anthropic.claude-sonnet-4-6` (`ChatBedrockConverse`, langchain-aws)
+- **대체**: OpenAI `ChatOpenAI` (langchain-openai)
 - **System prompt 위치**: `app/llm/prompts/system_ko.txt`
 
-### STT (Naver Clova Speech)
+### STT (AWS Transcribe Streaming)
 
-- **Protocol**: WebSocket streaming
-- **Endpoint**: `wss://clovaspeech-gw.ncloud.com:8443/recog/v1/...`
+- **Protocol**: streaming (amazon-transcribe async SDK, HTTP/2)
 - **입력 모드**: chunked (2-3초 단위 음성 blob)
-- **출력**: JSON `{text, isFinal, channel}` → `transcript` 테이블에 저장
-- **언어**: 한국어 (`lang=ko-KR`)
+- **출력**: JSON `{text, isFinal}` → `transcript` 테이블에 저장
+- **언어**: 한국어 (`LanguageCode=ko-KR`)
 
-### TTS (Naver Clova Voice)
+### TTS (AWS Polly)
 
-- **Protocol**: REST
-- **Endpoint**: `https://naveropenapi.apigw.ntruss.com/tts-pre/v1`
-- **Voice**: `nara` 또는 `mijin` (한국어 여성)
+- **Protocol**: boto3 (`synthesize_speech`)
+- **Voice**: `Seoyeon` (한국어 여성), `engine=neural`
 - **출력**: MP3 → customer UI로 WebSocket 전송
 
 ---
@@ -211,10 +231,10 @@ frontend/
 
 | Endpoint | 용도 | 메시지 |
 |---|---|---|
-| `/ws/agent` | 상담원 UI ↔ backend | queue update, call state, transcript chunk, LLM guide |
+| `/ws/agent` | 관리자 UI ↔ backend | queue update, call state, transcript chunk, LLM guide |
 | `/ws/customer` | 고객 iPhone UI ↔ backend | incoming call, audio out, transcript in |
-| (내부) | backend ↔ LLM | stream chat |
-| (내부) | backend ↔ Naver Clova | stream STT, REST TTS |
+| (내부) | backend ↔ LLM (LangChain) | stream chat |
+| (내부) | backend ↔ AWS Transcribe/Polly | stream STT, Polly TTS |
 
 ### 메시지 스키마 (TypeScript)
 
@@ -259,8 +279,8 @@ type AgentCmd =
 - ❌ **새 의존성 추가 금지** (해커톤 중). 정말 필요하면 팀 합의 + 이 문서 업데이트.
 - ❌ **직접 SQL 작성 금지** — SQLModel ORM만 사용.
 - ❌ **Inline `style={{...}}` 금지** — Tailwind 클래스만.
-- ❌ **새 LLM provider 추가 금지** (bedrock/openai만).
-- ❌ **새 STT/TTS provider 추가 금지** (Clova만).
+- ❌ **새 LLM provider 추가 금지** (bedrock/openai만, LangChain 경유).
+- ❌ **새 STT/TTS provider 추가 금지** (AWS Transcribe/Polly만).
 - ❌ **인증/인가 추가 금지** — 데모는 그냥 open.
 
 위반 발견 시 → `hk-iterate` skill로 가드레일 재확인.

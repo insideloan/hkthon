@@ -2,8 +2,8 @@
 
 > **Claude Code Skills for Non-Dev Hackathon Teams / 비개발자 해커톤 팀을 위한 Claude Code Skills**
 >
-> 코드를 한 줄도 모르는 4-5명 팀이 24시간 안에 **AI Outbound 콜봇 데모**를 만들 수 있도록 설계된 SDLC 스킬 + **모듈 분할 + Git 운영** 패키지입니다.
-> A collection of Claude Code skills + **module split + git workflow** that lets a zero-dev team of 4-5 ship a working AI outbound call bot in 24 hours.
+> 코드를 한 줄도 모르는 5명 팀이 24시간 안에 **AI Outbound 콜봇 데모**를 만들 수 있도록 설계된 SDLC 스킬 + **모듈 분할 + Git 운영** 패키지입니다.
+> A collection of Claude Code skills + **module split + git workflow** that lets a zero-dev team of 5 ship a working AI outbound call bot in 24 hours.
 
 ---
 
@@ -14,7 +14,7 @@
 - **사용자(팀)**: "무엇을" 만들지만 결정. 코드는 안 침.
 - **Claude Code**: "어떻게" 구현할지 결정. Skill이 그 진행을 가이드.
 - **각 Skill**: 명확한 입출력과 가드레일을 가진 한 단계.
-- **모듈 분할**: 4명이 **파일 충돌 없이** 병렬로 작업. 각자 자기 모듈만 push.
+- **모듈 분할**: 5명이 **파일 충돌 없이** 병렬로 작업. 각자 자기 모듈만 push.
 - **Git 운영**: Issue 추적 + PR 머지 프로토콜로 24h 안에 main이 깨지지 않게.
 
 | 단계 | Skill | 누가 | When | 산출물 / Output |
@@ -27,14 +27,15 @@
 | 5 | `hk-verify` | **팀원 각자** (본인 PR self-verify) + **팀원** (reviewer-verify) | 슬라이스당 1회 | 검증된 슬라이스 |
 | 6 | `hk-demo` | **팀리더** (시나리오 작성) + **팀원 각자** (본인 모듈 리허설) | 마지막 2시간 | 데모 시나리오 + 리허설 |
 
-### 모듈 구성 (4명 = 5 modules) / Module layout
+### 모듈 구성 (5명 = 5 modules) / Module layout
 
 | 코드 | Owner | 영역 |
 |---|---|---|
 | **QUEUE** | Person A | 상담원 큐 테이블 |
 | **PHONE** | Person B | 고객 iPhone UI |
-| **CALL** + **MEMO** | Person C | 통화 화면 + 메모 팝업 |
-| **ORCH** | Person D | 오케스트레이터 + State Machine + LLM/STT/TTS |
+| **CALL** | Person C | 통화 화면 |
+| **SUMMARY** | Person D | 인계 요약 화면 |
+| **ORCH** | Person E | 오케스트레이터 + State Machine + LLM/STT/TTS |
 
 > 상세 file ownership: `docs/MODULES.md`
 > 머지 프로토콜 / 이슈 추적: `docs/WORKFLOW.md`
@@ -47,9 +48,9 @@
 
 - macOS 또는 Linux
 - Claude Code 최신 버전 (https://docs.claude.com/claude-code)
-- Python 3.11+
+- Python 3.13+
 - Node.js 20+
-- (선택) Naver Clova API 키, AWS Bedrock 또는 OpenAI API 키
+- (선택) AWS 자격증명 (Bedrock + Transcribe + Polly) 또는 OpenAI API 키
 
 ### 원라이너 설치 (권장) / One-liner Install
 
@@ -121,7 +122,8 @@ cp -r templates/*  ~/.claude/templates/
 ./setup-project.sh --module QUEUE    # Person A
 ./setup-project.sh --module PHONE    # Person B
 ./setup-project.sh --module CALL     # Person C
-./setup-project.sh --module ORCH     # Person D
+./setup-project.sh --module SUMMARY  # Person D
+./setup-project.sh --module ORCH     # Person E
 # 또는
 ./install.sh --setup-project --module QUEUE
 ```
@@ -264,15 +266,13 @@ git push --force-with-lease
 
 **AI Outbound 금융상품 Sales Call Bot**
 
-- 콜센터 상담원 대시보드 + 고객(가짜 iPhone UI) + AI 봇
-- 상담원이 outbound call queue를 보고 고객에게 자동 전화
-- AI 봇이 3가지 시나리오로 세일즈:
-  1. 고객이 상품 가입을 원함 → 상담원 연결
-  2. 고객이 화내며 상담원 요청 → 상담원 연결
-  3. 금융 사기 의심 → 상담원 연결
-- 상담원 UI: 노드 그래프 (통화 흐름) + LLM 가이드라인 + 페르소나/금융정보 + 상품 승인
+- 콜센터 관리자 대시보드 + 고객(가짜 iPhone UI) + AI 봇
+- 관리자가 outbound call queue를 보고 고객에게 자동 전화
+- AI 봇이 단일 시나리오로 운영:
+  1. S1 한도조회/상담원 연결 요청 → 상담원 연결 상태로 전환
+- 관리자 UI: 노드 그래프 (통화 흐름) + LLM 가이드라인 + 페르소나/금융정보 + 통화 종료 후 AI 인계 요약
 
-**아키텍처 / Stack**: FastAPI + Next.js + Tailwind + SQLite + Bedrock Claude / OpenAI + Naver Clova STT/TTS
+**아키텍처 / Stack**: FastAPI + LangGraph + Next.js + Tailwind + DuckDB + Bedrock Claude / OpenAI (LangChain) + AWS Transcribe STT / Polly TTS
 상세는 `reference/ARCHITECTURE.md`, `reference/STACK.md` 참고.
 
 > 다른 제품에도 적용 가능합니다 — 이 경우 `reference/PRODUCT-BRIEF.md`만 갈아끼우면 됩니다.

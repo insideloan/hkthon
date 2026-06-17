@@ -52,7 +52,7 @@ Closes #<ISSUE-NUM>
 
 ## Demo impact (있다면)
 
-- 어떤 demo scenario가 영향을 받는가 (S1, S2, S3, 또는 none)
+- 어떤 demo scenario가 영향을 받는가 (S1, 또는 none)
 - 데모 리허설에 영향이 있으면 음성으로 팀에 알림
 
 ## Notes / 메모

@@ -5,8 +5,8 @@ description: PRODUCT-BRIEF의 시나리오를 실제 Feature backlog로 변환. 
 
 # hk-backlog — Feature Backlog 빌드 / Build Feature Backlog
 
-> **목적 / Purpose**: PRODUCT-BRIEF의 "3가지 시나리오"를 **데모 가능한 feature**들로 분해하고 우선순위를 매김. 1회 실행.
-> Decompose the 3 PRODUCT-BRIEF scenarios into demoable features with priority. Run once.
+> **목적 / Purpose**: PRODUCT-BRIEF의 시나리오(S1)를 **데모 가능한 feature**들로 분해하고 우선순위를 매김. 1회 실행.
+> Decompose the S1 PRODUCT-BRIEF scenario into demoable features with priority. Run once.
 
 ---
 
@@ -36,9 +36,9 @@ description: PRODUCT-BRIEF의 시나리오를 실제 Feature backlog로 변환. 
 
 다음 3가지를 사용자에게 한국어로 확인:
 
-1. **"데모의 happy path는? S1 → S2 → S3 순서로 보여줄까요, 아니면 S1만 깊게?"**
+1. **"데모의 happy path는? S1 흐름 전체를 보여줄까요, 아니면 특정 단계를 더 깊게?"**
 2. **"각 시나리오에서 'must-have'와 'nice-to-have'는?"**
-3. **"4-5명 중 누가 backend/frontend 어느 쪽에 강한지?"** (이건 rough 분배용)
+3. **"5명 중 누가 backend/frontend 어느 쪽에 강한지?"** (이건 rough 분배용)
 
 답변을 받으면, Claude가 다음 작업을 **사용자 앞에서** 수행:
 
@@ -51,7 +51,7 @@ PRODUCT-BRIEF의 §3 (3 시나리오) + §4 (화면 구성)을 따라 **8-15개 
 ```yaml
 - id: F01
   title: <한 줄>
-  scenario: S1 | S2 | S3 | cross (전체 데모 셋업)
+  scenario: S1 | cross (전체 데모 셋업)
   type: backend | frontend | both | infra
   priority: P0 (must, 없으면 데모 불가) | P1 (should) | P2 (nice)
   estimate_h: 1-2
@@ -62,11 +62,9 @@ PRODUCT-BRIEF의 §3 (3 시나리오) + §4 (화면 구성)을 따라 **8-15개 
 
 | 시나리오 | P0 | P1 | P2 |
 |---|---|---|---|
-| S1 (가입) — main happy path | F01..F05 | F12 | — |
-| S2 (분노) | F06, F07 | — | — |
-| S3 (사기) | F08 | — | — |
-| Cross (UI 공통) | F09, F10, F11 | — | — |
-| Polish | — | F13, F14 | F15 |
+| S1 (한도조회/상담원연결) — main happy path | F01..F05 | F10 | — |
+| Cross (UI 공통) | F06, F07, F08 | — | — |
+| Polish | — | F09, F10 | F11 |
 
 **P0만 = "minimal demo"** (필수)
 **P0 + P1 = "good demo"** (목표)
@@ -97,10 +95,9 @@ PRODUCT-BRIEF의 §3 (3 시나리오) + §4 (화면 구성)을 따라 **8-15개 
 
 ## Demo Plan
 
-1. <30초>: F09 (queue 화면) 보여주기
-2. <30초>: F01..F05 (S1 happy path) 풀 플로우
-3. <30초>: F06 (S2) + F08 (S3) 압축 데모
-4. <30초>: F13 (memo popup, polish)
+1. <30초>: F06 (queue 화면) 보여주기
+2. <2분>: F01..F05 (S1 happy path) 풀 플로우
+3. <30초>: F09 (summary panel, polish)
 ```
 
 ### 3.5 합의

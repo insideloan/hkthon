@@ -1,6 +1,6 @@
 # MODULES — 모듈 경계 정의 / Module Boundaries
 
-> **5 modules, 4 people, 1 hub.** 이 문서가 파일 ownership의 SSOT입니다.
+> **5 modules, 5 people, 1 hub.** 이 문서가 파일 ownership의 SSOT입니다.
 > 24시간 동안 본 문서를 기준으로 충돌을 판단합니다.
 
 > **⚠️ SSOT 경고**: 본 문서 안의 ` ```yaml` 블록 (`<!-- @hk modules-yaml:start -->` ~ `<!-- @hk modules-yaml:end -->`)이 **자동 파싱의 SSOT**입니다. 사람용 표는 그 yaml을 사람이 읽기 좋게 표현한 것. **Drift 발견 시** `./install.sh --verify-modules` 실행.
@@ -14,10 +14,10 @@
 | **QUEUE** | Outbound Call Queue | Person A | 상담원이 보는 고객 queue + 색상 변화 |
 | **PHONE** | Customer iPhone UI | Person B | 고객이 받는 화면 + 발화 캡처 |
 | **CALL** | Agent Call View | Person C | 통화 중 화면: 그래프/트랜스크립트/페르소나/승인 |
-| **MEMO** | Memo Popup | Person C | 통화 종료 후 메모 작성/저장 (CALL과 같은 owner) |
-| **ORCH** | Orchestrator Hub | Person D | state machine, LLM router, STT/TTS bridge, WS broadcast |
+| **SUMMARY** | Handoff Summary | Person D | 통화 종료 후 AI 인계 요약 생성/표시 |
+| **ORCH** | Orchestrator Hub | Person E | LangGraph agent, LLM router, STT/TTS bridge, WS broadcast |
 
-> **CALL + MEMO 통합 사유**: 통화 화면 → 메모 팝업이 같은 owner여야 UI 일관성 유지. 4명 균형.
+> **1인 1모듈 (5명)**: 4명 시절엔 CALL+SUMMARY를 한 owner가 맡았으나, 5명이 되면서 CALL(Person C)과 SUMMARY(Person D)를 분리. 통화 화면 → 인계 요약 화면 UI 일관성은 두 owner가 협의로 유지.
 
 ---
 
@@ -88,24 +88,25 @@ modules:
       - frontend/src/types/customer.ts
       - frontend/src/types/transcript.ts
 
-  - code: MEMO
-    name: Memo Popup
-    owner_person: Person C
+  - code: SUMMARY
+    name: Handoff Summary
+    owner_person: Person D
     files:
-      - backend/app/models/memo.py
-      - backend/app/api/memos.py
-      - frontend/src/components/call/MemoPopup.tsx
-      - frontend/src/types/memo.ts
+      - backend/app/models/summary.py
+      - backend/app/api/summaries.py
+      - frontend/src/components/call/SummaryPanel.tsx
+      - frontend/src/types/summary.ts
 
   - code: ORCH
     name: Orchestrator Hub
-    owner_person: Person D
+    owner_person: Person E
     files:
       - backend/app/main.py
       - backend/app/config.py
       - backend/app/db.py
       - backend/app/models/scenario_run.py
       - backend/app/scenarios/*
+      - backend/app/agent/*
       - backend/app/llm/router.py
       - backend/app/llm/bedrock.py
       - backend/app/llm/openai_compat.py
@@ -159,7 +160,7 @@ modules:
 
 ### 2.1 Backend (`backend/`)
 
-| Path | QUEUE | PHONE | CALL | MEMO | ORCH |
+| Path | QUEUE | PHONE | CALL | SUMMARY | ORCH |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `backend/app/main.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/config.py` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
@@ -167,15 +168,16 @@ modules:
 | `backend/app/models/customer.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
 | `backend/app/models/call.py` | ✅ | 🔒 | ✅ | ✅ | 🔒 |
 | `backend/app/models/transcript.py` | 🔒 | ✅ | ✅ | 🔒 | 🔒 |
-| `backend/app/models/memo.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `backend/app/models/summary.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
 | `backend/app/models/product.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
 | `backend/app/models/scenario_run.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/api/queue.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
 | `backend/app/api/calls.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
-| `backend/app/api/memos.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `backend/app/api/summaries.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
 | `backend/app/ws/agent_ws.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
 | `backend/app/ws/customer_ws.py` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
 | `backend/app/scenarios/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
+| `backend/app/agent/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/router.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/bedrock.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `backend/app/llm/openai_compat.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
@@ -190,7 +192,7 @@ modules:
 
 ### 2.2 Frontend (`frontend/src/`)
 
-| Path | QUEUE | PHONE | CALL | MEMO | ORCH |
+| Path | QUEUE | PHONE | CALL | SUMMARY | ORCH |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `frontend/src/app/page.tsx` | ✅ | 🔒 | 🔒 | 🔒 | 🚫 |
 | `frontend/src/app/call/[id]/page.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
@@ -202,7 +204,7 @@ modules:
 | `frontend/src/components/call/GuidancePanel.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
 | `frontend/src/components/call/PersonaCard.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
 | `frontend/src/components/call/ProductApproval.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/MemoPopup.tsx` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
+| `frontend/src/components/call/SummaryPanel.tsx` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
 | `frontend/src/components/ui/*` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | `frontend/src/lib/api.ts` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
 | `frontend/src/lib/ws.ts` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
@@ -212,7 +214,7 @@ modules:
 | `frontend/src/types/call.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
 | `frontend/src/types/customer.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
 | `frontend/src/types/transcript.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/types/memo.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
+| `frontend/src/types/summary.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
 | `frontend/src/types/ws.ts` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
 | `frontend/tailwind.config.ts` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | `frontend/package.json` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
@@ -236,10 +238,11 @@ modules:
 ## 3. 모듈 ↔ 사람 매핑 / Module ↔ Person
 
 ```
-Person A  ──► QUEUE     (frontend + backend of queue)
-Person B  ──► PHONE     (frontend + ws of customer)
-Person C  ──► CALL+MEMO (agent call view + memo)
-Person D  ──► ORCH      (orchestrator + state machine + integrations)
+Person A  ──► QUEUE  (frontend + backend of queue)
+Person B  ──► PHONE  (frontend + ws of customer)
+Person C  ──► CALL   (agent call view)
+Person D  ──► SUMMARY (handoff summary)
+Person E  ──► ORCH   (orchestrator + state machine + integrations)
 ```
 
 **1인 1모듈**. 본인이 owner인 모듈 안에서는 자유 push. 다른 모듈은 PR.
@@ -308,7 +311,7 @@ Person D  ──► ORCH      (orchestrator + state machine + integrations)
 | `POST /api/calls/start` | ORCH | QUEUE |
 | `GET /api/queue` | QUEUE | QUEUE (본인) |
 | `POST /api/calls/{id}/approve` | ORCH | CALL |
-| `POST /api/memos` | MEMO | MEMO (본인), ORCH (콜백) |
+| `POST /api/summaries` | SUMMARY | SUMMARY (본인), ORCH (콜백) |
 | `GET /api/customers/{id}` | ORCH | CALL |
 
 **API 변경은 ORCH PR.** 본인이 endpoint 추가하려면 ORCH에 PR.
@@ -322,7 +325,7 @@ Person D  ──► ORCH      (orchestrator + state machine + integrations)
 | `{type: "transcript"}` | ORCH | CALL |
 | `{type: "node_entered"}` | ORCH | CALL |
 | `{type: "guidance"}` | ORCH | CALL |
-| `{type: "call_ended"}` | ORCH | CALL, MEMO |
+| `{type: "call_ended"}` | ORCH | CALL, SUMMARY |
 | `{type: "approve_product"}` (cmd) | CALL | ORCH |
 
 **WS schema 변경은 ORCH PR.**
@@ -335,13 +338,13 @@ Person D  ──► ORCH      (orchestrator + state machine + integrations)
       /   |   \
    QUEUE PHONE CALL
               |
-             MEMO
+            SUMMARY
 ```
 
 - QUEUE → ORCH (start_call API, queue_update event)
 - PHONE → ORCH (incoming call event, audio)
 - CALL → ORCH (call state, transcript, guidance)
-- MEMO → ORCH (call_ended trigger)
+- SUMMARY → ORCH (call_ended trigger)
 - ORCH는 모두에게 의존 (hub)
 
 **순환 의존 없음.**
@@ -423,8 +426,8 @@ cd ~/workspace/hackathon-2026
 
 ## 9. FAQ
 
-**Q. CALL과 MEMO가 같은 owner인데, MEMO 변경 시 CALL도 같이 영향 받으면?**
-A. 같은 owner니까 push 1번에 둘 다 포함 가능. 이게 통합의 장점.
+**Q. CALL과 SUMMARY가 owner가 다른데, SUMMARY 변경 시 CALL도 같이 영향 받으면?**
+A. CALL(Person C)과 SUMMARY(Person D)는 별도 모듈. 한쪽이 다른 쪽 파일을 바꿔야 하면 PR + 음성 협의. call_ended → summary 생성 트리거 같은 인터페이스는 ORCH가 정의 (§5.2).
 
 **Q. ORCH가 CALL에 있는 컴포넌트를 import해야 하면?**
 A. ORCH는 backend만, CALL은 frontend만. 어차피 layer가 다름. 만약 둘이 backend에서 공통 모듈을 써야 하면 → `app/common/` 같은 새 디렉토리 + 새 모듈로 분리하거나 ORCH가 include.

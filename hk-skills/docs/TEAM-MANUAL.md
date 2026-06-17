@@ -90,7 +90,7 @@ pwd && ls
 | `QUEUE` | Outbound Call Queue | `frontend/src/components/queue/*`, `backend/app/api/queue.py` |
 | `PHONE` | Customer iPhone UI | `frontend/src/components/phone/*`, `backend/app/ws/customer_ws.py` |
 | `CALL` | Agent Call View | `frontend/src/components/call/*`, `backend/app/api/calls.py` |
-| `MEMO` | Memo Popup | `frontend/src/components/call/MemoPopup.tsx`, `backend/app/api/memos.py` |
+| `SUMMARY` | Handoff Summary | `frontend/src/components/call/SummaryPanel.tsx`, `backend/app/api/summaries.py` |
 | `ORCH` | Orchestrator Hub | `backend/app/scenarios/*`, `backend/app/llm/*`, `backend/app/main.py` |
 
 ### 실행

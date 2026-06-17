@@ -5,10 +5,10 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 
 # hk-slice — Feature를 Issue로 분해 + Owner 배정 / Slice a Feature into Issues
 
-> **목적 / Purpose**: 1-2시간짜리 **GitHub issue**로 분해해서 **4명이 동시에 작업해도 안 부딪치게** 함. 모듈 boundary의 SSOT는 `docs/MODULES.md`.
+> **목적 / Purpose**: 1-2시간짜리 **GitHub issue**로 분해해서 **5명이 동시에 작업해도 안 부딪치게** 함. 모듈 boundary의 SSOT는 `docs/MODULES.md`.
 > Break a feature into 1-2h **GitHub issues** and assign owners. Module boundary SSOT: `docs/MODULES.md`.
 
-> **24h 해커톤은 issue 단위로 움직입니다.** 1 issue = 1 PR = 1 머지. 4명이 각자 1 in-progress issue만 가지고 번갈아 가며 처리.
+> **24h 해커톤은 issue 단위로 움직입니다.** 1 issue = 1 PR = 1 머지. 5명이 각자 1 in-progress issue만 가지고 번갈아 가며 처리.
 
 ---
 
@@ -28,6 +28,7 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 - `BACKLOG.md` (필수)
 - `docs/MODULES.md` (필수, file ownership matrix)
 - `docs/WORKFLOW.md` (필수, 머지 프로토콜)
+- `reference/API.md` (선택, slice가 endpoint/WS 메시지를 건드리면 contract 참고)
 - `OWNER.md` (필수, 현재 active work)
 - GitHub repo + `gh` CLI 인증 완료
 
@@ -39,7 +40,7 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 
 1. **"어떤 feature를 issue로 나눌까요? (F0X)"**
 2. **"이 feature의 owner는 누구인가요?"** (1명이 원칙)
-3. **"이 feature는 어느 모듈인가요? (QUEUE/PHONE/CALL/MEMO/ORCH)"**
+3. **"이 feature는 어느 모듈인가요? (QUEUE/PHONE/CALL/SUMMARY/ORCH)"**
 4. **"이 feature가 끝나면 demo에서 어떤 한 단계를 보여줄 수 있나요?"**
 
 답변 받으면 진행.
@@ -103,7 +104,7 @@ gh issue create \
 라벨:
 - `status:ready` — 곧 시작
 - `status:backlog` — 나중에
-- `module:queue|phone|call|memo|orch|infra`
+- `module:queue|phone|call|summary|orch|infra`
 - `priority:p0|p1|p2`
 
 GitHub Project가 있으면 `--project "Hackathon 2026"` 추가.
@@ -171,5 +172,5 @@ GitHub Project가 있으면 `--project "Hackathon 2026"` 추가.
 ## 7. Anti-pattern
 
 ❌ **issue 1개 = 슬라이스 전체** (4-6시간): 너무 큼. 쪼개기.
-❌ **4명이 동시에 같은 모듈의 다른 issue**: 모듈 boundary는 OK지만 머지 충돌 가능. `OWNER.md`로 sequencing.
-❌ **"이번 feature는 4명이 같이 할 거예요"**: 모듈 owner 1명 + 다른 모듈은 PR. 24h에 공동 작업은 conflict source.
+❌ **5명이 동시에 같은 모듈의 다른 issue**: 모듈 boundary는 OK지만 머지 충돌 가능. `OWNER.md`로 sequencing.
+❌ **"이번 feature는 5명이 같이 할 거예요"**: 모듈 owner 1명 + 다른 모듈은 PR. 24h에 공동 작업은 conflict source.

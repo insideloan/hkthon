@@ -20,7 +20,7 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 <MODULE>-<NNN>-<short-kebab-desc>
 ```
 
-- **MODULE**: `QUEUE` | `PHONE` | `CALL` | `MEMO` | `ORCH` | `INFRA` (TEAM LOCK)
+- **MODULE**: `QUEUE` | `PHONE` | `CALL` | `SUMMARY` | `ORCH` | `INFRA` (TEAM LOCK)
 - **NNN**: 3자리 zero-padded (001, 002, ...)
 - **short-kebab-desc**: 영문 kebab-case, 30자 이내
 
@@ -28,7 +28,7 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 - `QUEUE-001-outbound-table-component`
 - `PHONE-002-incoming-call-screen`
 - `CALL-001-callgraph-render-nodes`
-- `MEMO-001-memo-popup-with-llm-draft`
+- `SUMMARY-001-summary-panel-with-llm-draft`
 - `ORCH-001-state-machine-skeleton`
 - `INFRA-001-add-shadcn-dep`
 
@@ -46,14 +46,14 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 - [ ] <체크박스 3>
 
 ## Affected modules / 영향 모듈
-- <QUEUE | PHONE | CALL | MEMO | ORCH> - <어떻게 영향?>
+- <QUEUE | PHONE | CALL | SUMMARY | ORCH> - <어떻게 영향?>
 
 ## Acceptance / 완료 기준
 - [ ] <체크박스: 측정 가능>
 - [ ] <체크박스: 측정 가능>
 
 ## Module / 모듈
-<QUEUE | PHONE | CALL | MEMO | ORCH | INFRA>
+<QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA>
 
 ## Estimate / 예상 시간
 <Nh>
@@ -240,9 +240,9 @@ git rebase origin/main
 
 ### 5.1 Day 0 — Setup (오프라인 또는 해커톤 시작 1시간)
 
-1. 4명 모두 repo clone + `install.sh`
+1. 5명 모두 repo clone + `install.sh`
 2. **모듈 확정** (MODULES.md 그대로 따름) — 이미 정해졌으면 skip
-3. **GitHub repo 만들기** + 4명 모두 collaborator 추가
+3. **GitHub repo 만들기** + 5명 모두 collaborator 추가
 4. **GitHub Project** 만들기 (status 컬럼: Backlog/Ready/In Progress/In Review/Done)
 5. **Issue templates** 등록 (`.github/ISSUE_TEMPLATE/hk-task.md`)
 6. **`setup-project.sh`** 실행 (pre-push hook 설치, git config, owner 등록)
@@ -250,7 +250,7 @@ git rebase origin/main
 
 ### 5.2 Day 0 — Plan (1-2시간)
 
-1. **`/hk-backlog`** — 4명 함께, feature backlog 작성
+1. **`/hk-backlog`** — 5명 함께, feature backlog 작성
 2. **이슈 생성** — 각 feature를 issue로 분해. 예: 8개 feature → 16-24 issue
 3. **이슈 분류**: P0/P1/P2 라벨, 모듈 라벨
 4. **GitHub Project에 등록**
@@ -274,7 +274,7 @@ git rebase origin/main
 11. 다음 issue
 ```
 
-**4명이 동시에** 위 루프. 머지 컨플릭트 매트릭스 §3.3 적용.
+**5명이 동시에** 위 루프. 머지 컨플릭트 매트릭스 §3.3 적용.
 
 **시간 압박 시**:
 - 12h 시점: P0 이슈 중 done이 50% 미만이면 → P1/P2 모두 close
@@ -293,7 +293,7 @@ git rebase origin/main
 
 ## 6. Status Board / 현황판
 
-**GitHub Project 보드 권장**. 4명이 한눈에:
+**GitHub Project 보드 권장**. 5명이 한눈에:
 - 누가 무엇을 하고 있는지
 - PR이 어디까지 진행됐는지
 - 막힌 issue는 무엇인지
@@ -316,7 +316,7 @@ git rebase origin/main
 
 ### 7.2 한 명은 항상 "통합 monitor" / Integration monitor
 
-> 4명 중 1명은 30분마다 한 번 **main을 pull + 통합 smoke test**:
+> 5명 중 1명은 30분마다 한 번 **main을 pull + 통합 smoke test**:
 > 1. `git pull origin main`
 > 2. `cd backend && ruff check . && python -m app.smoke`
 > 3. `cd frontend && pnpm tsc --noEmit && pnpm lint`
@@ -326,7 +326,7 @@ git rebase origin/main
 - 모니터 1명: 통합 smoke (예: ORCH owner 또는 순환)
 - 모니터 1명: PR queue 관리 (1시간마다 Slack에 PR 현황)
 
-또는 4명 모두 자기 브랜치 push 전 lint + smoke 책임.
+또는 5명 모두 자기 브랜치 push 전 lint + smoke 책임.
 
 ### 7.3 1시간 sync (선택) / Hourly sync
 

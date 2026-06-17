@@ -101,7 +101,7 @@ Actions:
   --verify               Check installation is intact
   --verify-modules       Check docs/MODULES.md yaml SSOT vs human tables (drift)
   --setup-project        Bootstrap a new hackathon project (delegates to setup-project.sh)
-                         Pass through --module QUEUE|PHONE|CALL|MEMO|ORCH|INFRA
+                         Pass through --module QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA
                          Pass through --name <project-name>
 
 Options:
@@ -266,7 +266,7 @@ do_uninstall() {
       log "removed ${s}"
     fi
   done
-  warn "reference/ and templates/ left intact. Remove manually with: rm -rf ${REF_DIR}/ARCHITECTURE.md ${REF_DIR}/STACK.md ${REF_DIR}/CONVENTIONS.md ${REF_DIR}/PRODUCT-BRIEF.md ${TPL_DIR}/slice-spec.md ${TPL_DIR}/verify-checklist.md"
+  warn "reference/ and templates/ left intact. Remove manually with: rm -rf ${REF_DIR}/ARCHITECTURE.md ${REF_DIR}/STACK.md ${REF_DIR}/CONVENTIONS.md ${REF_DIR}/PRODUCT-BRIEF.md ${REF_DIR}/API.md ${REF_DIR}/openapi.yaml ${TPL_DIR}/slice-spec.md ${TPL_DIR}/verify-checklist.md"
 }
 
 # -------- verify --------
@@ -280,7 +280,7 @@ do_verify() {
       ok=1
     fi
   done
-  for f in ARCHITECTURE.md STACK.md CONVENTIONS.md PRODUCT-BRIEF.md; do
+  for f in ARCHITECTURE.md STACK.md CONVENTIONS.md PRODUCT-BRIEF.md API.md openapi.yaml; do
     if [[ -f "${REF_DIR}/${f}" ]]; then
       log "OK   reference/${f}"
     else

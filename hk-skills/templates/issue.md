@@ -26,7 +26,7 @@
 
 ## Module / 모듈
 
-<!-- QUEUE | PHONE | CALL | MEMO | ORCH | INFRA 중 하나 -->
+<!-- QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA 중 하나 -->
 
 `<MODULE>`
 

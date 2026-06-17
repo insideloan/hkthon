@@ -28,7 +28,7 @@
 | DB 컬럼 | snake_case | `customer_id`, `started_at` |
 | API endpoint | kebab-case, 복수 | `/api/outbound-queue`, `/api/calls` |
 | WebSocket 메시지 type | snake_case, UPPER_SNAKE 값 | `{type: "queue_update"}` |
-| React 컴포넌트 파일 | PascalCase.tsx | `MemoPopup.tsx` |
+| React 컴포넌트 파일 | PascalCase.tsx | `SummaryPanel.tsx` |
 | 비-컴포넌트 TS 파일 | camelCase.ts | `api.ts`, `ws.ts` |
 | Python 파일 | snake_case.py | `agent_ws.py` |
 
@@ -63,7 +63,7 @@ function startCall(customerId: string): Promise<Call> { ... }
 function startCall(customerId: any): any { ... }  // ← 반려
 
 // ✅ 옵셔널은 ?
-type Memo = { id: string; content: string; createdAt?: string };
+type Summary = { id: string; content: string; createdAt?: string };
 
 // ✅ Union for messages
 type AgentMsg =
@@ -180,9 +180,9 @@ export default {
 > **24h 해커톤 Git 운영의 SSOT는 `docs/MODULES.md` + `docs/WORKFLOW.md`.**
 > 본 섹션은 그 두 문서의 **요약**이며, 실제 충돌/PR/머지 상황은 그쪽을 본다.
 
-### 7.1 5 modules, 4 people, 1 hub
+### 7.1 5 modules, 5 people, 1 hub
 
-- `QUEUE` (Person A), `PHONE` (Person B), `CALL+MEMO` (Person C), `ORCH` (Person D)
+- `QUEUE` (Person A), `PHONE` (Person B), `CALL` (Person C), `SUMMARY` (Person D), `ORCH` (Person E)
 - 각자 **자기 모듈 안에서는 자유 push** (pre-push hook이 자동 체크)
 - **다른 모듈 변경은 PR 필수**
 - 자세한 file ownership matrix: `docs/MODULES.md` §2

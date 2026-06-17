@@ -37,7 +37,7 @@ for arg in "$@"; do
       cat <<EOF
 Usage: $0 [--module <MODULE>] [--name <name>]
 
-Modules: QUEUE | PHONE | CALL | MEMO | ORCH | INFRA
+Modules: QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA
          (omitted = owner/observer, all hooks active)
 
 Examples:
@@ -54,8 +54,8 @@ done
 # -------- validate module --------
 validate_module() {
   case "$1" in
-    QUEUE|PHONE|CALL|MEMO|ORCH|INFRA|"") return 0 ;;
-    *) err "unknown module: $1. must be one of QUEUE|PHONE|CALL|MEMO|ORCH|INFRA"; exit 2 ;;
+    QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA|"") return 0 ;;
+    *) err "unknown module: $1. must be one of QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA"; exit 2 ;;
   esac
 }
 validate_module "$MODULE"
@@ -129,9 +129,9 @@ cat > OWNER.md <<EOF
 |------|------|-------|--------|
 | QUEUE | Outbound Call Queue | Person A | @personA |
 | PHONE | Customer iPhone UI | Person B | @personB |
-| CALL | Agent Call View + Memo | Person C | @personC |
-| MEMO | (merged with CALL) | Person C | @personC |
-| ORCH | Orchestrator + State Machine | Person D | @personD |
+| CALL | Agent Call View | Person C | @personC |
+| SUMMARY | Handoff Summary | Person D | @personD |
+| ORCH | Orchestrator + State Machine | Person E | @personE |
 
 > Update this file via PR when owner changes. This file is referenced by the pre-push hook.
 

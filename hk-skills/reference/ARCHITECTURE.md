@@ -13,14 +13,14 @@
 │                                                                       │
 │  ┌──────────────────────────┐    ┌──────────────────────────────┐   │
 │  │  Next.js (port 3000)     │    │  Next.js (port 3000)         │   │
-│  │  / → Agent UI            │    │  /phone → Customer iPhone UI │   │
+│  │  / → 관리자 UI            │    │  /phone → Customer iPhone UI │   │
 │  │  /call/[id] → Call View  │    │  (별도 브라우저 탭/창)        │   │
 │  │  - Outbound Queue        │    │  - Incoming call screen      │   │
 │  │  - React Flow graph      │    │  - In-call screen + timer    │   │
 │  │  - LLM guidance          │    │  - Hangup button             │   │
 │  │  - Persona card          │    │                              │   │
 │  │  - Product approval      │    │                              │   │
-│  │  - Memo popup            │    │                              │   │
+│  │  - Summary panel         │    │                              │   │
 │  └──────────────────────────┘    └──────────────────────────────┘   │
 │            │ WS+REST                            │ WS                │
 │            ▼                                    ▼                    │
@@ -28,38 +28,38 @@
 │  │             FastAPI Backend (port 8000)                       │   │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐  │   │
 │  │  │ /ws/    │  │ /ws/    │  │ /api/   │  │ /api/calls/*    │  │   │
-│  │  │ agent   │  │ customer│  │ queue   │  │ /api/memos      │  │   │
+│  │  │ agent   │  │ customer│  │ queue   │  │ /api/summaries  │  │   │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘  │   │
 │  │            │                                                  │   │
 │  │            ▼                                                  │   │
 │  │  ┌──────────────────────────────────────────────────────┐    │   │
-│  │  │           Call Orchestrator (state machine)          │    │   │
+│  │  │       Call Orchestrator (LangGraph StateGraph)       │    │   │
 │  │  │  - 현재 call의 scenario + node 추적                   │    │   │
-│  │  │  - STT transcript → LLM → TTS 파이프라인              │    │   │
-│  │  │  - LLM tool/JSON parse로 next-node 결정                │    │   │
-│  │  │  - 가드레일: S1/S2/S3 분기, 상담원 인계, 종료          │    │   │
+│  │  │  - STT transcript → LangChain LLM → TTS 파이프라인     │    │   │
+│  │  │  - classify 노드 + conditional edge로 next-node 결정    │    │   │
+│  │  │  - 가드레일: S1 분기 (한도조회→인계 / 그 외→종료)        │    │   │
 │  │  └──────────────────────────────────────────────────────┘    │   │
 │  │            │            │              │                       │   │
 │  │            ▼            ▼              ▼                       │   │
 │  │  ┌──────────┐  ┌──────────┐    ┌──────────┐                   │   │
 │  │  │ STT      │  │ TTS      │    │ LLM      │                   │   │
-│  │  │ (Clova)  │  │ (Clova)  │    │ Router   │                   │   │
-│  │  │ WebSocket│  │ REST     │    │ (bedrock │                   │   │
-│  │  │ client   │  │ client   │    │  openai) │                   │   │
+│  │  │(Transcribe)│ │ (Polly)  │   │(LangChain│                   │   │
+│  │  │ streaming│  │ boto3    │    │ bedrock/ │                   │   │
+│  │  │ client   │  │ client   │    │ openai)  │                   │   │
 │  │  └──────────┘  └──────────┘    └──────────┘                   │   │
 │  │            │            │              │                       │   │
 │  │            ▼            ▼              ▼                       │   │
 │  │  ┌──────────────────────────────────────────────────────┐    │   │
-│  │  │              SQLModel ORM (async)                     │    │   │
-│  │  │  tables: customers, calls, transcripts, memos,         │    │   │
+│  │  │              SQLModel ORM (DuckDB)                     │    │   │
+│  │  │  tables: customers, calls, transcripts, summaries,      │    │   │
 │  │  │          products, scenario_runs                       │    │   │
 │  │  └──────────────────────────────────────────────────────┘    │   │
 │  │                          │                                    │   │
 │  └──────────────────────────┼────────────────────────────────────┘   │
 │                             ▼                                        │
 │                  ┌──────────────────────┐                            │
-│                  │ SQLite (./app.db)    │                            │
-│                  └──────────────────────┘                            │
+│                  │ DuckDB (./app.duckdb) │                            │
+│                  └───────────────────────┘                            │
 │                                                                       │
 └─────────────────────────────────────────────────────────────────────┘
                               │
@@ -67,8 +67,9 @@
                   ┌──────────────────────┐
                   │ External services    │
                   │ - Bedrock / OpenAI   │
-                  │ - Naver Clova        │
-                  │   (STT + TTS)        │
+                  │   (via LangChain)    │
+                  │ - AWS Transcribe     │
+                  │ - AWS Polly          │
                   └──────────────────────┘
 ```
 
@@ -77,7 +78,7 @@
 ## 2. 데이터 흐름 (정상 통화 1건) / Data Flow (One Call)
 
 ```
-1. Agent clicks row in OutboundQueueTable
+1. 관리자(Manager) clicks row in OutboundQueueTable
    └─→ POST /api/calls/start {customerId}
        └─→ Call Orchestrator: create call row, state=DIALING
 
@@ -89,21 +90,22 @@
        └─→ state=IN_CALL, scenario=S1 (default)
        └─→ Backend starts STT stream on customer mic
 
-4. Loop (per utterance):
-   Customer speaks → mic chunk (2-3s) → STT (Clova) → text
-   → LLM (system + scenario state + history) → response text
-   → TTS (Clova) → MP3
+4. Loop (per utterance) — LangGraph 1턴:
+   Customer speaks → mic chunk (2-3s) → STT (Transcribe) → text
+   → LangGraph node (LangChain LLM: system + scenario state + history) → response text
+   → TTS (Polly) → MP3
    → push to /ws/customer (audio out)
    → push to /ws/agent (transcript chunk, node_entered)
    → update graph node
 
-5. Trigger (S1/S2/S3):
-   LLM JSON output: {next: 'transfer_to_agent', reason: '...'}
+5. Trigger (classify node → conditional edge):
+   S1: classify → transfer_to_agent 노드
    → state=TRANSFER_PENDING
    → emit "agent_join" event to /ws/agent
-   → agent queue row turns 빨강/초록
+   → 관리자 queue row turns 빨강/초록
+   (한도조회/상담원 연결 요청이 아니면 → closing → END)
 
-6. Agent clicks red/green row → /call/[id]
+6. 관리자 clicks red row → /call/[id]
    → state=AGENT_JOINED
    → mic speaker toggle: "agent" (default)
    → agent speaks → STT (with speaker='agent' label)
@@ -115,10 +117,9 @@
 
 8. Customer clicks "종료" (in iPhone UI)
    → state=ENDED
-   → open memo popup on agent UI
-   → agent writes/confirm
-   → POST /api/memos → DB save
-   → agent UI returns to queue
+   → AI generates handoff summary
+   → POST /api/summaries → DB save (summaries table)
+   → 관리자 UI shows summary panel → returns to queue
 ```
 
 ---
@@ -142,39 +143,25 @@ DIALING → RINGING → ACCEPTED → IN_CALL → TRANSFER_PENDING
 - `TRANSFER_PENDING` — LLM triggered transfer, waiting for agent to click
 - `AGENT_JOINED` — agent took over
 - `IN_CALL(2)` — agent + (optionally) customer still in mic loop
-- `ENDED` — call finished, memo phase
+- `ENDED` — call finished, AI summary generated
 
-### 3.2 Scenario states (per scenario)
+### 3.2 Scenario states
 
-각 시나리오는 **고정 노드 그래프**. LLM은 그 안에서 script만 생성.
+시나리오는 **고정 노드 그래프** 1개(S1). LLM은 그 안에서 script만 생성.
 
-**S1 (가입)**:
+**S1 (한도조회 → 상담원 연결)**:
 ```
 GREETING → INTRO_PRODUCT → HANDLE_OBJECTION → OFFER_SIGNUP
-  → [signup_yes] → TRANSFER_TO_AGENT (가입 확정)
-  → [signup_no]  → CLOSING → END
+  → [signup_yes / 한도조회 요청] → TRANSFER_TO_AGENT (상담원 연결)
+  → [signup_no]                 → CLOSING → END
 ```
 
-**S2 (분노)**:
-```
-GREETING → INTRO_PRODUCT → DETECT_ANGER
-  → [anger] → APOLOGIZE → TRANSFER_TO_AGENT (분노 에스컬레이션)
-  → [calm]  → continue S1 path
-```
+각 노드 (LangGraph node 함수, `app/agent/nodes.py`)는:
+- 진입 시 LangChain LLM 호출 (system + history + node prompt)
+- 다음 노드 = `classify` 노드의 LLM 판단 → LangGraph conditional edge
+- 상담원 인계 = `transfer_to_agent` 노드로 라우팅
 
-**S3 (사기 의심)**:
-```
-GREETING → INTRO_PRODUCT → CUSTOMER_DOUBT
-  → [fraud_pattern] → TRANSFER_TO_AGENT (사기 의심)
-  → [normal_question] → continue S1 path
-```
-
-각 노드는:
-- 진입 시 LLM 호출 (system + history + node prompt)
-- 종료 조건 = LLM JSON `{next_node, payload}`
-- 상담원 인계 = `next_node="TRANSFER_TO_AGENT"`
-
-상세 노드 정의는 `backend/app/scenarios/<id>.py`에 있음 (각 skill이 그곳에 코드를 작성).
+그래프 조립은 `app/agent/graph.py` (`build_graph`), 시나리오별 노드 셋/엣지는 `backend/app/scenarios/<id>.py`에 있음 (각 skill이 그곳에 코드를 작성).
 
 ---
 
@@ -188,13 +175,13 @@ phone           TEXT
 persona_json    TEXT    -- 성격, 니즈, 우려사례
 credit_score    INTEGER
 financial_json  TEXT    -- 소득, 부채, 보유 상품
-scenario_hint   TEXT    -- S1 | S2 | S3 (테스트용)
+scenario_hint   TEXT    -- S1 (테스트용)
 
 -- calls
 id              TEXT PRIMARY KEY
 customer_id     TEXT REFERENCES customers(id)
 state           TEXT    -- DIALING | RINGING | ...
-scenario        TEXT    -- S1 | S2 | S3
+scenario        TEXT    -- S1
 started_at      DATETIME
 ended_at        DATETIME
 agent_joined_at DATETIME
@@ -215,11 +202,11 @@ entered_at      DATETIME
 exited_at       DATETIME
 llm_summary     TEXT
 
--- memos
+-- summaries
 id              TEXT PRIMARY KEY
 call_id         TEXT REFERENCES calls(id)
-result_type     TEXT    -- 가입승인 | 거절 | 일반문의 | ...
-content         TEXT
+result_type     TEXT    -- 한도조회_상담원연결 | 가입승인 | 거절
+content         TEXT    -- AI 생성 인계 요약
 created_at      DATETIME
 
 -- products
@@ -235,10 +222,11 @@ monthly_fee     INTEGER
 
 | 컴포넌트 | 위치 |
 |---|---|
-| State machine | `backend/app/scenarios/state_machine.py` |
-| LLM router | `backend/app/llm/router.py` |
-| STT bridge | `backend/app/stt/clova_stt.py` |
-| TTS bridge | `backend/app/tts/clova_tts.py` |
+| Agent 그래프 (LangGraph) | `backend/app/agent/graph.py` + `app/agent/nodes.py` + `app/agent/state.py` |
+| State machine (그래프 조립) | `backend/app/scenarios/state_machine.py` |
+| LLM router (LangChain) | `backend/app/llm/router.py` |
+| STT bridge | `backend/app/stt/transcribe_stt.py` |
+| TTS bridge | `backend/app/tts/polly_tts.py` |
 | Agent WS | `backend/app/ws/agent_ws.py` |
 | Customer WS | `backend/app/ws/customer_ws.py` |
 | Agent queue UI | `frontend/src/components/queue/OutboundQueueTable.tsx` |
@@ -257,7 +245,7 @@ monthly_fee     INTEGER
 - ❌ .env는 .gitignore
 - ✅ CORS: `localhost:3000`만 허용
 - ✅ 입력 검증: Pydantic / Zod
-- ✅ SQL injection: SQLModel ORM 사용
+- ✅ SQL injection: DuckDB + SQLModel ORM 사용
 
 ---
 
