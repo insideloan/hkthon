@@ -37,7 +37,7 @@
 │  │  │  - 현재 call의 scenario + node 추적                   │    │   │
 │  │  │  - STT transcript → LangChain LLM → TTS 파이프라인     │    │   │
 │  │  │  - classify 노드 + conditional edge로 next-node 결정    │    │   │
-│  │  │  - 가드레일: S1 분기 (한도조회→인계 / 그 외→종료)        │    │   │
+│  │  │  - 가드레일: S1 분기 + 금융사기 의심 플래그 (종료 안 함)    │    │   │
 │  │  └──────────────────────────────────────────────────────┘    │   │
 │  │            │            │              │                       │   │
 │  │            ▼            ▼              ▼                       │   │
@@ -105,6 +105,11 @@
    → 관리자 queue row turns 빨강/초록
    (한도조회/상담원 연결 요청이 아니면 → closing → END)
 
+5b. 금융사기 의심 (병렬, 종료 아님):
+   detect_fraud 노드가 의심 발화 감지 → call.fraud_suspected = true
+   → emit "fraud_flag" event to /ws/agent → 대시보드 강조/요약 카드 반영
+   → **통화는 계속 연결** (분기/종료 없음). 라우팅은 그대로 S1.
+
 6. 관리자 clicks red row → /call/[id]
    → state=AGENT_JOINED
    → mic speaker toggle: "agent" (default)
@@ -156,10 +161,16 @@ GREETING → INTRO_PRODUCT → HANDLE_OBJECTION → OFFER_SIGNUP
   → [signup_no]                 → CLOSING → END
 ```
 
+**금융사기 의심 감지 (라우팅 분기 아님 / not a routing branch)**:
+- `detect_fraud`는 매 턴 transcript를 보고 금융사기 의심 발화를 판단하는 **플래그 노드**.
+- 의심 시 `call.fraud_suspected = true` 설정 + `/ws/agent`로 `fraud_flag` 방출 → 대시보드 표시.
+- **통화는 종료하지 않고 그대로 S1 그래프를 계속 진행** (별도 시나리오/종료 분기 없음).
+
 각 노드 (LangGraph node 함수, `app/agent/nodes.py`)는:
 - 진입 시 LangChain LLM 호출 (system + history + node prompt)
 - 다음 노드 = `classify` 노드의 LLM 판단 → LangGraph conditional edge
 - 상담원 인계 = `transfer_to_agent` 노드로 라우팅
+- 금융사기 의심 = `detect_fraud`가 플래그만 세움 (라우팅에 영향 없음)
 
 그래프 조립은 `app/agent/graph.py` (`build_graph`), 시나리오별 노드 셋/엣지는 `backend/app/scenarios/<id>.py`에 있음 (각 skill이 그곳에 코드를 작성).
 
@@ -182,6 +193,7 @@ id              TEXT PRIMARY KEY
 customer_id     TEXT REFERENCES customers(id)
 state           TEXT    -- DIALING | RINGING | ...
 scenario        TEXT    -- S1
+fraud_suspected BOOLEAN -- 금융사기 의심 발화 감지 시 true (대시보드 표시용, 종료 무관)
 started_at      DATETIME
 ended_at        DATETIME
 agent_joined_at DATETIME

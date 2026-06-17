@@ -199,12 +199,15 @@ frontend/
 START → greeting → intro_product → classify
 classify ─(limit_inquiry|connect)──→ handle_objection → transfer_to_agent → generate_summary → END  (S1)
 classify ─(not_interested)─────────→ closing ──────────────────────────→ generate_summary → END
+
+detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agent fraud_flag (대시보드 표시, 종료 안 함)
 ```
 
 - `classify` = LLM 라우팅 노드. 한도조회/상담원 연결 요청 또는 상품 관심 → S1 인계, 무관심 → 종료
 - `transfer_to_agent` = S1 상담원 연결 상태 전환 (인계)
+- `detect_fraud` = 금융사기 의심 발화를 감지해 `fraud_suspected` 플래그만 세움. **라우팅/종료에 영향 없음** (대시보드 표시 전용)
 - `generate_summary` = 통화 종료 시 실행 → `summaries` 테이블에 AI 인계 요약 기록
-- State: `CallState` (`app/agent/state.py`) — messages, scenario, current_node, customer, intent, next, summary
+- State: `CallState` (`app/agent/state.py`) — messages, scenario, current_node, customer, intent, fraud_suspected, next, summary
 
 ### LLM (LangChain)
 
@@ -246,6 +249,7 @@ type AgentMsg =
   | { type: 'transcript'; speaker: 'agent' | 'customer'; text: string; ts: number }
   | { type: 'node_entered'; nodeId: string }
   | { type: 'guidance'; text: string; reason: string }
+  | { type: 'fraud_flag'; callId: string; fraudSuspected: boolean }
   | { type: 'call_ended'; callId: string };
 
 // agent → backend

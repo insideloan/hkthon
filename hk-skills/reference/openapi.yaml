@@ -310,6 +310,7 @@ components:
         waiting: { type: integer }
         in_progress: { type: integer }
         needs_agent: { type: integer }
+        fraud_suspected: { type: integer }
         ended: { type: integer }
 
     QueueRow:
@@ -324,7 +325,8 @@ components:
         highlight:
           type: string
           nullable: true
-          enum: [null, needs_agent]
+          enum: [null, needs_agent, fraud_suspected]
+          description: fraud_suspected는 대시보드 강조용. 통화는 계속됨 (종료 아님).
         highlight_since: { type: string, format: date-time, nullable: true }
         elapsed_sec: { type: integer }
 
@@ -353,6 +355,10 @@ components:
         customer_id: { type: string }
         state: { $ref: "#/components/schemas/CallState" }
         scenario: { $ref: "#/components/schemas/Scenario" }
+        fraud_suspected:
+          type: boolean
+          default: false
+          description: 금융사기 의심 발화 감지 시 true (대시보드 표시용, 통화 종료와 무관)
         started_at: { type: string, format: date-time, nullable: true }
         ended_at: { type: string, format: date-time, nullable: true }
         agent_joined_at: { type: string, format: date-time, nullable: true }
@@ -458,6 +464,9 @@ components:
           type: string
           nullable: true
           description: 상담원 연결 사유
+        fraud_suspected:
+          type: boolean
+          description: 통화 중 금융사기 의심 발화 감지 여부 (요약 화면 표시용, 통화 종료와 무관)
 
     Product:
       type: object

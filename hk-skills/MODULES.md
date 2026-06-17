@@ -325,6 +325,7 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 | `{type: "transcript"}` | ORCH | CALL |
 | `{type: "node_entered"}` | ORCH | CALL |
 | `{type: "guidance"}` | ORCH | CALL |
+| `{type: "fraud_flag"}` | ORCH | QUEUE, CALL |
 | `{type: "call_ended"}` | ORCH | CALL, SUMMARY |
 | `{type: "approve_product"}` (cmd) | CALL | ORCH |
 
