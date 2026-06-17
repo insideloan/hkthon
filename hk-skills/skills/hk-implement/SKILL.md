@@ -29,6 +29,7 @@ description: 본인 owner의 GitHub issue 1개를 실제로 구현. pre-push hoo
 - `docs/MODULES.md` §2 (file ownership matrix — **반드시 확인**)
 - `reference/ARCHITECTURE.md`, `STACK.md`, `CONVENTIONS.md`
 - `reference/API.md` (REST/WS 스펙 시트 — endpoint/메시지 구현 시 **반드시 확인**)
+- `reference/CHURN-RISK-LEXICON.md` (ORCH가 `index_update.churn_risk` 산출 / CALL이 게이지 표시 구현 시 **반드시 확인** — 점수 모델 + 키워드 사전 SSOT)
 - `OWNER.md` (본인 issue가 in_progress로 표시되어야 함)
 
 > **본인 issue가 아니면 시작 금지.** `OWNER.md` 또는 `gh issue view --json assignees`로 확인.
@@ -102,6 +103,7 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 - LLM: 에이전트 로직은 `app/agent/` (LangGraph — `graph.py` / `nodes.py` / `state.py`) 에 위치. LLM 접근은 `app/llm/router.py`를 통해 LangChain `BaseChatModel`을 반환받아 호출 (`.astream()` 사용)
 - REST endpoint: `reference/API.md` §1의 요청/응답 schema 그대로 구현 (path, 본문 필드, 에러 envelope §0.3). machine-readable 계약은 `reference/openapi.yaml`. 구현 후 FastAPI가 생성한 `GET /openapi.json` / `/docs`와 대조
 - WebSocket: `reference/API.md` §2 + `STACK.md` §5 schema 준수 (type 값, payload 필드)
+- 이탈위험도(`index_update.churn_risk` / `analysis.churn_risk`): **ORCH**가 산출자. `app/agent/churn_risk.py`(ORCH 소유 `app/agent/*`)가 `app/agent/churn_risk_lexicon.json`(onboard에서 복사됨)을 로드해 `reference/CHURN-RISK-LEXICON.md` §1 점수 모델(baseline 50, 가중치 합산, EMA α=0.6, 부정/강조 처리)대로 계산 → agent 턴마다 `index_update` 방출. 고객 STT(`speaker: customer`) 발화에만 적용. **CALL**은 `index_update`를 구독해 우상단 게이지를 표시(소비자, 점수 계산 안 함)
 
 #### Frontend (TypeScript/Next.js)
 
@@ -119,6 +121,7 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 | 새 API endpoint | `app/api/<thing>.py` router, `app/main.py`에 `app.include_router(...)` |
 | 새 DB 테이블 | `app/models/<thing>.py` SQLModel, `python -m app.db_init` |
 | 새 WebSocket 메시지 | `app/ws/<agent|customer>_ws.py` handler (schema 변경은 ORCH PR) |
+| 이탈위험도 점수 (churn_risk) | ORCH: `app/agent/churn_risk.py`가 `app/agent/churn_risk_lexicon.json` 로드 → `reference/CHURN-RISK-LEXICON.md` §1 모델대로 계산 → `index_update` 방출. CALL은 그 메시지를 구독만. 사전 수정은 `reference/`의 .md+.json 동시 변경 |
 | 새 Frontend 페이지 | `src/app/<route>/page.tsx` |
 | 새 wrapper | `src/components/ui/<Name>.tsx` (누구나 push 가능, `*`) |
 | 새 env var | `app/config.py` Settings, `.env.example` (ORCH PR) |
@@ -226,6 +229,7 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 - ❌ **본인 모듈 외 파일 edit** (issue의 Shared files에도 없으면).
 - ❌ **TEAM LOCK 파일** (tailwind.config, package.json 등) edit — PR 필요.
 - ❌ **Schema 변경** (WS message, API contract) — ORCH PR, 합의.
+- ❌ **이탈위험도 사전을 코드에 하드코딩 금지** — 키워드/가중치는 `reference/CHURN-RISK-LEXICON.md`(prose) + `reference/churn_risk_lexicon.json`(code)을 **동시** 수정. backend의 `churn_risk_lexicon.json`은 복사본이며 직접 편집하지 말 것.
 - ❌ **새 dep 추가** — `INFRA-NNN` issue 합의.
 - ❌ **plan 없이 바로 코드 작성 금지** (3.3 통과 필수).
 - ❌ **acceptance criteria 일부만 채우고 "done" 금지** (100% 또는 fail).

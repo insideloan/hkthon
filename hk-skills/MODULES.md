@@ -107,6 +107,7 @@ modules:
       - backend/app/models/scenario_run.py
       - backend/app/scenarios/*
       - backend/app/agent/*
+      # churn_risk_lexicon.json (이탈위험도 키워드 사전, reference/에서 복사) 도 app/agent/* 에 포함
       - backend/app/llm/router.py
       - backend/app/llm/bedrock.py
       - backend/app/llm/openai_compat.py
@@ -226,7 +227,7 @@ modules:
 | `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR (WORKFLOW.md §4) |
 | `backend/pyproject.toml`, `backend/uv.lock` | 새 의존성 추가 시 PR |
 | `frontend/tailwind.config.ts` | wrapper 교체 / queue 색상 변경 시 PR |
-| `docs/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF) | 합의 후 PR |
+| `docs/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | 합의 후 PR |
 | `OWNER.md` | 모듈 owner 누구든 push 가능 (status 갱신) |
 | `docs/MODULES.md` (이 파일) | 합의 후 PR (오프라인 합의 → 누군가 PR) |
 | `docs/WORKFLOW.md` | 합의 후 PR |
@@ -324,12 +325,16 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 | `{type: "call_started"}` | ORCH | PHONE, CALL |
 | `{type: "transcript"}` | ORCH | CALL |
 | `{type: "node_entered"}` | ORCH | CALL |
+| `{type: "index_update"}` (churn_risk/emotion) | ORCH | CALL |
 | `{type: "guidance"}` | ORCH | CALL |
+| `{type: "ai_action"}` | ORCH | CALL |
 | `{type: "fraud_flag"}` | ORCH | QUEUE, CALL |
 | `{type: "call_ended"}` | ORCH | CALL, SUMMARY |
 | `{type: "approve_product"}` (cmd) | CALL | ORCH |
 
 **WS schema 변경은 ORCH PR.**
+
+> `index_update.churn_risk`(이탈위험도)는 ORCH의 `app/agent/churn_risk.py`가 키워드 사전(`app/agent/churn_risk_lexicon.json`)으로 계산해 방출합니다. 점수 모델/키워드/가중치 SSOT는 `reference/CHURN-RISK-LEXICON.md` (+ machine-readable `reference/churn_risk_lexicon.json`). 사전 변경은 두 파일 동시 수정 → ORCH PR.
 
 ### 5.3 모듈 의존성 그래프
 

@@ -1,0 +1,97 @@
+{
+  "$comment": "Machine-readable companion to CHURN-RISK-LEXICON.md (the SSOT prose). Loaded by backend/app/agent/churn_risk.py. Keep both in sync via CALL-owner PR. Matching is stem-based partial match on normalized ko-KR STT text of customer utterances only (speaker=customer). weight>0 raises churn_risk (cons), weight<0 lowers it (pro).",
+  "version": "1.0.0",
+  "owner_module": "CALL",
+  "applies_to_speaker": "customer",
+  "model": {
+    "baseline": 50,
+    "ema_alpha": 0.6,
+    "turn_clamp": [-40, 40],
+    "score_clamp": [0, 100],
+    "max_matches_per_category": 2,
+    "silence_penalty": 6,
+    "negation_window_chars": 7,
+    "intensifier_multiplier": 1.5,
+    "bands": {
+      "low": [0, 33],
+      "medium": [34, 66],
+      "high": [67, 100]
+    }
+  },
+  "negation_terms": ["안", "않", "없", "못", "아니", "말고", "됐"],
+  "intensifier_terms": ["진짜", "완전", "너무", "전혀", "절대", "당장", "정말", "아주"],
+  "categories": [
+    {
+      "key": "HANGUP_INTENT",
+      "polarity": "cons",
+      "weight": 18,
+      "desc": "통화 종료·거절 의사 / explicit intent to end or refuse",
+      "stems": ["끊을게", "끊습니다", "끊죠", "됐어", "됐습니다", "됐고", "관심 없", "관심없", "필요 없", "필요없", "안 할", "안할", "가입 안", "전화 그만", "전화하지 마", "연락하지 마", "싫어", "싫습니다", "지금 안 받", "나중에 받"]
+    },
+    {
+      "key": "DISTRUST_ANGER",
+      "polarity": "cons",
+      "weight": 14,
+      "desc": "불신·사기 의심·짜증 / distrust, fraud suspicion, irritation (fraud terms also feed detect_fraud)",
+      "links": ["fraud_suspected"],
+      "stems": ["보이스피싱", "사기 아니", "사기 전화", "사기전화", "어떻게 알았", "번호 어떻게", "개인정보 어디", "못 믿", "믿을 수 없", "의심스럽", "진짜 회사 맞", "사칭", "짜증", "귀찮", "그만 좀", "왜 자꾸", "신고할", "금감원", "고소"]
+    },
+    {
+      "key": "NOT_INTERESTED",
+      "polarity": "cons",
+      "weight": 12,
+      "desc": "명시적 무관심·반복 거절 / explicit disinterest, standing refusal",
+      "stems": ["생각 없", "생각없", "필요할 때 연락", "알아서 할", "이미 받았", "이미 있", "다른 데서", "거래 은행", "관심 있으면 제가", "광고는 안", "영업 전화 사절", "영업전화 사절"]
+    },
+    {
+      "key": "PRICE_OBJECTION",
+      "polarity": "cons",
+      "weight": 8,
+      "desc": "가격·조건 반론 / price & terms objection",
+      "stems": ["금리가 너무", "금리 높", "비싸", "한도가 너무 적", "한도가 작", "조건이 별로", "메리트가 없", "메리트 없", "수수료 있", "중도상환 수수료", "지금이랑 비슷"]
+    },
+    {
+      "key": "TIME_PRESSURE",
+      "polarity": "cons",
+      "weight": 7,
+      "desc": "시간 압박·회피 / time pressure & brush-off",
+      "stems": ["바빠", "바쁘", "회의 중", "운전 중", "나중에", "다음에", "이따가", "시간 없", "빨리", "용건만", "문자로 보내", "문자나 주"]
+    },
+    {
+      "key": "HESITATION",
+      "polarity": "cons",
+      "weight": 5,
+      "desc": "주저·약한 신호 / hesitation, weak signal",
+      "stems": ["글쎄", "잘 모르겠", "생각해 볼", "생각해볼", "고민해 볼", "고민해볼", "와이프랑", "가족이랑 상의", "남편이랑", "어렵네", "별로"]
+    },
+    {
+      "key": "TRANSFER_INTENT",
+      "polarity": "pro",
+      "weight": -20,
+      "desc": "한도조회·상담원 연결 요청 (S1 성공 경로) / limit inquiry or agent-transfer request — success path, NOT churn",
+      "links": ["S1", "transfer_to_agent"],
+      "stems": ["한도 조회", "한도조회", "한도 얼마", "한도 좀 알아", "상담원 연결", "상담원 바꿔", "사람이랑 통화", "담당자 바꿔", "자세히 상담", "직접 상담", "신청하려면", "진행해 주", "진행해주", "접수해 주"]
+    },
+    {
+      "key": "BUYING_INTENT",
+      "polarity": "pro",
+      "weight": -16,
+      "desc": "구매·진척 의사 / buying or progression intent",
+      "stems": ["할게요", "하겠습니다", "가입할", "갈아탈", "대환할", "옮길게", "좋네", "좋은데", "괜찮네", "마음에 들", "그렇게 해주", "그걸로 할", "언제부터 가능", "지금 바로 돼"]
+    },
+    {
+      "key": "INTEREST_QUESTION",
+      "polarity": "pro",
+      "weight": -10,
+      "desc": "정보 탐색·관심 질문 / information-seeking interest questions",
+      "stems": ["금리가 어떻게", "금리 얼마", "한도가 얼마", "얼마나 받을", "조건이 어떻게", "자격이 되", "기존 대출보다", "얼마나 절약", "서류 뭐 필요", "어떻게 진행", "차 담보", "자동차담보"]
+    },
+    {
+      "key": "ENGAGEMENT",
+      "polarity": "pro",
+      "weight": -6,
+      "desc": "경청·긍정 수용 / active listening, acceptance",
+      "stems": ["그렇군요", "그래요?", "더 말해", "설명해 주", "설명해주", "계속하세요", "이해됐", "맞아요", "그렇죠", "동의", "있긴 한데", "안 그래도 알아보"]
+    }
+  ]
+}

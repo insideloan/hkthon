@@ -91,7 +91,7 @@ pwd && ls
 | `PHONE` | Customer iPhone UI | `frontend/src/components/phone/*`, `backend/app/ws/customer_ws.py` |
 | `CALL` | Agent Call View | `frontend/src/components/call/*`, `backend/app/api/calls.py` |
 | `SUMMARY` | Handoff Summary | `frontend/src/components/call/SummaryPanel.tsx`, `backend/app/api/summaries.py` |
-| `ORCH` | Orchestrator Hub | `backend/app/scenarios/*`, `backend/app/llm/*`, `backend/app/main.py` |
+| `ORCH` | Orchestrator Hub | `backend/app/scenarios/*`, `backend/app/llm/*`, `backend/app/agent/*` (이탈위험도 `churn_risk.py` 포함), `backend/app/main.py` |
 
 ### 실행
 
