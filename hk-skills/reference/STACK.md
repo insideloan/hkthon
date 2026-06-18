@@ -32,7 +32,7 @@ duckdb = ">=1.0"              # DuckDB (단일 파일 DB)
 pydantic = ">=2.9"
 pydantic-settings = ">=2.6"   # .env
 httpx = ">=0.27"              # 기타 HTTP 호출
-boto3 = ">=1.35"              # AWS (Bedrock + Transcribe + Polly)
+boto3 = ">=1.35"              # AWS (Bedrock + Transcribe STT)
 langchain = ">=0.3"           # LLM 추상화
 langgraph = ">=0.2"           # Agent state graph (오케스트레이터)
 langchain-aws = ">=0.2"       # Bedrock (ChatBedrockConverse)
@@ -67,7 +67,7 @@ backend/
 │   ├── stt/
 │   │   └── transcribe_stt.py   # AWS Transcribe streaming STT
 │   ├── tts/
-│   │   └── polly_tts.py        # AWS Polly TTS
+│   │   └── typecast_tts.py     # Typecast TTS (REST, httpx)
 │   ├── scenarios/
 │   │   ├── state_machine.py    # S1 시나리오 LangGraph 그래프 조립
 │   │   └── S1_handoff.py
@@ -92,12 +92,16 @@ AWS_REGION=ap-northeast-2
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o
 
-# AWS STT/TTS (Transcribe + Polly)
+# AWS STT (Transcribe)
 # 자격증명은 표준 AWS 체인 사용 (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 또는 프로필)
 # AWS_REGION 는 위 LLM 섹션과 공유
 TRANSCRIBE_LANGUAGE=ko-KR
-POLLY_VOICE=Seoyeon           # 한국어 여성
-POLLY_ENGINE=neural
+
+# TTS (Typecast)
+TYPECAST_API_KEY=tc_...        # https://typecast.ai 발급 (X-API-KEY 헤더)
+TYPECAST_MODEL=ssfm-v30        # ssfm-v30(권장) | ssfm-v21
+TYPECAST_VOICE=혜라            # 혜라 | 진서 | 유라 (한국어 여성, 이름→voice_id 매핑은 §4 참고)
+TYPECAST_AUDIO_FORMAT=mp3      # mp3 | wav
 
 # App
 DATABASE_URL=duckdb:///./app.duckdb
@@ -189,7 +193,7 @@ frontend/
 
 ---
 
-## 4. Agent (LangGraph) / LLM / STT / TTS
+## 4. Agent (LangGraph) / LLM / STT (Transcribe) / TTS (Typecast)
 
 ### Agent 그래프 (LangGraph)
 
@@ -222,11 +226,29 @@ detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agen
 - **출력**: JSON `{text, isFinal}` → `transcript` 테이블에 저장
 - **언어**: 한국어 (`LanguageCode=ko-KR`)
 
-### TTS (AWS Polly)
+### TTS (Typecast)
 
-- **Protocol**: boto3 (`synthesize_speech`)
-- **Voice**: `Seoyeon` (한국어 여성), `engine=neural`
-- **출력**: MP3 → customer UI로 WebSocket 전송
+- **Protocol**: REST (httpx) — `POST https://api.typecast.ai/v1/text-to-speech`, 헤더 `X-API-KEY: <TYPECAST_API_KEY>`
+- **Model**: `ssfm-v30` (권장) — `TYPECAST_MODEL`
+- **Voice**: `혜라` / `진서` / `유라` 중 선택 (`TYPECAST_VOICE`, 한국어 여성). 셋 모두 데모용 화자.
+- **이름 → voice_id 매핑**: 요청 본문은 `voice_id`(`tc_...`)를 요구함. `typecast_tts.py`는 아래 고정 매핑을 사용한다 (목록 확인: `GET https://api.typecast.ai/v2/voices`):
+
+  | 이름 | voice_id |
+  |---|---|
+  | 혜라 | `tc_66504763aed05555cd12438c` |
+  | 진서 | `tc_65bb3a1976b69213594357fc` |
+  | 유라 | `tc_61130d6cf89dd58a4c13295d` |
+- **요청 예**:
+  ```json
+  {
+    "model": "ssfm-v30",
+    "text": "안녕하세요, AI 상담원이에요.",
+    "voice_id": "tc_66504763aed05555cd12438c",
+    "language": "kor",
+    "output": { "audio_format": "mp3" }
+  }
+  ```
+- **출력**: 바이너리 오디오(MP3) 응답 → customer UI로 WebSocket 전송. 실패 시 `TTS_ERROR` → fallback (`API.md` §0.3).
 
 ---
 
@@ -237,7 +259,8 @@ detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agen
 | `/ws/agent` | 관리자 UI ↔ backend | queue update, call state, transcript chunk, LLM guide |
 | `/ws/customer` | 고객 iPhone UI ↔ backend | incoming call, audio out, transcript in |
 | (내부) | backend ↔ LLM (LangChain) | stream chat |
-| (내부) | backend ↔ AWS Transcribe/Polly | stream STT, Polly TTS |
+| (내부) | backend ↔ AWS Transcribe | stream STT |
+| (내부) | backend ↔ Typecast | REST TTS (`/v1/text-to-speech`) |
 
 ### 메시지 스키마 (TypeScript)
 
@@ -284,7 +307,7 @@ type AgentCmd =
 - ❌ **직접 SQL 작성 금지** — SQLModel ORM만 사용.
 - ❌ **Inline `style={{...}}` 금지** — Tailwind 클래스만.
 - ❌ **새 LLM provider 추가 금지** (bedrock/openai만, LangChain 경유).
-- ❌ **새 STT/TTS provider 추가 금지** (AWS Transcribe/Polly만).
+- ❌ **새 STT/TTS provider 추가 금지** (STT는 AWS Transcribe, TTS는 Typecast만). TTS voice는 `혜라`/`진서`/`유라` 중에서만 선택.
 - ❌ **인증/인가 추가 금지** — 데모는 그냥 open.
 
 위반 발견 시 → `hk-iterate` skill로 가드레일 재확인.

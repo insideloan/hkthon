@@ -35,7 +35,7 @@
 | **PHONE** | Person B | 고객 iPhone UI |
 | **CALL** | Person C | 통화 화면 |
 | **SUMMARY** | Person D | 인계 요약 화면 |
-| **ORCH** | Person E | 오케스트레이터 + State Machine + LLM/STT/TTS |
+| **ORCH** | Person E | 오케스트레이터 + State Machine + LLM/STT(Transcribe)/TTS(Typecast) |
 
 > 상세 file ownership: `docs/MODULES.md`
 > 머지 프로토콜 / 이슈 추적: `docs/WORKFLOW.md`
@@ -50,7 +50,7 @@
 - Claude Code 최신 버전 (https://docs.claude.com/claude-code)
 - Python 3.13+
 - Node.js 20+
-- (선택) AWS 자격증명 (Bedrock + Transcribe + Polly) 또는 OpenAI API 키
+- (선택) AWS 자격증명 (Bedrock + Transcribe) 또는 OpenAI API 키, Typecast API 키 (TTS)
 
 ### 원라이너 설치 (권장) / One-liner Install
 
@@ -272,7 +272,7 @@ git push --force-with-lease
   1. S1 한도조회/상담원 연결 요청 → 상담원 연결 상태로 전환
 - 관리자 UI: 노드 그래프 (통화 흐름) + LLM 가이드라인 + 페르소나/금융정보 + 통화 종료 후 AI 인계 요약
 
-**아키텍처 / Stack**: FastAPI + LangGraph + Next.js + Tailwind + DuckDB + Bedrock Claude / OpenAI (LangChain) + AWS Transcribe STT / Polly TTS
+**아키텍처 / Stack**: FastAPI + LangGraph + Next.js + Tailwind + DuckDB + Bedrock Claude / OpenAI (LangChain) + AWS Transcribe STT / Typecast TTS
 상세는 `reference/ARCHITECTURE.md`, `reference/STACK.md` 참고.
 
 > 다른 제품에도 적용 가능합니다 — 이 경우 `reference/PRODUCT-BRIEF.md`만 갈아끼우면 됩니다.

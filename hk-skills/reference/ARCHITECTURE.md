@@ -43,8 +43,8 @@
 │  │            ▼            ▼              ▼                       │   │
 │  │  ┌──────────┐  ┌──────────┐    ┌──────────┐                   │   │
 │  │  │ STT      │  │ TTS      │    │ LLM      │                   │   │
-│  │  │(Transcribe)│ │ (Polly)  │   │(LangChain│                   │   │
-│  │  │ streaming│  │ boto3    │    │ bedrock/ │                   │   │
+│  │  │(Transcribe)│ │(Typecast)│   │(LangChain│                   │   │
+│  │  │ streaming│  │httpx REST│    │ bedrock/ │                   │   │
 │  │  │ client   │  │ client   │    │ openai)  │                   │   │
 │  │  └──────────┘  └──────────┘    └──────────┘                   │   │
 │  │            │            │              │                       │   │
@@ -69,7 +69,7 @@
                   │ - Bedrock / OpenAI   │
                   │   (via LangChain)    │
                   │ - AWS Transcribe     │
-                  │ - AWS Polly          │
+                  │ - Typecast (TTS)     │
                   └──────────────────────┘
 ```
 
@@ -93,7 +93,7 @@
 4. Loop (per utterance) — LangGraph 1턴:
    Customer speaks → mic chunk (2-3s) → STT (Transcribe) → text
    → LangGraph node (LangChain LLM: system + scenario state + history) → response text
-   → TTS (Polly) → MP3
+   → TTS (Typecast) → MP3
    → push to /ws/customer (audio out)
    → push to /ws/agent (transcript chunk, node_entered)
    → update graph node
@@ -238,7 +238,7 @@ monthly_fee     INTEGER
 | State machine (그래프 조립) | `backend/app/scenarios/state_machine.py` |
 | LLM router (LangChain) | `backend/app/llm/router.py` |
 | STT bridge | `backend/app/stt/transcribe_stt.py` |
-| TTS bridge | `backend/app/tts/polly_tts.py` |
+| TTS bridge | `backend/app/tts/typecast_tts.py` |
 | Agent WS | `backend/app/ws/agent_ws.py` |
 | Customer WS | `backend/app/ws/customer_ws.py` |
 | Agent queue UI | `frontend/src/components/queue/OutboundQueueTable.tsx` |
