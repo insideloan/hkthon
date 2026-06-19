@@ -12,9 +12,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_KEY="hk.module"
 
 # Locate check-module-boundary.py. initialize.sh records its path in git config
-# (hk.checkscript); otherwise we search the known locations: the in-repo
-# hk-skills tree (current layout), the .hk-skills worktree, the legacy
-# backend/scripts bootstrap, or repo scripts.
+# (hk.checkscript); otherwise we search the known locations: the .hk-skills
+# worktree (current layout), backend/scripts (legacy bootstrap), or repo scripts.
 CHECK="$(git config --get hk.checkscript || true)"
 if [[ -z "$CHECK" || ! -f "$CHECK" ]]; then
   for cand in \
@@ -67,8 +66,8 @@ if read -r local_ref local_sha remote_ref remote_sha; then :; fi
 INTEGRATION_BRANCH="${HK_INTEGRATION_BRANCH:-dev}"
 
 # Find the base commit for diff
-# If remote_sha is all zeros (new branch) or empty (no ref on stdin), diff from
-# the integration branch (origin/dev) if it exists, else origin/main, else root.
+# If remote_sha is all zeros, this is a new branch — diff from the integration
+# branch (origin/dev) if it exists, else fall back to origin/main, else root.
 if [[ -z "$remote_sha" || "$remote_sha" = "0000000000000000000000000000000000000000" ]]; then
   # New branch: compare against the integration branch if it exists
   if git rev-parse --verify "origin/${INTEGRATION_BRANCH}" >/dev/null 2>&1; then
