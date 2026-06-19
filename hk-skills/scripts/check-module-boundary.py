@@ -79,6 +79,10 @@ def main() -> int:
     ap.add_argument("--modules-md", default="docs/MODULES.md",
                     help="Path to MODULES.md (relative to repo root)")
     ap.add_argument("--verbose", "-v", action="store_true")
+    ap.add_argument("--ci", action="store_true",
+                    help="CI mode: TEAM-LOCK/unowned are warn-only (the PR "
+                         "review is the gate); only real cross-module "
+                         "violations fail.")
     args = ap.parse_args()
 
     module = args.module.strip()
@@ -190,6 +194,10 @@ def main() -> int:
 
     if team_lock_files or unowned:
         print("[check] ⚠️  Review TEAM-LOCK / unowned changes carefully before merging.")
+        # Local hook blocks (forces a PR for TEAM-LOCK). In CI the change is
+        # already in the PR flow — the human review is the gate — so warn-only.
+        if args.ci:
+            return 0
         return 1  # still fail so the user re-evaluates
 
     print(f"[check] ✅ all {len(files)} file(s) belong to module '{module}'")

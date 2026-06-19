@@ -39,4 +39,5 @@ jobs:
           python3 hk-skills/scripts/check-module-boundary.py \
             --module "$MODULE" \
             --base "$BASE_SHA" \
-            --modules-md hk-skills/MODULES.md
+            --modules-md hk-skills/MODULES.md \
+            --ci
