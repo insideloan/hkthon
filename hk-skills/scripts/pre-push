@@ -51,13 +51,15 @@ LOCAL_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 # Get local module (set by setup-project.sh or manually)
 MODULE="$(git config --get "$CONFIG_KEY" || true)"
 
-# Get the remote being pushed to and ref being pushed
-# (passed by git as: <remote> <local_ref> <local_sha> <remote_ref> <remote_sha>)
-remote="$1"
-local_ref="$2"
-local_sha="$3"
-remote_ref="$4"
-remote_sha="$5"
+# Git passes the pre-push hook two positional args: <remote-name> <remote-url>.
+# The refs being pushed arrive on STDIN, one line per ref:
+#   <local_ref> <local_sha> <remote_ref> <remote_sha>
+# Read the first ref line (if any) for the remote sha used to pick a diff base.
+# Defaults keep `set -u` happy when stdin is empty (e.g. manual invocation).
+remote="${1:-}"
+remote_url="${2:-}"
+local_ref="" ; local_sha="" ; remote_ref="" ; remote_sha=""
+if read -r local_ref local_sha remote_ref remote_sha; then :; fi
 
 # Integration branch the team builds on. Feature branches diff against this.
 # (Branch model: feature -> dev -> main. PRs target dev; dev -> main when integrated.)
@@ -66,7 +68,7 @@ INTEGRATION_BRANCH="${HK_INTEGRATION_BRANCH:-dev}"
 # Find the base commit for diff
 # If remote_sha is all zeros, this is a new branch — diff from the integration
 # branch (origin/dev) if it exists, else fall back to origin/main, else root.
-if [[ "$remote_sha" = "0000000000000000000000000000000000000000" ]]; then
+if [[ -z "$remote_sha" || "$remote_sha" = "0000000000000000000000000000000000000000" ]]; then
   # New branch: compare against the integration branch if it exists
   if git rev-parse --verify "origin/${INTEGRATION_BRANCH}" >/dev/null 2>&1; then
     base="$(git merge-base "origin/${INTEGRATION_BRANCH}" HEAD || echo '')"
