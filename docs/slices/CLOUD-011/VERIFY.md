@@ -19,22 +19,33 @@
 ## B. 수용 기준 (Issue #54 §Acceptance) / Acceptance Criteria
 
 - [x] `cd infra && npm install && cdk synth` 0 error
-- [ ] `cdk bootstrap` 완료 (CDKToolkit 스택 생성 확인) — **승인 후 실행 예정** (공유 계정 변경)
-- [ ] `cdk deploy` 성공 + 리소스 생성 확인 — **bootstrap 후, 승인 시 실행**
-- [x] CfnOutput으로 AppSync URL/key, 테이블·버킷명 노출 (synth 템플릿 Outputs 확인)
+- [x] `cdk bootstrap` 완료 (CDKToolkit = CREATE_COMPLETE, 12/12 리소스)
+- [x] `cdk deploy` 성공 (HkthonStack = CREATE_COMPLETE, 27/27 리소스, 66s)
+- [x] CfnOutput으로 AppSync URL/key, 테이블·버킷명 노출 (deploy Outputs 확인)
 - [x] deploy 순서 문서화됨 (`infra/README.md`)
-
-> **참고**: `cdk synth`는 로컬(AWS 호출 없음)이라 완료. `bootstrap`/`deploy`는 계정 758193219211을 실제로 변경하므로 사용자 승인 후 실행. 그 두 항목은 deploy 단계에서 체크.
 
 ---
 
 ## C. Deploy 검증 (bootstrap/deploy 실행 후) / Post-deploy
 
-- [ ] `aws cloudformation describe-stacks --stack-name CDKToolkit` — bootstrap 확인
-- [ ] `aws cloudformation describe-stacks --stack-name HkthonStack` — CREATE_COMPLETE
-- [ ] `aws dynamodb describe-table` — 테이블 + StreamSpecification ENABLED
-- [ ] `aws s3 ls` — 버킷 존재
-- [ ] AppSync introspection 200 (`curl $AppSyncUrl -H "x-api-key: ..."`)
+- [x] `describe-stacks CDKToolkit` → CREATE_COMPLETE
+- [x] `describe-stacks HkthonStack` → CREATE_COMPLETE
+- [x] DynamoDB → `ACTIVE`, Stream `StreamEnabled=true`, `NEW_AND_OLD_IMAGES`
+- [x] S3 버킷 존재 (비어있음)
+- [x] AppSync introspection 200 → `{"data":{"__typename":"Query"}}`
+- [x] Lambda orchestrator → `python3.13`, state `Active`
+
+### 배포 산출물 (CfnOutput) — 후속 issue/`.env.local`(#55)용
+> ⚠️ **AppSync URL/API key는 크레덴셜이라 레포에 커밋 금지.** 실제 값은
+> `cd infra && npx cdk deploy` 출력 또는
+> `aws cloudformation describe-stacks --stack-name HkthonStack --query 'Stacks[0].Outputs'`
+> 에서 확인. `.env.local` 배포는 #55(CLOUD-012)에서 안전 채널로 처리.
+
+- `AppSyncUrl` = `<deploy 출력 참조>` (`...appsync-api.ap-northeast-2.amazonaws.com/graphql`)
+- `AppSyncApiKey` = `<deploy 출력 참조 — 평문 커밋 금지, 30일 만료>`
+- `TableName` = `HkthonStack-CallTable…` (deploy 출력)
+- `AssetsBucketName` = `hkthonstack-assetsbucket…` (deploy 출력)
+- `OrchestratorName` = `HkthonStack-Orchestrator…` (deploy 출력)
 
 ---
 
@@ -54,9 +65,9 @@
 
 ## 결과 / Result
 
-- [ ] **PASS** — synth 기준 통과. bootstrap/deploy는 승인 후 별도 체크.
-- [ ] **FAIL** — 실패 항목 있음
+- [x] **PASS** — synth + bootstrap + deploy 전부 성공, 모든 리소스 실측 검증 완료.
 
 ```
-NOTE: synth 단계 완료. bootstrap/deploy는 공유 AWS 계정 변경이라 사용자 승인 대기 중.
+NOTE: 계정 758193219211 / ap-northeast-2에 실제 배포됨. AppSync API_KEY는 30일 만료.
+AWS creds(인스턴스 역할)에 CloudFormation/IAM/SSM/AppSync/Lambda 권한이 추가되어 deploy 가능했음.
 ```
