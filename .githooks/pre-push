@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# pre-push hook
+# Runs `check-module-boundary.py` to verify the pusher is only modifying
+# their own module's files. Blocks push if boundary is violated.
+#
+# Install via: ./setup-project.sh (sets core.hooksPath = .githooks)
+# Bypass (DON'T): git push --no-verify
+#
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CHECK="${REPO_ROOT}/backend/scripts/check-module-boundary.py"
+CONFIG_KEY="hk.module"
+
+# If the check script doesn't exist (e.g. hk-skills consumed directly), skip.
+if [[ ! -f "$CHECK" ]]; then
+  echo "[pre-push] check-module-boundary.py not found at $CHECK"
+  echo "[pre-push] skipping (run ./setup-project.sh to install)"
+  exit 0
+fi
+
+# Get current branch (push is from current branch)
+LOCAL_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+# Get local module (set by setup-project.sh or manually)
+MODULE="$(git config --get "$CONFIG_KEY" || true)"
+
+# Get the remote being pushed to and ref being pushed
+# (passed by git as: <remote> <local_ref> <local_sha> <remote_ref> <remote_sha>)
+remote="$1"
+local_ref="$2"
+local_sha="$3"
+remote_ref="$4"
+remote_sha="$5"
+
+# Find the base commit for diff
+# If remote_sha is all zeros, this is a new branch — diff from main or root
+if [[ "$remote_sha" = "0000000000000000000000000000000000000000" ]]; then
+  # New branch: compare against main if exists, else empty tree
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    base="$(git merge-base origin/main HEAD || echo '')"
+  else
+    base="$(git rev-list --max-parents=0 HEAD | tail -1)"
+  fi
+else
+  base="$(git merge-base "$remote_sha" "$local_sha" || echo '')"
+fi
+
+# Run the boundary check
+echo
+echo "[pre-push] module boundary check"
+echo "[pre-push]   branch:    $LOCAL_BRANCH"
+echo "[pre-push]   your module: ${MODULE:-<not set, will warn>}"
+echo "[pre-push]   base:      ${base:0:7}"
+echo
+
+if ! python3 "$CHECK" --module "$MODULE" --base "$base"; then
+  echo
+  echo "[pre-push] ❌ PUSH BLOCKED"
+  echo "[pre-push]"
+  echo "[pre-push] You are modifying files outside your module."
+  echo "[pre-push] Either:"
+  echo "[pre-push]   1) Revert the offending file changes (git checkout <file>)"
+  echo "[pre-push]   2) If you really need this change, create a PR instead:"
+  echo "[pre-push]      git push -u origin <branch>"
+  echo "[pre-push]      gh pr create --reviewer <module-owner>"
+  echo "[pre-push]"
+  echo "[pre-push] If you believe this is a false positive, see docs/MODULES.md"
+  exit 1
+fi
+
+echo "[pre-push] ✅ module boundary OK"
+exit 0
