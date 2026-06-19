@@ -59,7 +59,14 @@
 ## E. 범위 메모 / Scope Notes
 
 - Lambda 핸들러 + GraphQL 스키마는 **placeholder** (synth 통과용). 실제 코드/스키마는 #50/#49에서 교체.
-- Amplify Hosting 앱 + Bedrock Guardrail 리소스는 이 issue의 **후속 커밋**에서 추가 (GitHub 연결 토큰/guardrail 정책 필요).
+- **Bedrock Guardrail** 생성됨 (`hkthon-compliance`, status `READY`, 필터 5종, Lambda에 `GUARDRAIL_ID`/`VERSION` 주입). 계정 *모델 액세스*는 #51.
+- **Amplify App** 생성됨 (`hkthon-frontend`, `WEB_COMPUTE`, monorepo `appRoot=frontend`). repo 미연결 — GitHub App 연결/자동배포는 #44.
+
+## F. 2차 deploy 검증 (Guardrail + Amplify) / Post-deploy 2
+
+- [x] `get-guardrail` → status `READY`, 콘텐츠 필터 5종
+- [x] `get-app` → `WEB_COMPUTE`, `AMPLIFY_MONOREPO_APP_ROOT=frontend`, repository `null`(의도)
+- [x] Lambda env `GUARDRAIL_ID=0ozroto7vu1n`, `GUARDRAIL_VERSION=DRAFT` 주입 확인
 
 ---
 

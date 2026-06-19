@@ -39,5 +39,6 @@ After `cdk deploy`, these are printed and used by follow-up issues + frontend `.
 ## Scope notes
 
 - **Lambda handler + GraphQL schema are placeholders** so `cdk synth` passes before AGENT/BACKEND code exists. Replaced in #50 / #49.
-- **Amplify Hosting app + Bedrock Guardrail resource** are added in a follow-up commit on this issue (they need a GitHub connection token / guardrail policy that aren't available at scaffold time). Tracked in the stack's closing comment.
+- **Amplify Hosting app** is created (monorepo `appRoot=frontend`, `WEB_COMPUTE`) but **not connected to the GitHub repo** — branch connection + auto-deploy are wired in #44 (CLOUD-003) via the GitHub App so no OAuth token is baked into IaC.
+- **Bedrock Guardrail** resource is created with a baseline content policy. Account-level *model access* is requested in #51 (CLOUD-009), which also verifies blocking.
 - `cdk.json` and `package.json` are **TEAM-LOCK** files — changes go through PR with team approval.

@@ -7,6 +7,8 @@ import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as amplify from 'aws-cdk-lib/aws-amplify';
 import * as path from 'path';
 
 /**
@@ -135,6 +137,64 @@ export class HkthonStack extends cdk.Stack {
     api.addDynamoDbDataSource('TableDataSource', table);
     api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
 
+    // ── Bedrock Guardrail ───────────────────────────────────────────────
+    // Compliance loop for generated drafts (STACK.md §5). Model *account*
+    // access is requested separately in #51 — this only creates the
+    // guardrail resource + a baseline content policy. #51 verifies blocking.
+    const guardrail = new bedrock.CfnGuardrail(this, 'ComplianceGuardrail', {
+      name: 'hkthon-compliance',
+      description: 'Booth demo compliance guardrail for orchestrator drafts.',
+      blockedInputMessaging: '입력을 처리할 수 없습니다.',
+      blockedOutputsMessaging: '컴플라이언스 정책에 따라 응답을 제공할 수 없습니다.',
+      contentPolicyConfig: {
+        filtersConfig: [
+          { type: 'HATE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'INSULTS', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'SEXUAL', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'VIOLENCE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'MISCONDUCT', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+        ],
+      },
+    });
+
+    // Let the orchestrator apply this specific guardrail.
+    orchestrator.addEnvironment('GUARDRAIL_ID', guardrail.attrGuardrailId);
+    orchestrator.addEnvironment('GUARDRAIL_VERSION', guardrail.attrVersion);
+
+    // ── Amplify Hosting (monorepo: frontend/) ───────────────────────────
+    // App + build spec + env slot. Repo connection (GitHub App) + branch
+    // auto-deploy are wired in #44 (CLOUD-003) via console so no OAuth token
+    // is baked into IaC. appRoot=frontend targets this monorepo subdir.
+    const amplifyApp = new amplify.CfnApp(this, 'FrontendApp', {
+      name: 'hkthon-frontend',
+      platform: 'WEB_COMPUTE', // Next.js 15 SSR/ISR
+      environmentVariables: [
+        { name: 'NEXT_PUBLIC_APPSYNC_URL', value: api.graphqlUrl },
+        { name: 'AMPLIFY_MONOREPO_APP_ROOT', value: 'frontend' },
+      ],
+      buildSpec: [
+        'version: 1',
+        'applications:',
+        '  - appRoot: frontend',
+        '    frontend:',
+        '      phases:',
+        '        preBuild:',
+        '          commands:',
+        '            - npm i -g pnpm',
+        '            - pnpm install',
+        '        build:',
+        '          commands:',
+        '            - pnpm run build',
+        '      artifacts:',
+        '        baseDirectory: .next',
+        '        files:',
+        '          - "**/*"',
+        '      cache:',
+        '        paths:',
+        '          - node_modules/**/*',
+      ].join('\n'),
+    });
+
     // ── CloudFormation outputs ──────────────────────────────────────────
     // Consumed by follow-up issues + frontend .env.local distribution (#55).
     new cdk.CfnOutput(this, 'AppSyncUrl', { value: api.graphqlUrl });
@@ -142,10 +202,7 @@ export class HkthonStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TableName', { value: table.tableName });
     new cdk.CfnOutput(this, 'AssetsBucketName', { value: bucket.bucketName });
     new cdk.CfnOutput(this, 'OrchestratorName', { value: orchestrator.functionName });
-
-    // NOTE: Amplify Hosting app + Bedrock Guardrail resource are added in a
-    // follow-up commit on this issue once the frontend repo connection and
-    // guardrail policy are confirmed (kept out of the first synth to avoid
-    // requiring a GitHub token / guardrail config at scaffold time).
+    new cdk.CfnOutput(this, 'GuardrailId', { value: guardrail.attrGuardrailId });
+    new cdk.CfnOutput(this, 'AmplifyAppId', { value: amplifyApp.attrAppId });
   }
 }
