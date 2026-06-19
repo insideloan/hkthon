@@ -3,26 +3,53 @@
 # Runs `check-module-boundary.py` to verify the pusher is only modifying
 # their own module's files. Blocks push if boundary is violated.
 #
-# Install via: ./setup-project.sh (sets core.hooksPath = .githooks)
+# Install via: ./initialize.sh (sets core.hooksPath = .githooks)
 # Bypass (DON'T): git push --no-verify
 #
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-CHECK="${REPO_ROOT}/backend/scripts/check-module-boundary.py"
 CONFIG_KEY="hk.module"
 
-# If the check script doesn't exist (e.g. hk-skills consumed directly), skip.
-if [[ ! -f "$CHECK" ]]; then
-  echo "[pre-push] check-module-boundary.py not found at $CHECK"
-  echo "[pre-push] skipping (run ./setup-project.sh to install)"
+# Locate check-module-boundary.py. initialize.sh records its path in git config
+# (hk.checkscript); otherwise we search the known locations: the in-repo
+# hk-skills tree (current layout), the .hk-skills worktree, the legacy
+# backend/scripts bootstrap, or repo scripts.
+CHECK="$(git config --get hk.checkscript || true)"
+if [[ -z "$CHECK" || ! -f "$CHECK" ]]; then
+  for cand in \
+    "${REPO_ROOT}/hk-skills/scripts/check-module-boundary.py" \
+    "${REPO_ROOT}/.hk-skills/hk-skills/scripts/check-module-boundary.py" \
+    "${REPO_ROOT}/.hk-skills/scripts/check-module-boundary.py" \
+    "${REPO_ROOT}/backend/scripts/check-module-boundary.py" \
+    "${REPO_ROOT}/scripts/check-module-boundary.py"; do
+    if [[ -f "$cand" ]]; then CHECK="$cand"; break; fi
+  done
+fi
+
+# If the check script doesn't exist, skip (don't block — fail open on tooling).
+if [[ -z "$CHECK" || ! -f "$CHECK" ]]; then
+  echo "[pre-push] check-module-boundary.py not found"
+  echo "[pre-push] skipping (run ./initialize.sh to set it up)"
   exit 0
+fi
+
+# Locate MODULES.md (the SSOT). Prefer git config, then the worktree next to the
+# check script, then the project's docs/.
+MODULES_MD="$(git config --get hk.modulesmd || true)"
+if [[ -z "$MODULES_MD" || ! -f "$MODULES_MD" ]]; then
+  CHECK_DIR="$(cd "$(dirname "$CHECK")/.." && pwd)"
+  for cand in \
+    "${CHECK_DIR}/MODULES.md" \
+    "${REPO_ROOT}/docs/MODULES.md"; do
+    if [[ -f "$cand" ]]; then MODULES_MD="$cand"; break; fi
+  done
 fi
 
 # Get current branch (push is from current branch)
 LOCAL_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
-# Get local module (set by setup-project.sh or manually)
+# Get local module (set by initialize.sh or manually)
 MODULE="$(git config --get "$CONFIG_KEY" || true)"
 
 # Get the remote being pushed to and ref being pushed
@@ -33,11 +60,18 @@ local_sha="$3"
 remote_ref="$4"
 remote_sha="$5"
 
+# Integration branch the team builds on. Feature branches diff against this.
+# (Branch model: feature -> dev -> main. PRs target dev; dev -> main when integrated.)
+INTEGRATION_BRANCH="${HK_INTEGRATION_BRANCH:-dev}"
+
 # Find the base commit for diff
-# If remote_sha is all zeros, this is a new branch — diff from main or root
+# If remote_sha is all zeros, this is a new branch — diff from the integration
+# branch (origin/dev) if it exists, else fall back to origin/main, else root.
 if [[ "$remote_sha" = "0000000000000000000000000000000000000000" ]]; then
-  # New branch: compare against main if exists, else empty tree
-  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+  # New branch: compare against the integration branch if it exists
+  if git rev-parse --verify "origin/${INTEGRATION_BRANCH}" >/dev/null 2>&1; then
+    base="$(git merge-base "origin/${INTEGRATION_BRANCH}" HEAD || echo '')"
+  elif git rev-parse --verify origin/main >/dev/null 2>&1; then
     base="$(git merge-base origin/main HEAD || echo '')"
   else
     base="$(git rev-list --max-parents=0 HEAD | tail -1)"
@@ -54,7 +88,10 @@ echo "[pre-push]   your module: ${MODULE:-<not set, will warn>}"
 echo "[pre-push]   base:      ${base:0:7}"
 echo
 
-if ! python3 "$CHECK" --module "$MODULE" --base "$base"; then
+CHECK_ARGS=(--module "$MODULE" --base "$base")
+[[ -n "${MODULES_MD:-}" ]] && CHECK_ARGS+=(--modules-md "$MODULES_MD")
+
+if ! python3 "$CHECK" "${CHECK_ARGS[@]}"; then
   echo
   echo "[pre-push] ❌ PUSH BLOCKED"
   echo "[pre-push]"

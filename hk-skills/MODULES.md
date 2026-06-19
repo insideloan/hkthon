@@ -104,6 +104,7 @@ modules:
       - frontend/next.config.mjs
       - .github/workflows/*
       - docs/cloud/*
+      - hk-skills/scripts/*
 
   # Shared: anyone can write. Wrappers, OWNER.md, slice docs, tests, etc.
   - code: SHARED
@@ -136,6 +137,9 @@ modules:
       - docs/MODULES.md
       - docs/WORKFLOW.md
       - docs/reference/*
+      - hk-skills/MODULES.md
+      - hk-skills/WORKFLOW.md
+      - hk-skills/reference/*
 ```
 <!-- @hk modules-yaml:end -->
 
@@ -188,15 +192,15 @@ modules:
 
 | Path | 규칙 |
 |---|---|
-| `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*` | AWS IaC·배포·CI. CLOUD(일조) 소유 |
+| `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*`, `hk-skills/scripts/*` | AWS IaC·배포·CI·운영 도구(boundary 훅/드리프트). CLOUD(일조) 소유 |
 | `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
 | `lambda/orchestrator/requirements.txt` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
 | `infra/package.json`, `infra/cdk.json` | CDK 의존성·설정. PR → CLOUD 리뷰 |
 | `frontend/tailwind.config.ts`, `frontend/next.config.mjs` | 설정 변경 시 PR → CLOUD 리뷰 |
-| `docs/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | 합의 후 PR |
+| `docs/reference/*` · `hk-skills/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | 합의 후 PR |
 | `OWNER.md` | 모듈 owner 누구든 push 가능 (status 갱신) |
-| `docs/MODULES.md` (이 파일) | 합의 후 PR (CLOUD가 머지 관장) |
-| `docs/WORKFLOW.md` | 합의 후 PR |
+| `docs/MODULES.md` · `hk-skills/MODULES.md` (이 파일) | 합의 후 PR (CLOUD가 머지 관장) |
+| `docs/WORKFLOW.md` · `hk-skills/WORKFLOW.md` | 합의 후 PR |
 
 > **TEAM LOCK 파일은** 누가 작성해도 PR. 본인이 push 못 함 (maintainer도 PR 권장).
 > **렉시콘 주의**: 이탈위험도 키워드 사전 SSOT는 `docs/reference/CHURN-RISK-LEXICON.md`(prose) + `docs/reference/churn_risk_lexicon.json`(code). `data/lexicon/`의 S3 배포본은 SSOT를 따라가는 복사본 — 사전 변경은 reference 두 파일 동시 수정 → PR.

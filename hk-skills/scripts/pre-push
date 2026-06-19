@@ -17,6 +17,7 @@ CONFIG_KEY="hk.module"
 CHECK="$(git config --get hk.checkscript || true)"
 if [[ -z "$CHECK" || ! -f "$CHECK" ]]; then
   for cand in \
+    "${REPO_ROOT}/hk-skills/scripts/check-module-boundary.py" \
     "${REPO_ROOT}/.hk-skills/hk-skills/scripts/check-module-boundary.py" \
     "${REPO_ROOT}/.hk-skills/scripts/check-module-boundary.py" \
     "${REPO_ROOT}/backend/scripts/check-module-boundary.py" \
