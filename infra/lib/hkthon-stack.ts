@@ -9,6 +9,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as amplify from 'aws-cdk-lib/aws-amplify';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as path from 'path';
 
 /**
@@ -96,14 +97,28 @@ export class HkthonStack extends cdk.Stack {
 
     // Bedrock (Converse) + Guardrails apply + Transcribe streaming.
     // Scoped to actions; #52 audits/tightens resources further.
+    // Bedrock: scope InvokeModel to foundation models + the cross-region
+    // inference profile (the `global.anthropic.*` model id resolves via an
+    // inference profile, which in turn invokes region foundation models).
+    // ApplyGuardrail is scoped to our guardrail in the next statement.
     orchestrator.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'bedrock:InvokeModel',
         'bedrock:InvokeModelWithResponseStream',
-        'bedrock:ApplyGuardrail',
       ],
-      resources: ['*'],
+      resources: [
+        `arn:aws:bedrock:*::foundation-model/*`,
+        `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+      ],
     }));
+    orchestrator.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:ApplyGuardrail'],
+      resources: [
+        `arn:aws:bedrock:${this.region}:${this.account}:guardrail/*`,
+      ],
+    }));
+    // Transcribe streaming does NOT support resource-level permissions
+    // (AWS constraint) — `*` is required here and is intentional, not loose.
     orchestrator.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'transcribe:StartStreamTranscription',
@@ -205,6 +220,46 @@ export class HkthonStack extends cdk.Stack {
         '          - node_modules/**/*',
       ].join('\n'),
     });
+
+    // ── CloudWatch alarms + dashboard (CLOUD-010 / #52) ─────────────────
+    // Baseline observability: alarm on orchestrator errors and AppSync 5xx.
+    const lambdaErrors = new cloudwatch.Alarm(this, 'OrchestratorErrorsAlarm', {
+      alarmName: 'hkthon-orchestrator-errors',
+      metric: orchestrator.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const appsync5xx = new cloudwatch.Alarm(this, 'AppSync5xxAlarm', {
+      alarmName: 'hkthon-appsync-5xx',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/AppSync',
+        metricName: '5XXError',
+        dimensionsMap: { GraphQLAPIId: api.apiId },
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const dashboard = new cloudwatch.Dashboard(this, 'Dashboard', {
+      dashboardName: 'hkthon',
+    });
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Orchestrator invocations / errors',
+        left: [orchestrator.metricInvocations(), orchestrator.metricErrors()],
+      }),
+      new cloudwatch.AlarmStatusWidget({
+        title: 'Alarms',
+        alarms: [lambdaErrors, appsync5xx],
+      }),
+    );
 
     // ── CloudFormation outputs ──────────────────────────────────────────
     // Consumed by follow-up issues + frontend .env.local distribution (#55).
