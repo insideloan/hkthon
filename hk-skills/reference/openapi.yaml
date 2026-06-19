@@ -1,30 +1,25 @@
 # openapi.yaml — REST subset (machine-readable)
 #
-# SCOPE: REST endpoints only. WebSocket (/ws/agent, /ws/audio) and the
-# audio/STT/TTS pipeline are NOT expressible in OpenAPI — see reference/API.md §2.
+# ⚠️  DEPRECATED — 이 REST OpenAPI 스펙은 폐기되었습니다.
+#     현재 API 계약은 AWS AppSync GraphQL이며 SSOT는 graphql/schema.graphql 입니다.
+#     (구 FastAPI REST/WebSocket 아키텍처 잔재 — 참고용으로만 보존.)
 #
-# SOURCES OF TRUTH (in order):
-#   1. reference/PRODUCT-BRIEF.md  — product (SSOT)
-#   2. reference/API.md            — design SSOT (REST + WS + screens)
-#   3. THIS FILE                   — REST subset, for codegen / contract-tests / mocks
-#   4. GET /openapi.json (runtime) — FastAPI auto-generates from Pydantic models;
-#                                    this is the RUNTIME truth for REST. Keep this
-#                                    file in sync with API.md §1; verify against
-#                                    /openapi.json after implementing (hk-verify).
+# ORIGINAL SCOPE (historical): REST endpoints only. WebSocket (/ws/agent, /ws/audio) and
+# the audio/STT/TTS pipeline are NOT expressible in OpenAPI — see reference/API.md §2.
 #
-# Change rule: REST schema is defined by BACKEND. Edit API.md §1 AND this file together,
-# then open a BACKEND PR (docs/WORKFLOW.md §3.1).
+# SUPERSEDED BY: graphql/schema.graphql (AppSync GraphQL, Amplify + Lambda + DynamoDB)
 
 openapi: 3.1.0
 info:
-  title: AI Outbound 금융상품 Sales Call Bot — REST API
+  title: AI Outbound 금융상품 Sales Call Bot — REST API (DEPRECATED — replaced by graphql/schema.graphql)
   version: "1.0.0"
   description: >
-    콜센터 관리자 대시보드 + AI콜봇 아웃바운드 데모의 REST 계약.
-    WebSocket 메시지는 reference/API.md §2 참고. 데모 한정, 인증 없음 (localhost only).
+    ⚠️ 이 REST OpenAPI 스펙은 폐기되었습니다. 현재 API 계약은 AWS AppSync GraphQL이며
+    SSOT는 `graphql/schema.graphql`입니다. (구 FastAPI REST/WebSocket 아키텍처 잔재.)
+    아래 경로/스키마는 참고용으로만 보존되며 더 이상 유지보수되지 않습니다.
 servers:
   - url: http://localhost:8000
-    description: Local demo backend
+    description: "(DEPRECATED) Local demo backend — no longer in use"
 
 tags:
   - name: queue

@@ -53,7 +53,7 @@
 <!-- optional. PR로 처리 -->
 
 - none, or:
-- `backend/app/api/calls.py` — BACKEND PR 필요, reason: ...
+- `graphql/schema.graphql` — BACKEND PR 필요, reason: ... (또는 `lambda/orchestrator/resolvers/calls.py`)
 
 ---
 

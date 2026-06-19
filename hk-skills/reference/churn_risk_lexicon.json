@@ -1,7 +1,7 @@
 {
-  "$comment": "Machine-readable companion to CHURN-RISK-LEXICON.md (the SSOT prose). Loaded by backend/app/agent/churn_risk.py. Keep both in sync via CALL-owner PR. Matching is stem-based partial match on normalized ko-KR STT text of customer utterances only (speaker=customer). weight>0 raises churn_risk (cons), weight<0 lowers it (pro).",
+  "$comment": "Machine-readable companion to CHURN-RISK-LEXICON.md (the SSOT prose). Loaded by lambda/orchestrator/agent/churn_risk.py (from data/lexicon/churn_risk_lexicon.json on S3). Keep both in sync via AGENT-owner PR (reference SSOT is docs/reference/, S3 copy follows). Matching is stem-based partial match on normalized ko-KR STT text of customer utterances only (speaker=customer). weight>0 raises churn_risk (cons), weight<0 lowers it (pro).",
   "version": "1.0.0",
-  "owner_module": "CALL",
+  "owner_module": "AGENT",
   "applies_to_speaker": "customer",
   "model": {
     "baseline": 50,
