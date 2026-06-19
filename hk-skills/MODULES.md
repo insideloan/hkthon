@@ -1,7 +1,8 @@
 # MODULES — 모듈 경계 정의 / Module Boundaries
 
-> **5 modules, 5 people, 1 hub.** 이 문서가 파일 ownership의 SSOT입니다.
+> **5 modules, 5 people (역할/계층 기반).** 이 문서가 파일 ownership의 SSOT입니다.
 > 24시간 동안 본 문서를 기준으로 충돌을 판단합니다.
+> AWS Cloud 환경 전환에 맞춰 기능 기반(QUEUE/PHONE/CALL/SUMMARY/ORCH)에서 **역할/계층 기반**으로 재편.
 
 > **⚠️ SSOT 경고**: 본 문서 안의 ` ```yaml` 블록 (`<!-- @hk modules-yaml:start -->` ~ `<!-- @hk modules-yaml:end -->`)이 **자동 파싱의 SSOT**입니다. 사람용 표는 그 yaml을 사람이 읽기 좋게 표현한 것. **Drift 발견 시** `./install.sh --verify-modules` 실행.
 
@@ -11,13 +12,14 @@
 
 | 코드 | 이름 | Owner (1명) | 한 줄 정의 |
 |---|---|---|---|
-| **QUEUE** | Outbound Call Queue | Person A | 상담원이 보는 고객 queue + 색상 변화 |
-| **PHONE** | Customer iPhone UI | Person B | 고객이 받는 화면 + 발화 캡처 |
-| **CALL** | Agent Call View | Person C | 통화 중 화면: 그래프/트랜스크립트/페르소나/승인 |
-| **SUMMARY** | Handoff Summary | Person D | 통화 종료 후 AI 인계 요약 생성/표시 |
-| **ORCH** | Orchestrator Hub | Person E | LangGraph agent, LLM router, STT/TTS bridge, WS broadcast |
+| **CLOUD** | Cloud · CI · PR 관리 | 일조 | AWS 배포/인프라, CI 파이프라인, 의존성·설정, PR 게이트키핑 |
+| **DATA** | Data | 수민 | 데이터 모델, 시드, 시나리오 데이터 |
+| **AGENT** | Agent | 은경 | LangGraph agent, LLM router, STT/TTS bridge, 이탈위험도(churn) |
+| **BACKEND** | Backend | 지원 | REST API, WebSocket, 앱 코어(main/config/db) |
+| **FRONTEND** | Frontend | 주실 | Next.js 화면 전체(관리자/통화/요약 UI) |
 
-> **1인 1모듈 (5명)**: 4명 시절엔 CALL+SUMMARY를 한 owner가 맡았으나, 5명이 되면서 CALL(Person C)과 SUMMARY(Person D)를 분리. 통화 화면 → 인계 요약 화면 UI 일관성은 두 owner가 협의로 유지.
+> **역할/계층 기반 재편**: AWS Cloud 환경으로 개발 환경이 바뀌며 기능 모듈(QUEUE/PHONE/CALL/SUMMARY/ORCH)을 폐지하고 계층 역할로 분리. 고객 iPhone UI는 제거(단일 상담원 화면 + 노트북 마이크/스피커 음성 채널)되어 별도 PHONE 모듈 없음.
+> **1인 1모듈 (5명)**: CLOUD(일조)는 TEAM-LOCK 파일·PR을 관장하는 허브 역할도 겸한다.
 
 ---
 
@@ -49,78 +51,60 @@
 #   "TEAM-LOCK"  = requires all-team approval (deps, configs, MODULES.md itself)
 
 modules:
-  - code: QUEUE
-    name: Outbound Call Queue
-    owner_person: Person A
+  - code: DATA
+    name: Data (models · seed · scenarios)
+    owner_person: 수민
     files:
-      - backend/app/models/customer.py
-      - backend/app/api/queue.py
-      - backend/app/ws/agent_ws.py
-      - frontend/src/app/page.tsx
-      - frontend/src/components/queue/*
-      - frontend/src/stores/queueStore.ts
+      - backend/app/models/*
+      - backend/app/seed.py
+      - backend/app/scenarios/*
 
-  - code: PHONE
-    name: Customer iPhone UI
-    owner_person: Person B
+  - code: AGENT
+    name: Agent (LangGraph · LLM · STT/TTS · churn risk)
+    owner_person: 은경
     files:
-      - backend/app/ws/customer_ws.py
-      - backend/app/models/transcript.py
-      - frontend/src/app/phone/page.tsx
-      - frontend/src/components/phone/*
-      - frontend/src/lib/mic.ts
+      - backend/app/agent/*
+      # churn_risk_lexicon.json (이탈위험도 키워드 사전, reference/에서 복사) 도 app/agent/* 에 포함
+      - backend/app/llm/*
+      - backend/app/stt/*
+      - backend/app/tts/*
 
-  - code: CALL
-    name: Agent Call View
-    owner_person: Person C
-    files:
-      - backend/app/models/call.py
-      - backend/app/models/product.py
-      - backend/app/api/calls.py
-      - frontend/src/app/call/[id]/page.tsx
-      - frontend/src/components/call/CallGraph.tsx
-      - frontend/src/components/call/TranscriptPanel.tsx
-      - frontend/src/components/call/GuidancePanel.tsx
-      - frontend/src/components/call/PersonaCard.tsx
-      - frontend/src/components/call/ProductApproval.tsx
-      - frontend/src/stores/callStore.ts
-      - frontend/src/types/call.ts
-      - frontend/src/types/customer.ts
-      - frontend/src/types/transcript.ts
-
-  - code: SUMMARY
-    name: Handoff Summary
-    owner_person: Person D
-    files:
-      - backend/app/models/summary.py
-      - backend/app/api/summaries.py
-      - frontend/src/components/call/SummaryPanel.tsx
-      - frontend/src/types/summary.ts
-
-  - code: ORCH
-    name: Orchestrator Hub
-    owner_person: Person E
+  - code: BACKEND
+    name: Backend (API · WS · app core)
+    owner_person: 지원
     files:
       - backend/app/main.py
       - backend/app/config.py
       - backend/app/db.py
-      - backend/app/models/scenario_run.py
-      - backend/app/scenarios/*
-      - backend/app/agent/*
-      # churn_risk_lexicon.json (이탈위험도 키워드 사전, reference/에서 복사) 도 app/agent/* 에 포함
-      - backend/app/llm/router.py
-      - backend/app/llm/bedrock.py
-      - backend/app/llm/openai_compat.py
-      - backend/app/llm/prompts/*
-      - backend/app/stt/*
-      - backend/app/tts/*
-      - backend/app/seed.py
+      - backend/app/api/*
+      - backend/app/ws/*
+
+  - code: FRONTEND
+    name: Frontend (Next.js 전체)
+    owner_person: 주실
+    files:
+      - frontend/src/app/*
+      - frontend/src/components/queue/*
+      - frontend/src/components/call/*
+      - frontend/src/stores/*
+      - frontend/src/types/*
+      - frontend/src/lib/api.ts
+      - frontend/src/lib/ws.ts
+      - frontend/src/lib/mic.ts
+
+  - code: CLOUD
+    name: Cloud (배포 · CI · 의존성/설정 · PR 관리)
+    owner_person: 일조
+    files:
       - backend/pyproject.toml
       - backend/uv.lock
       - backend/.env.example
-      - frontend/src/lib/api.ts
-      - frontend/src/lib/ws.ts
-      - frontend/src/types/ws.ts
+      - frontend/package.json
+      - frontend/pnpm-lock.yaml
+      - frontend/tailwind.config.ts
+      - frontend/next.config.mjs
+      - infra/*
+      - .github/workflows/*
 
   # Shared: anyone can write. Wrappers, OWNER.md, slice docs, tests, etc.
   - code: SHARED
@@ -140,14 +124,11 @@ modules:
       - README.md
 
   # TEAM-LOCK: requires all-team approval. The pre-push hook blocks
-  # any individual push that touches these.
+  # any individual push that touches these. CLOUD(일조)가 PR을 관장.
   - code: TEAM-LOCK
     name: Team Lock (all-team approval required)
     owner_person: all
     files:
-      - frontend/tailwind.config.ts
-      - frontend/package.json
-      - frontend/pnpm-lock.yaml
       - docs/MODULES.md
       - docs/WORKFLOW.md
       - docs/reference/*
@@ -161,75 +142,57 @@ modules:
 
 ### 2.1 Backend (`backend/`)
 
-| Path | QUEUE | PHONE | CALL | SUMMARY | ORCH |
+> 컬럼: DATA(수민) · AGENT(은경) · BACKEND(지원) · FRONTEND(주실) · CLOUD(일조)
+
+| Path | DATA | AGENT | BACKEND | FRONTEND | CLOUD |
 |---|:---:|:---:|:---:|:---:|:---:|
-| `backend/app/main.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/config.py` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
-| `backend/app/db.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/models/customer.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
-| `backend/app/models/call.py` | ✅ | 🔒 | ✅ | ✅ | 🔒 |
-| `backend/app/models/transcript.py` | 🔒 | ✅ | ✅ | 🔒 | 🔒 |
-| `backend/app/models/summary.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
-| `backend/app/models/product.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
-| `backend/app/models/scenario_run.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/api/queue.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
-| `backend/app/api/calls.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
-| `backend/app/api/summaries.py` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
-| `backend/app/ws/agent_ws.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
-| `backend/app/ws/customer_ws.py` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
-| `backend/app/scenarios/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/agent/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/llm/router.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/llm/bedrock.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/llm/openai_compat.py` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/llm/prompts/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/stt/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/tts/*` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `backend/app/seed.py` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
-| `backend/pyproject.toml` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ (의존성 추가만 PR) |
+| `backend/app/main.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
+| `backend/app/config.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
+| `backend/app/db.py` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
+| `backend/app/models/*` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
+| `backend/app/seed.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
+| `backend/app/scenarios/*` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
+| `backend/app/agent/*` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
+| `backend/app/llm/*` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
+| `backend/app/stt/*` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
+| `backend/app/tts/*` | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
+| `backend/app/api/*` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
+| `backend/app/ws/*` | 🔒 | 🔒 | ✅ | 🔒 | 🔒 |
+| `backend/pyproject.toml` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ (의존성 PR) |
 | `backend/uv.lock` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
 | `backend/.env.example` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
 | `backend/app/tests/*` | ✅ | ✅ | ✅ | ✅ | ✅ (각자 자기 모듈 테스트) |
 
 ### 2.2 Frontend (`frontend/src/`)
 
-| Path | QUEUE | PHONE | CALL | SUMMARY | ORCH |
+| Path | DATA | AGENT | BACKEND | FRONTEND | CLOUD |
 |---|:---:|:---:|:---:|:---:|:---:|
-| `frontend/src/app/page.tsx` | ✅ | 🔒 | 🔒 | 🔒 | 🚫 |
-| `frontend/src/app/call/[id]/page.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/app/phone/page.tsx` | 🔒 | ✅ | 🔒 | 🔒 | 🚫 |
-| `frontend/src/components/queue/*` | ✅ | 🔒 | 🔒 | 🔒 | 🚫 |
-| `frontend/src/components/phone/*` | 🔒 | ✅ | 🔒 | 🔒 | 🚫 |
-| `frontend/src/components/call/CallGraph.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/TranscriptPanel.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/GuidancePanel.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/PersonaCard.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/ProductApproval.tsx` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/components/call/SummaryPanel.tsx` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
-| `frontend/src/components/ui/*` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
-| `frontend/src/lib/api.ts` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
-| `frontend/src/lib/ws.ts` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ |
-| `frontend/src/lib/mic.ts` | 🔒 | ✅ | 🔒 | 🔒 | 🚫 |
-| `frontend/src/stores/queueStore.ts` | ✅ | 🔒 | 🔒 | 🔒 | 🚫 |
-| `frontend/src/stores/callStore.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/types/call.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/types/customer.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/types/transcript.ts` | 🔒 | 🔒 | ✅ | 🔒 | 🚫 |
-| `frontend/src/types/summary.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🚫 |
-| `frontend/src/types/ws.ts` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ |
-| `frontend/tailwind.config.ts` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
-| `frontend/package.json` | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `frontend/src/app/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/components/queue/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/components/call/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/components/ui/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/lib/api.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/lib/ws.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/lib/mic.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/stores/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/src/types/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
+| `frontend/tailwind.config.ts` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ |
+| `frontend/package.json` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ (의존성 PR) |
+| `frontend/next.config.mjs` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ |
 
-### 2.3 Repo-level (TEAM LOCK)
+> wire-format(WS 메시지·REST 스키마)은 BACKEND가 정의하되 DATA(모델)·FRONTEND(타입)와 합의 필요 — §5 참고.
+
+### 2.3 Cloud / Repo-level (CLOUD 관장)
 
 | Path | 규칙 |
 |---|---|
-| `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR (WORKFLOW.md §4) |
-| `backend/pyproject.toml`, `backend/uv.lock` | 새 의존성 추가 시 PR |
-| `frontend/tailwind.config.ts` | wrapper 교체 / queue 색상 변경 시 PR |
+| `infra/*`, `.github/workflows/*` | AWS 배포·CI. CLOUD(일조) 소유 |
+| `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
+| `backend/pyproject.toml`, `backend/uv.lock` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
+| `frontend/tailwind.config.ts`, `frontend/next.config.mjs` | 설정 변경 시 PR → CLOUD 리뷰 |
 | `docs/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | 합의 후 PR |
 | `OWNER.md` | 모듈 owner 누구든 push 가능 (status 갱신) |
-| `docs/MODULES.md` (이 파일) | 합의 후 PR (오프라인 합의 → 누군가 PR) |
+| `docs/MODULES.md` (이 파일) | 합의 후 PR (CLOUD가 머지 관장) |
 | `docs/WORKFLOW.md` | 합의 후 PR |
 
 > **TEAM LOCK 파일은** 누가 작성해도 PR. 본인이 push 못 함 (maintainer도 PR 권장).
@@ -239,14 +202,16 @@ modules:
 ## 3. 모듈 ↔ 사람 매핑 / Module ↔ Person
 
 ```
-Person A  ──► QUEUE  (frontend + backend of queue)
-Person B  ──► PHONE  (frontend + ws of customer)
-Person C  ──► CALL   (agent call view)
-Person D  ──► SUMMARY (handoff summary)
-Person E  ──► ORCH   (orchestrator + state machine + integrations)
+일조  ──► CLOUD     (AWS 배포 · CI · 의존성/설정 · PR 관리)
+수민  ──► DATA      (models · seed · scenarios)
+은경  ──► AGENT     (LangGraph · LLM · STT/TTS · churn risk)
+지원  ──► BACKEND   (REST API · WebSocket · app core)
+주실  ──► FRONTEND  (Next.js 화면 전체)
 ```
 
-**1인 1모듈**. 본인이 owner인 모듈 안에서는 자유 push. 다른 모듈은 PR.
+> AWS Cloud 환경 전환으로 기능 기반 모듈을 폐지하고 역할/계층 기반으로 재편. 고객 iPhone UI 제거에 따라 오디오/STT 입력은 BACKEND(`/ws/audio`) + AGENT(STT)가 직접 수용.
+
+**1인 1모듈**. 본인이 owner인 모듈 안에서는 자유 push. 다른 모듈은 PR. CLOUD(일조)는 TEAM-LOCK·PR 머지를 관장.
 
 ---
 
@@ -255,9 +220,9 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 ### 4.1 PR을 만들어야 하는 경우
 
 1. 다른 사람 모듈의 파일을 변경해야 할 때
-2. TEAM LOCK 파일을 건드릴 때
-3. wire-format (WS 메시지 schema, REST API schema)을 바꿀 때 (schema는 ORCH가 관리하므로 ORCH에 PR)
-4. 새 dependency를 추가할 때
+2. TEAM LOCK 파일을 건드릴 때 (CLOUD가 머지 관장)
+3. wire-format (WS 메시지 schema, REST API schema)을 바꿀 때 (schema는 BACKEND가 관리 → BACKEND에 PR, DATA/FRONTEND 합의)
+4. 새 dependency를 추가할 때 (CLOUD 리뷰)
 
 ### 4.2 PR 타이틀 규약
 
@@ -266,10 +231,10 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 ```
 
 예:
-- `[ORCH] add state machine for S1 happy path`
-- `[QUEUE] color queue row on S1 signup event`
-- `[ORCH] add /api/calls/approve endpoint (used by CALL)`
-- `[TEAM-LOCK] add @tanstack/react-query to package.json`
+- `[AGENT] add state machine for S1 happy path`
+- `[FRONTEND] color queue row on S1 signup event`
+- `[BACKEND] add /api/calls/approve endpoint (used by FRONTEND)`
+- `[CLOUD] add @tanstack/react-query to package.json`
 
 ### 4.3 PR 본문
 
@@ -295,7 +260,7 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 | 본인이 모듈 A 작업 중, 모듈 B에서 PR이 올라옴 | PR을 보고 본인 모듈에 영향 있으면 일시정지, 그 PR을 먼저 머지 |
 | 본인이 모듈 A push했는데 main에 모듈 B의 새 commit | 본인이 직접 rebase → push, 충돌 시 모듈 B owner에게 음성으로 알림 |
 | 모듈 B가 본인이 push 중인 파일을 변경하는 PR | 음성으로 모듈 B owner에게 알림, **둘 중 한 명이 일시정지** |
-| schema 변경 PR (ORCH) | ORCH PR이 머지된 **후에** 다른 모듈이 자기 코드를 update + push |
+| schema 변경 PR (BACKEND) | BACKEND PR이 머지된 **후에** DATA/FRONTEND가 자기 코드를 update + push |
 
 **상세 머지 프로토콜**: `WORKFLOW.md` §3 참고.
 
@@ -303,57 +268,56 @@ Person E  ──► ORCH   (orchestrator + state machine + integrations)
 
 ## 5. 모듈 간 인터페이스 / Inter-Module Interfaces
 
-> **인터페이스는 ORCH가 정의하고 broadcast.** 한 쪽이 임의로 변경하면 PR + 다른 모듈에 사전 통보.
+> **wire-format(REST/WS)은 BACKEND가 정의·broadcast.** 데이터 모양은 DATA(모델)와, 클라이언트 타입은 FRONTEND와 합의. AGENT는 분석/발화 이벤트의 페이로드를 채운다. 한 쪽이 임의로 변경하면 PR + 다른 모듈에 사전 통보.
 
-### 5.1 REST API (ORCH가 정의, 다른 모듈은 consumer)
+### 5.1 REST API (BACKEND가 정의, 다른 모듈은 consumer)
 
 | Endpoint | 모듈 (정의) | 모듈 (사용) |
 |---|---|---|
-| `POST /api/calls/start` | ORCH | QUEUE |
-| `GET /api/queue` | QUEUE | QUEUE (본인) |
-| `POST /api/calls/{id}/approve` | ORCH | CALL |
-| `POST /api/summaries` | SUMMARY | SUMMARY (본인), ORCH (콜백) |
-| `GET /api/customers/{id}` | ORCH | CALL |
+| `POST /api/calls/start` | BACKEND | FRONTEND ("통화" 버튼) |
+| `GET /api/queue` | BACKEND | FRONTEND |
+| `POST /api/calls/{id}/approve` | BACKEND | FRONTEND |
+| `POST /api/summaries` | BACKEND | FRONTEND, AGENT (요약 생성 콜백) |
+| `GET /api/customers/{id}` | BACKEND | FRONTEND |
 
-**API 변경은 ORCH PR.** 본인이 endpoint 추가하려면 ORCH에 PR.
+**API 변경은 BACKEND PR.** 응답 스키마(모델)는 DATA와 합의.
 
-### 5.2 WebSocket 메시지 (ORCH가 정의, schema는 `frontend/src/types/ws.ts` + `backend/app/ws/*.py`)
+### 5.2 WebSocket 메시지 (BACKEND가 채널 정의, schema는 `frontend/src/types/ws.ts` + `backend/app/ws/*.py`)
 
-| 메시지 | 정의 | 사용 |
+| 메시지 | 페이로드 생산 | 사용 |
 |---|---|---|
-| `{type: "queue_update"}` | QUEUE | QUEUE |
-| `{type: "call_started"}` | ORCH | PHONE, CALL |
-| `{type: "transcript"}` | ORCH | CALL |
-| `{type: "node_entered"}` | ORCH | CALL |
-| `{type: "index_update"}` (churn_risk/emotion) | ORCH | CALL |
-| `{type: "guidance"}` | ORCH | CALL |
-| `{type: "ai_action"}` | ORCH | CALL |
-| `{type: "fraud_flag"}` | ORCH | QUEUE, CALL |
-| `{type: "call_ended"}` | ORCH | CALL, SUMMARY |
-| `{type: "approve_product"}` (cmd) | CALL | ORCH |
+| `{type: "queue_update"}` | BACKEND | FRONTEND |
+| `{type: "call_started"}` | BACKEND | FRONTEND |
+| `{type: "transcript"}` | AGENT (STT) → BACKEND | FRONTEND |
+| `{type: "node_entered"}` | AGENT | FRONTEND |
+| `{type: "index_update"}` (churn_risk/emotion) | AGENT | FRONTEND |
+| `{type: "guidance"}` | AGENT | FRONTEND |
+| `{type: "ai_action"}` | AGENT | FRONTEND |
+| `{type: "fraud_flag"}` | AGENT | FRONTEND |
+| `{type: "call_ended"}` | BACKEND | FRONTEND |
+| `{type: "approve_product"}` (cmd) | FRONTEND | BACKEND |
+| `{type: "audio_chunk" / "audio_out"}` (`/ws/audio`) | FRONTEND ↔ AGENT(STT/TTS) | BACKEND 중계 |
 
-**WS schema 변경은 ORCH PR.**
+**WS schema 변경은 BACKEND PR.** 분석 이벤트(`index_update`/`guidance`/`ai_action`)의 의미·값은 AGENT가 정의.
 
-> `index_update.churn_risk`(이탈위험도)는 ORCH의 `app/agent/churn_risk.py`가 키워드 사전(`app/agent/churn_risk_lexicon.json`)으로 계산해 방출합니다. 점수 모델/키워드/가중치 SSOT는 `reference/CHURN-RISK-LEXICON.md` (+ machine-readable `reference/churn_risk_lexicon.json`). 사전 변경은 두 파일 동시 수정 → ORCH PR.
+> `index_update.churn_risk`(이탈위험도)는 AGENT의 `app/agent/churn_risk.py`가 키워드 사전(`app/agent/churn_risk_lexicon.json`)으로 계산해 방출합니다. 점수 모델/키워드/가중치 SSOT는 `reference/CHURN-RISK-LEXICON.md` (+ machine-readable `reference/churn_risk_lexicon.json`). 사전 변경은 두 파일 동시 수정 → AGENT PR.
 
-### 5.3 모듈 의존성 그래프
+### 5.3 모듈 의존성 그래프 (계층)
 
 ```
-         ORCH
-       /  |  \
-      /   |   \
-   QUEUE PHONE CALL
-              |
-            SUMMARY
+   CLOUD (배포·CI·의존성·PR 게이트 — 전 계층 가로지름)
+     │
+  FRONTEND ──► BACKEND ──► AGENT
+                  │           │
+                  └────► DATA ◄┘
 ```
 
-- QUEUE → ORCH (start_call API, queue_update event)
-- PHONE → ORCH (incoming call event, audio)
-- CALL → ORCH (call state, transcript, guidance)
-- SUMMARY → ORCH (call_ended trigger)
-- ORCH는 모두에게 의존 (hub)
+- FRONTEND → BACKEND (REST/WS consume)
+- BACKEND → AGENT (턴 실행 호출), BACKEND → DATA (모델/영속)
+- AGENT → DATA (모델·시나리오·시드 읽기)
+- CLOUD는 코드 계층에 직접 의존하지 않지만 배포·CI·의존성·PR을 관장(횡단).
 
-**순환 의존 없음.**
+**순환 의존 없음.** (오디오/STT 입력은 PHONE 폐지로 BACKEND `/ws/audio` + AGENT STT가 직접 수용.)
 
 ---
 
@@ -432,11 +396,11 @@ cd ~/workspace/hackathon-2026
 
 ## 9. FAQ
 
-**Q. CALL과 SUMMARY가 owner가 다른데, SUMMARY 변경 시 CALL도 같이 영향 받으면?**
-A. CALL(Person C)과 SUMMARY(Person D)는 별도 모듈. 한쪽이 다른 쪽 파일을 바꿔야 하면 PR + 음성 협의. call_ended → summary 생성 트리거 같은 인터페이스는 ORCH가 정의 (§5.2).
+**Q. 화면(통화/요약)이 한 모듈(FRONTEND)인데 owner 한 명이 다 감당 가능?**
+A. FRONTEND(주실)가 화면 전체를 소유. 통화 화면 ↔ 요약 화면 일관성은 한 owner라 오히려 쉬움. 백엔드 데이터가 필요하면 BACKEND/DATA와 §5 인터페이스로 협의.
 
-**Q. ORCH가 CALL에 있는 컴포넌트를 import해야 하면?**
-A. ORCH는 backend만, CALL은 frontend만. 어차피 layer가 다름. 만약 둘이 backend에서 공통 모듈을 써야 하면 → `app/common/` 같은 새 디렉토리 + 새 모듈로 분리하거나 ORCH가 include.
+**Q. BACKEND가 AGENT의 함수를 호출해야 하면?**
+A. 둘 다 backend 계층. BACKEND(`api`/`ws`)가 AGENT(`agent.run_turn` 등)를 import해 호출하는 건 정상 의존(§5.3). 시그니처 변경은 AGENT PR + BACKEND 통보.
 
 **Q. UI wrapper (Button.tsx 등)를 누가 관리?**
 A. 누구든 push 가능. wrapper 변경이 다른 모듈 UI에 영향 줄 수 있으니, 큰 변경은 PR + Demo.

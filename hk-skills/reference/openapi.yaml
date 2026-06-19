@@ -1,6 +1,6 @@
 # openapi.yaml — REST subset (machine-readable)
 #
-# SCOPE: REST endpoints only. WebSocket (/ws/agent, /ws/customer) and the
+# SCOPE: REST endpoints only. WebSocket (/ws/agent, /ws/audio) and the
 # audio/STT/TTS pipeline are NOT expressible in OpenAPI — see reference/API.md §2.
 #
 # SOURCES OF TRUTH (in order):
@@ -12,8 +12,8 @@
 #                                    file in sync with API.md §1; verify against
 #                                    /openapi.json after implementing (hk-verify).
 #
-# Change rule: REST schema is defined by ORCH. Edit API.md §1 AND this file together,
-# then open an ORCH PR (docs/WORKFLOW.md §3.1).
+# Change rule: REST schema is defined by BACKEND. Edit API.md §1 AND this file together,
+# then open a BACKEND PR (docs/WORKFLOW.md §3.1).
 
 openapi: 3.1.0
 info:
@@ -28,15 +28,15 @@ servers:
 
 tags:
   - name: queue
-    description: 관리자 대시보드 / 아웃바운드 대기콜 (QUEUE 모듈)
+    description: 관리자 대시보드 / 아웃바운드 대기콜 (BACKEND 정의, FRONTEND 사용)
   - name: calls
-    description: 통화 생성 / 제어 (ORCH 정의, CALL 사용)
+    description: 통화 생성 / 제어 (BACKEND 정의)
   - name: customers
-    description: 고객 정보 (ORCH 정의, CALL 사용)
+    description: 고객 정보 (BACKEND 정의, FRONTEND 사용)
   - name: products
     description: 상품 목록
   - name: summaries
-    description: 통화 종료 인계 요약 (SUMMARY 모듈, ORCH 콜백)
+    description: 통화 종료 인계 요약 (BACKEND 정의, AGENT 생성)
 
 paths:
   /api/queue:
@@ -236,7 +236,7 @@ paths:
   /api/summaries:
     post:
       tags: [summaries]
-      summary: AI 인계 요약 저장 (ORCH 콜백 또는 SUMMARY 생성)
+      summary: AI 인계 요약 저장 (AGENT 생성 → BACKEND 저장)
       operationId: createSummary
       requestBody:
         required: true

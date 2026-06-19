@@ -18,7 +18,7 @@ description: 본인 owner의 GitHub issue 1개를 실제로 구현. pre-push hoo
 - 또는 `hk-verify`가 FAIL이라 같은 issue를 재구현할 때.
 
 **트리거**:
-- "이제 구현 시작" / "implement QUEUE-001"
+- "이제 구현 시작" / "implement FRONTEND-001"
 - "issue 끝내자"
 
 ---
@@ -29,7 +29,7 @@ description: 본인 owner의 GitHub issue 1개를 실제로 구현. pre-push hoo
 - `docs/MODULES.md` §2 (file ownership matrix — **반드시 확인**)
 - `reference/ARCHITECTURE.md`, `STACK.md`, `CONVENTIONS.md`
 - `reference/API.md` (REST/WS 스펙 시트 — endpoint/메시지 구현 시 **반드시 확인**)
-- `reference/CHURN-RISK-LEXICON.md` (ORCH가 `index_update.churn_risk` 산출 / CALL이 게이지 표시 구현 시 **반드시 확인** — 점수 모델 + 키워드 사전 SSOT)
+- `reference/CHURN-RISK-LEXICON.md` (AGENT가 `index_update.churn_risk` 산출 / FRONTEND가 게이지 표시 구현 시 **반드시 확인** — 점수 모델 + 키워드 사전 SSOT)
 - `OWNER.md` (본인 issue가 in_progress로 표시되어야 함)
 
 > **본인 issue가 아니면 시작 금지.** `OWNER.md` 또는 `gh issue view --json assignees`로 확인.
@@ -103,7 +103,7 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 - LLM: 에이전트 로직은 `app/agent/` (LangGraph — `graph.py` / `nodes.py` / `state.py`) 에 위치. LLM 접근은 `app/llm/router.py`를 통해 LangChain `BaseChatModel`을 반환받아 호출 (`.astream()` 사용)
 - REST endpoint: `reference/API.md` §1의 요청/응답 schema 그대로 구현 (path, 본문 필드, 에러 envelope §0.3). machine-readable 계약은 `reference/openapi.yaml`. 구현 후 FastAPI가 생성한 `GET /openapi.json` / `/docs`와 대조
 - WebSocket: `reference/API.md` §2 + `STACK.md` §5 schema 준수 (type 값, payload 필드)
-- 이탈위험도(`index_update.churn_risk` / `analysis.churn_risk`): **ORCH**가 산출자. `app/agent/churn_risk.py`(ORCH 소유 `app/agent/*`)가 `app/agent/churn_risk_lexicon.json`(onboard에서 복사됨)을 로드해 `reference/CHURN-RISK-LEXICON.md` §1 점수 모델(baseline 50, 가중치 합산, EMA α=0.6, 부정/강조 처리)대로 계산 → agent 턴마다 `index_update` 방출. 고객 STT(`speaker: customer`) 발화에만 적용. **CALL**은 `index_update`를 구독해 우상단 게이지를 표시(소비자, 점수 계산 안 함)
+- 이탈위험도(`index_update.churn_risk` / `analysis.churn_risk`): **AGENT**가 산출자. `app/agent/churn_risk.py`(AGENT 소유 `app/agent/*`)가 `app/agent/churn_risk_lexicon.json`(onboard에서 복사됨)을 로드해 `reference/CHURN-RISK-LEXICON.md` §1 점수 모델(baseline 50, 가중치 합산, EMA α=0.6, 부정/강조 처리)대로 계산 → agent 턴마다 `index_update` 방출. 고객 STT(`speaker: customer`) 발화에만 적용. **FRONTEND**는 `index_update`를 구독해 우상단 게이지를 표시(소비자, 점수 계산 안 함)
 
 #### Frontend (TypeScript/Next.js)
 
@@ -120,12 +120,12 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 |---|---|
 | 새 API endpoint | `app/api/<thing>.py` router, `app/main.py`에 `app.include_router(...)` |
 | 새 DB 테이블 | `app/models/<thing>.py` SQLModel, `python -m app.db_init` |
-| 새 WebSocket 메시지 | `app/ws/<agent|customer>_ws.py` handler (schema 변경은 ORCH PR) |
-| 이탈위험도 점수 (churn_risk) | ORCH: `app/agent/churn_risk.py`가 `app/agent/churn_risk_lexicon.json` 로드 → `reference/CHURN-RISK-LEXICON.md` §1 모델대로 계산 → `index_update` 방출. CALL은 그 메시지를 구독만. 사전 수정은 `reference/`의 .md+.json 동시 변경 |
+| 새 WebSocket 메시지 | `app/ws/<agent|audio>_ws.py` handler (schema 변경은 BACKEND PR) |
+| 이탈위험도 점수 (churn_risk) | AGENT: `app/agent/churn_risk.py`가 `app/agent/churn_risk_lexicon.json` 로드 → `reference/CHURN-RISK-LEXICON.md` §1 모델대로 계산 → `index_update` 방출. FRONTEND은 그 메시지를 구독만. 사전 수정은 `reference/`의 .md+.json 동시 변경 |
 | 새 Frontend 페이지 | `src/app/<route>/page.tsx` |
 | 새 wrapper | `src/components/ui/<Name>.tsx` (누구나 push 가능, `*`) |
-| 새 env var | `app/config.py` Settings, `.env.example` (ORCH PR) |
-| 새 dep | `INFRA-NNN-add-<dep>` issue + 합의 (거의 안 함) |
+| 새 env var | `app/config.py` Settings, `.env.example` (BACKEND→config / CLOUD→.env.example) |
+| 새 dep | `CLOUD-NNN-add-<dep>` issue + 합의 (거의 안 함) |
 
 ### 3.5 중간 점검 (45분 시점)
 
@@ -156,18 +156,18 @@ duckdb backend/app.duckdb 'SELECT * FROM calls ORDER BY started_at DESC LIMIT 3;
 ```bash
 # VERIFY.md는 본인 issue 경로가 아닌 docs/slices/<id>/VERIFY.md에 둠
 # 또는 issue 본문에 ## Verify 섹션으로 추가 (gh에서는 labels로도 가능)
-mkdir -p docs/slices/QUEUE-001
-cp docs/templates/verify-checklist.md docs/slices/QUEUE-001/VERIFY.md
+mkdir -p docs/slices/FRONTEND-001
+cp docs/templates/verify-checklist.md docs/slices/FRONTEND-001/VERIFY.md
 # A섹션은 본인이 채움, B섹션은 issue acceptance에서 복사
-git add docs/slices/QUEUE-001/VERIFY.md
-git commit -m "docs(QUEUE-001): add VERIFY.md"
+git add docs/slices/FRONTEND-001/VERIFY.md
+git commit -m "docs(FRONTEND-001): add VERIFY.md"
 ```
 
 ### 3.8 Push (pre-push hook이 자동 체크) (1분)
 
 ```bash
 git add .
-git commit -m "feat(QUEUE-001): add outbound table component"
+git commit -m "feat(FRONTEND-001): add outbound table component"
 git push -u origin HEAD
 ```
 
@@ -182,7 +182,7 @@ git push -u origin HEAD
 
 ```bash
 gh pr create \
-  --title "[QUEUE] add outbound table component" \
+  --title "[FRONTEND] add outbound table component" \
   --body-file docs/templates/pr.md \
   --base main \
   --reviewer <reviewer>
@@ -201,11 +201,11 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 ### 3.11 Hand-off 메시지
 
 ```
-✅ QUEUE-001 구현 완료
-- 변경: 3 files (모두 QUEUE 모듈)
+✅ FRONTEND-001 구현 완료
+- 변경: 3 files (모두 FRONTEND 모듈)
 - hook check: PASS
-- PR: #42 [QUEUE] add outbound table component
-- Reviewer: @personB (1h 내 부탁)
+- PR: #42 [FRONTEND] add outbound table component
+- Reviewer: @jusil (1h 내 부탁)
 
 본인 issue: status:in-review
 다른 사람 PR이 떠 있으면 빨리 머지 부탁드립니다 (1h SLA).
@@ -228,9 +228,9 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 - ❌ **`pre-push` hook 우회 (`--no-verify`) 절대 금지.** 24h에 자동화가 안전.
 - ❌ **본인 모듈 외 파일 edit** (issue의 Shared files에도 없으면).
 - ❌ **TEAM LOCK 파일** (tailwind.config, package.json 등) edit — PR 필요.
-- ❌ **Schema 변경** (WS message, API contract) — ORCH PR, 합의.
+- ❌ **Schema 변경** (WS message, API contract) — BACKEND PR, 합의.
 - ❌ **이탈위험도 사전을 코드에 하드코딩 금지** — 키워드/가중치는 `reference/CHURN-RISK-LEXICON.md`(prose) + `reference/churn_risk_lexicon.json`(code)을 **동시** 수정. backend의 `churn_risk_lexicon.json`은 복사본이며 직접 편집하지 말 것.
-- ❌ **새 dep 추가** — `INFRA-NNN` issue 합의.
+- ❌ **새 dep 추가** — `CLOUD-NNN` issue 합의.
 - ❌ **plan 없이 바로 코드 작성 금지** (3.3 통과 필수).
 - ❌ **acceptance criteria 일부만 채우고 "done" 금지** (100% 또는 fail).
 - ❌ **VERIFY.md 없이 hand-off 금지**.
@@ -243,11 +243,11 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 
 | 함정 | 증상 | 해결 |
 |---|---|---|
-| **hook이 push를 막음** | "violation: <file> owned by PHONE" | 그 파일 revert. PR로 분리. |
+| **hook이 push를 막음** | "violation: <file> owned by BACKEND" | 그 파일 revert. PR로 분리. |
 | **다른 사람 PR 머지 안 됨** | 본인 모듈 파일이 그 PR에 영향 | 1시간 SLA 기다리거나 음성 ping. |
 | **rebase conflict** | 본인이 작업 중 누가 main에 push | `git rebase origin/main`, 충돌 해결 후 `--force-with-lease` (NOT `--force`) |
-| **schema 변경 필요** | issue acceptance에 없었는데 필요해짐 | issue 새로 만들기 (`ORCH-NNN-...`), 본인 issue에 "blocked by" 추가 |
-| **TEAM LOCK 파일 변경** | tailwind.config 등 | `INFRA-NNN-...` issue 합의, 본인 issue는 close (변경 불필요) |
+| **schema 변경 필요** | issue acceptance에 없었는데 필요해짐 | issue 새로 만들기 (`BACKEND-NNN-...`), 본인 issue에 "blocked by" 추가 |
+| **TEAM LOCK 파일 변경** | tailwind.config 등 | `CLOUD-NNN-...` issue 합의, 본인 issue는 close (변경 불필요) |
 | **lint FAIL** | tsc / ruff error | 고치고 push. 모듈 boundary와 무관. |
 | **WS 메시지 안 옴** | type mismatch | `STACK.md` §5 schema + 본인 코드 비교. snake_case/camelCase. |
 | **CORS error** | frontend에서 backend 호출 실패 | `app/main.py` `CORSMiddleware(allow_origins=["http://localhost:3000"])` |

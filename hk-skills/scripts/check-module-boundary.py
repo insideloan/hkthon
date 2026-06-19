@@ -10,9 +10,9 @@ TEAM-LOCK files always require PR (all-team approval) and are flagged.
 Files matching no pattern are flagged as "unowned" (review carefully).
 
 Usage:
-    python3 check-module-boundary.py --module QUEUE --base <sha>
+    python3 check-module-boundary.py --module FRONTEND --base <sha>
     python3 check-module-boundary.py --module "" --base <sha>     # warn only
-    python3 check-module-boundary.py --module ORCH --base HEAD~3
+    python3 check-module-boundary.py --module AGENT --base HEAD~3
     python3 check-module-boundary.py --modules-md path/to/MODULES.md --module X --base Y
 
 Exit: 0 = OK, 1 = boundary violated.
@@ -121,7 +121,7 @@ def main() -> int:
         print()
         return 0
 
-    if module not in real_modules and module != "INFRA":
+    if module not in real_modules and module != "CLOUD":
         print(f"[check] WARN: '{module}' is not a real module.", file=sys.stderr)
         print(f"[check] Valid modules: {sorted(real_modules)}", file=sys.stderr)
         return 0

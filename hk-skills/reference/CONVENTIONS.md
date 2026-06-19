@@ -180,9 +180,9 @@ export default {
 > **24h 해커톤 Git 운영의 SSOT는 `docs/MODULES.md` + `docs/WORKFLOW.md`.**
 > 본 섹션은 그 두 문서의 **요약**이며, 실제 충돌/PR/머지 상황은 그쪽을 본다.
 
-### 7.1 5 modules, 5 people, 1 hub
+### 7.1 5 modules, 5 people (역할/계층 기반)
 
-- `QUEUE` (Person A), `PHONE` (Person B), `CALL` (Person C), `SUMMARY` (Person D), `ORCH` (Person E)
+- `CLOUD` (일조), `DATA` (수민), `AGENT` (은경), `BACKEND` (지원), `FRONTEND` (주실)
 - 각자 **자기 모듈 안에서는 자유 push** (pre-push hook이 자동 체크)
 - **다른 모듈 변경은 PR 필수**
 - 자세한 file ownership matrix: `docs/MODULES.md` §2
@@ -191,7 +191,7 @@ export default {
 ### 7.2 Branch 전략
 
 - `main` — 항상 `pnpm dev` + `uvicorn`이 로컬에서 실행 가능. **PR로만 머지.**
-- 작업 브랜치: `<MODULE>-<NNN>-<short-desc>` (예: `QUEUE-001-outbound-table`)
+- 작업 브랜치: `<MODULE>-<NNN>-<short-desc>` (예: `FRONTEND-001-outbound-table`)
 - 24h 안에서는 **squash merge 권장** (history 깨끗)
 - 자기 모듈 작업 시 rebase: `git fetch && git rebase origin/main && git push --force-with-lease`
 
@@ -224,12 +224,12 @@ scope: backend | frontend | infra | slice
 ### 7.5 충돌 / PR 우선순위
 
 - **PR이 떠 있으면 같은 파일 작업 전에 그 PR을 먼저 머지** (WORKFLOW.md §3.3)
-- **Schema 변경 (ORCH PR)** 머지 후 → 다른 모듈이 자기 코드 update 후 push
+- **Schema 변경 (BACKEND PR)** 머지 후 → DATA/FRONTEND가 자기 코드 update 후 push
 - **1시간 sync 권장** (4-6시간 단위, 음성)
 
 ### 7.6 의존성 추가 (TEAM LOCK)
 
-`package.json` / `pnpm-lock.yaml` / `pyproject.toml` / `uv.lock` / `tailwind.config.ts` 변경은 **PR + 모든 팀원 approve**. `INFRA-NNN-add-<dep>` issue로 합의 먼저. 상세: `docs/WORKFLOW.md` §4.
+`package.json` / `pnpm-lock.yaml` / `pyproject.toml` / `uv.lock` / `tailwind.config.ts` 변경은 **PR + CLOUD(일조) 리뷰**. `CLOUD-NNN-add-<dep>` issue로 합의 먼저. 상세: `docs/WORKFLOW.md` §4.
 
 ### 7.7 Owner / 모듈 합의
 

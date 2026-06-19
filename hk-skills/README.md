@@ -27,16 +27,17 @@
 | 5 | `hk-verify` | **팀원 각자** (본인 PR self-verify) + **팀원** (reviewer-verify) | 슬라이스당 1회 | 검증된 슬라이스 |
 | 6 | `hk-demo` | **팀리더** (시나리오 작성) + **팀원 각자** (본인 모듈 리허설) | 마지막 2시간 | 데모 시나리오 + 리허설 |
 
-### 모듈 구성 (5명 = 5 modules) / Module layout
+### 모듈 구성 (5명 = 5 modules, 역할/계층 기반) / Module layout
 
 | 코드 | Owner | 영역 |
 |---|---|---|
-| **QUEUE** | Person A | 상담원 큐 테이블 |
-| **PHONE** | Person B | 고객 iPhone UI |
-| **CALL** | Person C | 통화 화면 |
-| **SUMMARY** | Person D | 인계 요약 화면 |
-| **ORCH** | Person E | 오케스트레이터 + State Machine + LLM/STT(Transcribe)/TTS(Typecast) |
+| **CLOUD** | 일조 | AWS 배포·CI·의존성/설정·PR 관리 |
+| **DATA** | 수민 | 데이터 모델 · 시드 · 시나리오 데이터 |
+| **AGENT** | 은경 | LangGraph agent · LLM · STT/TTS · 이탈위험도 |
+| **BACKEND** | 지원 | REST API · WebSocket · 앱 코어 |
+| **FRONTEND** | 주실 | Next.js 화면 전체(관리자/통화/요약) |
 
+> AWS Cloud 환경 전환으로 기능 기반(QUEUE/PHONE/CALL/SUMMARY/ORCH)에서 역할/계층 기반으로 재편. 고객 iPhone UI는 제거.
 > 상세 file ownership: `docs/MODULES.md`
 > 머지 프로토콜 / 이슈 추적: `docs/WORKFLOW.md`
 
@@ -119,13 +120,13 @@ cp -r templates/*  ~/.claude/templates/
 ./install.sh
 
 # 2) 본인 모듈 등록하면서 프로젝트 부트스트랩
-./setup-project.sh --module QUEUE    # Person A
-./setup-project.sh --module PHONE    # Person B
-./setup-project.sh --module CALL     # Person C
-./setup-project.sh --module SUMMARY  # Person D
-./setup-project.sh --module ORCH     # Person E
+./setup-project.sh --module CLOUD     # 일조
+./setup-project.sh --module DATA      # 수민
+./setup-project.sh --module AGENT     # 은경
+./setup-project.sh --module BACKEND   # 지원
+./setup-project.sh --module FRONTEND  # 주실
 # 또는
-./install.sh --setup-project --module QUEUE
+./install.sh --setup-project --module FRONTEND
 ```
 
 생성 결과 (`~/workspace/hackathon-2026/`):
@@ -160,9 +161,9 @@ hackathon-2026/
 
 ```
 [pre-push] ❌ PUSH BLOCKED
-You are module 'QUEUE', but these files belong to other modules:
-  - backend/app/ws/agent_ws.py  (owned by QUEUE)   ← OK
-  - frontend/src/components/phone/PhoneFrame.tsx  (owned by PHONE)  ← VIOLATION
+You are module 'BACKEND', but these files belong to other modules:
+  - backend/app/ws/agent_ws.py  (owned by BACKEND)   ← OK
+  - frontend/src/components/call/CallGraph.tsx  (owned by FRONTEND)  ← VIOLATION
 
 Options:
   1) Revert the offending file changes
@@ -181,9 +182,9 @@ Options:
 
 ```bash
 gh issue create \
-  --title "QUEUE-001-outbound-table" \
+  --title "FRONTEND-001-outbound-table" \
   --body-file docs/templates/issue.md \
-  --label "status:ready,module:queue,priority:p0"
+  --label "status:ready,module:frontend,priority:p0"
 ```
 
 Title format: `<MODULE>-<NNN>-<short-kebab-desc>`
@@ -191,13 +192,13 @@ Title format: `<MODULE>-<NNN>-<short-kebab-desc>`
 ### PR
 
 ```bash
-git checkout -b QUEUE-001-outbound-table
+git checkout -b FRONTEND-001-outbound-table
 # ... 작업 ...
 git push -u origin HEAD
 gh pr create \
-  --title "[QUEUE] add outbound table component" \
+  --title "[FRONTEND] add outbound table component" \
   --body-file docs/templates/pr.md \
-  --reviewer personB
+  --reviewer jusilkkk
 ```
 
 Title format: `[<target-module>] <description>`
@@ -210,8 +211,8 @@ Title format: `[<target-module>] <description>`
 |---|---|---|
 | 자기 모듈 | 아무나 1명 approve | 1h |
 | 다른 모듈 | **그 모듈 owner** | 1h |
-| TEAM LOCK (의존성, MODULES.md) | **모든 팀원** | 30m |
-| Schema 변경 (ORCH) | ORCH + 사용 모듈 owner | 30m |
+| TEAM LOCK (의존성, MODULES.md) | **CLOUD(일조) + 관련 팀원** | 30m |
+| Schema 변경 (BACKEND) | BACKEND + 사용 모듈(DATA/FRONTEND) owner | 30m |
 | `🚨 URGENT` | 즉시 | 5m |
 
 ### 충돌 났을 때
@@ -266,8 +267,8 @@ git push --force-with-lease
 
 **AI Outbound 금융상품 Sales Call Bot**
 
-- 콜센터 관리자 대시보드 + 고객(가짜 iPhone UI) + AI 봇
-- 관리자가 outbound call queue를 보고 고객에게 자동 전화
+- 콜센터 관리자 대시보드 + 음성 채널(노트북 마이크/스피커) + AI 봇
+- 관리자가 outbound call queue를 보고 "통화" 버튼으로 고객에게 발신
 - AI 봇이 단일 시나리오로 운영:
   1. S1 한도조회/상담원 연결 요청 → 상담원 연결 상태로 전환
 - 관리자 UI: 노드 그래프 (통화 흐름) + LLM 가이드라인 + 페르소나/금융정보 + 통화 종료 후 AI 인계 요약

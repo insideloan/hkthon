@@ -20,17 +20,17 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 <MODULE>-<NNN>-<short-kebab-desc>
 ```
 
-- **MODULE**: `QUEUE` | `PHONE` | `CALL` | `SUMMARY` | `ORCH` | `INFRA` (TEAM LOCK)
+- **MODULE**: `CLOUD` | `DATA` | `AGENT` | `BACKEND` | `FRONTEND` (TEAM-LOCK은 CLOUD가 관장)
 - **NNN**: 3자리 zero-padded (001, 002, ...)
 - **short-kebab-desc**: 영문 kebab-case, 30자 이내
 
 예:
-- `QUEUE-001-outbound-table-component`
-- `PHONE-002-incoming-call-screen`
-- `CALL-001-callgraph-render-nodes`
-- `SUMMARY-001-summary-panel-with-llm-draft`
-- `ORCH-001-state-machine-skeleton`
-- `INFRA-001-add-shadcn-dep`
+- `FRONTEND-001-outbound-table-component`
+- `BACKEND-002-calls-start-endpoint`
+- `FRONTEND-003-callgraph-render-nodes`
+- `AGENT-001-state-machine-skeleton`
+- `DATA-001-customer-seed`
+- `CLOUD-001-amplify-deploy-pipeline`
 
 ### 1.3 Issue 본문 / Issue body
 
@@ -46,14 +46,14 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 - [ ] <체크박스 3>
 
 ## Affected modules / 영향 모듈
-- <QUEUE | PHONE | CALL | SUMMARY | ORCH> - <어떻게 영향?>
+- <CLOUD | DATA | AGENT | BACKEND | FRONTEND> - <어떻게 영향?>
 
 ## Acceptance / 완료 기준
 - [ ] <체크박스: 측정 가능>
 - [ ] <체크박스: 측정 가능>
 
 ## Module / 모듈
-<QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA>
+<CLOUD | DATA | AGENT | BACKEND | FRONTEND>
 
 ## Estimate / 예상 시간
 <Nh>
@@ -79,7 +79,7 @@ Issue를 너무 크게 만들면 (예: "FE 통화 화면 완성") 진행이 안 
 
 이유: 24h에 context switching = disaster. 한 이슈 끝내고 다음.
 
-**단, 예외**: 1시간 이내로 끝나는 trivial 이슈 (예: `ORCH-005 fix typo in log`)는 in-progress 1개 + trivial 1개 허용.
+**단, 예외**: 1시간 이내로 끝나는 trivial 이슈 (예: `AGENT-005 fix typo in log`)는 in-progress 1개 + trivial 1개 허용.
 
 ### 1.6 Issue → PR → Close
 
@@ -111,9 +111,9 @@ status:backlog → status:ready → status:in-progress (자기 assign)
 ```
 
 예:
-- `QUEUE-001-outbound-table`
-- `PHONE-002-incoming-screen`
-- `ORCH-001-state-machine-skeleton`
+- `FRONTEND-001-outbound-table`
+- `BACKEND-002-calls-start-endpoint`
+- `AGENT-001-state-machine-skeleton`
 
 브랜치는 자기 모듈 안에서 자유롭게 push. **다른 모듈 변경 PR도 같은 사람의 작업 브랜치에서** 떴다가 머지되면 그 사람이 새 브랜치 시작.
 
@@ -147,8 +147,8 @@ git push --force-with-lease  # (rebase 후 force push는 OK. --force는 위험, 
 |---|---|---|
 | 자기 모듈 변경 | (옵션) 팀원 1명 approve | **본인** 가능 (모듈 boundary OK면) |
 | 다른 모듈 변경 | **그 모듈 owner 1명 approve 필수** | 그 owner가 merge (또는 본인이 그 owner에게 merge 요청) |
-| TEAM LOCK (의존성, MODULES.md, WORKFLOW.md 등) | **모든 팀원 approve** | 본인이 merge |
-| Schema 변경 (WS 메시지, API contract) | **ORCH owner + 사용 모듈 owner 2명** | ORCH owner |
+| TEAM LOCK (의존성, MODULES.md, WORKFLOW.md 등) | **CLOUD(일조) + 관련 팀원 approve** | CLOUD가 merge |
+| Schema 변경 (WS 메시지, API contract) | **BACKEND owner + 사용 모듈(DATA/FRONTEND) owner** | BACKEND owner |
 
 > **Self-merge 허용 범위**: 자기 모듈 + 1명 approve. 단, **TEAM LOCK과 schema 변경은 본인 merge 금지** (다른 사람이 merge).
 
@@ -161,7 +161,7 @@ git push --force-with-lease  # (rebase 후 force push는 OK. --force는 위험, 
 | **PR이 `status:in-review`인데 본인이 그 파일 작업 중** | **PR 머지 먼저** (또는 그 owner에게 음성) | 안 그러면 conflict |
 | **본인 PR이 `in-review`인데 다른 사람이 같은 파일 작업** | **본인 PR 머지 우선** | 본인이 일시정지 |
 | **TEAM LOCK PR (의존성, 설정)** | **높음** (15분 내 처리) | 다른 모듈이 막힐 수 있음 |
-| **Schema PR (ORCH)** | **높음** | 다른 모듈이 update 후 push해야 함 |
+| **Schema PR (BACKEND)** | **높음** | 다른 모듈이 update 후 push해야 함 |
 | **일반 모듈 PR** | 보통 (1시간 내) | |
 
 **SLA**: PR이 떴을 때 응답 시간
@@ -177,7 +177,7 @@ git push --force-with-lease  # (rebase 후 force push는 OK. --force는 위험, 
 |---|---|---|
 | 모듈 A | 모듈 A PR | → PR 머지 → 본인 rebase. 충돌 시 음성 알림 |
 | 모듈 A | 모듈 B PR (모듈 A 파일 일부 수정) | → **본인 일시정지, PR 머지 대기** |
-| 모듈 A | ORCH schema PR (모듈 A 사용) | → **ORCH PR 머지 후 본인 모듈 update** |
+| 모듈 A | BACKEND schema PR (모듈 A 사용) | → **BACKEND PR 머지 후 본인 모듈 update** |
 | main에 push됨 | 본인 브랜치에 동일 파일 변경 | → `git fetch && git rebase origin/main` |
 | 다른 사람이 본인의 main에 push | 본인도 main에 push | → **먼저 한 사람이 push, 다른 한 명 rebase** (조율) |
 
@@ -220,9 +220,9 @@ git rebase origin/main
 
 **해커톤 중 의존성 추가는 9/10 위험.** 정말 필요할 때만.
 
-1. issue 생성: `INFRA-NNN-add-<dep>`
+1. issue 생성: `CLOUD-NNN-add-<dep>`
 2. 본문: **왜 STACK.md에 있는 것들로 안 되는지** + **추가하지 않으면 24h 안에 못 끝나는 이유**
-3. 모든 팀원 approve (TEAM LOCK PR은 모두 approve)
+3. CLOUD(일조) + 관련 팀원 approve (TEAM LOCK PR)
 4. 머지 후:
    - `reference/STACK.md` §2/§3에 dep 추가
    - `pyproject.toml` 또는 `package.json`에 dep 추가
@@ -323,7 +323,7 @@ git rebase origin/main
 > 4. backend + frontend 실행 후 `/` 페이지 응답 200 확인
 
 이걸 잊으면 **24h 끝에 "main이 안 돌아가"** disaster. 역할 분담:
-- 모니터 1명: 통합 smoke (예: ORCH owner 또는 순환)
+- 모니터 1명: 통합 smoke (예: CLOUD(일조) 또는 순환)
 - 모니터 1명: PR queue 관리 (1시간마다 Slack에 PR 현황)
 
 또는 5명 모두 자기 브랜치 push 전 lint + smoke 책임.
@@ -345,7 +345,7 @@ git rebase origin/main
 ❌ **충돌 무시하고 둘 다 push → 둘 다 망가짐**: 충돌 발견 시 즉시 일시정지.
 ❌ **자기 issue 외에 작업**: 1인 1이슈 (in-progress). trivial은 예외.
 ❌ **TEAM LOCK 파일 합의 없이 push**: PR + 모두 approve.
-❌ **Schema 변경 합의 없이 push**: ORCH에 PR + 사용 모듈 owner 합의.
+❌ **Schema 변경 합의 없이 push**: BACKEND에 PR + 사용 모듈(DATA/FRONTEND) owner 합의.
 ❌ **새 dep 추가 합의 없이 push**: 9/10 위험. 본 문서 §4 프로세스 따르기.
 ❌ **테스트 안 짜고 push**: 적어도 smoke (lint + build + curl 200) 정도는 본인 브랜치에서 통과.
 
@@ -355,10 +355,10 @@ git rebase origin/main
 
 | 상황 | 명령 |
 |---|---|
-| Issue 만들기 | `gh issue create --title "QUEUE-001-..." --body-file templates/issue.md --label "status:ready,module:queue"` |
+| Issue 만들기 | `gh issue create --title "FRONTEND-001-..." --body-file templates/issue.md --label "status:ready,module:frontend"` |
 | Issue assign + status 변경 | `gh issue edit <num> --add-assignee @me --remove-label "status:ready" --add-label "status:in-progress"` |
-| 작업 시작 | `git fetch && git checkout -b QUEUE-001-...` |
-| PR 만들기 | `git push -u origin HEAD && gh pr create --title "[QUEUE] ..." --body-file templates/pr.md --reviewer <person>` |
+| 작업 시작 | `git fetch && git checkout -b FRONTEND-001-...` |
+| PR 만들기 | `git push -u origin HEAD && gh pr create --title "[FRONTEND] ..." --body-file templates/pr.md --reviewer <person>` |
 | PR 머지 | `gh pr merge <num> --squash --delete-branch` |
 | main 동기화 | `git fetch && git rebase origin/main` |
 | Issue close | `gh issue close <num> --comment "done in #<pr>"` |

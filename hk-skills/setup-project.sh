@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ./setup-project.sh
-#   ./setup-project.sh --module QUEUE
+#   ./setup-project.sh --module FRONTEND
 #   ./setup-project.sh --name my-team
 #
 set -euo pipefail
@@ -37,12 +37,12 @@ for arg in "$@"; do
       cat <<EOF
 Usage: $0 [--module <MODULE>] [--name <name>]
 
-Modules: QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA
+Modules: CLOUD | DATA | AGENT | BACKEND | FRONTEND
          (omitted = owner/observer, all hooks active)
 
 Examples:
-  $0 --module QUEUE
-  $0 --module ORCH
+  $0 --module FRONTEND
+  $0 --module AGENT
   $0 --name my-team
 EOF
       exit 0
@@ -54,8 +54,8 @@ done
 # -------- validate module --------
 validate_module() {
   case "$1" in
-    QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA|"") return 0 ;;
-    *) err "unknown module: $1. must be one of QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA"; exit 2 ;;
+    CLOUD|DATA|AGENT|BACKEND|FRONTEND|"") return 0 ;;
+    *) err "unknown module: $1. must be one of CLOUD|DATA|AGENT|BACKEND|FRONTEND"; exit 2 ;;
   esac
 }
 validate_module "$MODULE"
@@ -87,7 +87,7 @@ cd "$PROJECT_DIR"
 log "Scaffolding project tree"
 mkdir -p backend/app/{models,api,ws,scenarios,llm/prompts,stt,tts,tests} \
          backend/scripts \
-         frontend/src/{app,components/{ui,queue,phone,call},lib,stores,types} \
+         frontend/src/{app,components/{ui,queue,call},lib,stores,types} \
          docs/slices \
          .github/ISSUE_TEMPLATE
 
@@ -127,11 +127,11 @@ cat > OWNER.md <<EOF
 
 | Code | Name | Owner | GitHub |
 |------|------|-------|--------|
-| QUEUE | Outbound Call Queue | Person A | @personA |
-| PHONE | Customer iPhone UI | Person B | @personB |
-| CALL | Agent Call View | Person C | @personC |
-| SUMMARY | Handoff Summary | Person D | @personD |
-| ORCH | Orchestrator + State Machine | Person E | @personE |
+| CLOUD | Cloud · CI · PR 관리 | 일조 | @iljo |
+| DATA | Data (models · seed · scenarios) | 수민 | @sumin |
+| AGENT | Agent (LangGraph · LLM · STT/TTS) | 은경 | @eunkyung |
+| BACKEND | Backend (API · WS · core) | 지원 | @jiwon |
+| FRONTEND | Frontend (Next.js) | 주실 | @jusil |
 
 > Update this file via PR when owner changes. This file is referenced by the pre-push hook.
 
@@ -197,7 +197,7 @@ if [[ -n "$MODULE" ]]; then
   echo "  -> git config hk.module $MODULE (set in this repo only)"
 else
   warn "No --module passed."
-  warn "You can register later with:  git config hk.module QUEUE"
+  warn "You can register later with:  git config hk.module FRONTEND"
   warn "Until then pre-push will skip the check (it'll warn)."
 fi
 

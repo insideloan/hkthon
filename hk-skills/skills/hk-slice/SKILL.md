@@ -40,7 +40,7 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 
 1. **"어떤 feature를 issue로 나눌까요? (F0X)"**
 2. **"이 feature의 owner는 누구인가요?"** (1명이 원칙)
-3. **"이 feature는 어느 모듈인가요? (QUEUE/PHONE/CALL/SUMMARY/ORCH)"**
+3. **"이 feature는 어느 모듈인가요? (CLOUD/DATA/AGENT/BACKEND/FRONTEND)"**
 4. **"이 feature가 끝나면 demo에서 어떤 한 단계를 보여줄 수 있나요?"**
 
 답변 받으면 진행.
@@ -52,10 +52,10 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 해당 feature를 **GitHub issue 2-6개**로 분해. 각 issue 형식:
 
 ```yaml
-- id: QUEUE-001                          # <MODULE>-<NNN>-<short-desc>
+- id: FRONTEND-001                       # <MODULE>-<NNN>-<short-desc>
   title: outbound-table-component
-  module: QUEUE
-  owner: Person A
+  module: FRONTEND
+  owner: 주실
   est_h: 1.0
   files_expected:                        # 본인 모듈 안의 파일만
     - frontend/src/components/queue/OutboundQueueTable.tsx
@@ -69,7 +69,7 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 **ID 규약** (`docs/WORKFLOW.md` §1.2):
 - `<MODULE>-<NNN>-<short-kebab-desc>`
 - `NNN` = 3자리 zero-padded (`001`, `002`)
-- 예: `QUEUE-001-outbound-table-component`, `ORCH-003-state-machine-s1`
+- 예: `FRONTEND-001-outbound-table-component`, `AGENT-003-state-machine-s1`
 
 ### 3.3 모듈 boundary 검증 (필수) / Module boundary check
 
@@ -87,7 +87,7 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 - `## Why / 왜 필요한가` — user story / demo 단계
 - `## What / 무엇을` — 체크박스 step
 - `## Acceptance / 완료 기준` — 측정 가능
-- `## Module / 모듈` — `QUEUE` 등
+- `## Module / 모듈` — `FRONTEND` 등
 - `## Files I expect to change / 변경 예정 파일`
 - `## Shared files I might need to touch / 다른 모듈 파일 (PR 필요)` — 없으면 `none`
 
@@ -95,16 +95,16 @@ description: BACKLOG의 feature를 GitHub issue 단위로 분해 + owner 배정 
 
 ```bash
 gh issue create \
-  --title "QUEUE-001-outbound-table-component" \
-  --body-file /tmp/QUEUE-001.md \
-  --label "status:ready,module:queue,priority:p0" \
+  --title "FRONTEND-001-outbound-table-component" \
+  --body-file /tmp/FRONTEND-001.md \
+  --label "status:ready,module:frontend,priority:p0" \
   --assignee @me
 ```
 
 라벨:
 - `status:ready` — 곧 시작
 - `status:backlog` — 나중에
-- `module:queue|phone|call|summary|orch|infra`
+- `module:cloud|data|agent|backend|frontend`
 - `priority:p0|p1|p2`
 
 GitHub Project가 있으면 `--project "Hackathon 2026"` 추가.
@@ -116,9 +116,9 @@ GitHub Project가 있으면 `--project "Hackathon 2026"` 추가.
 ```markdown
 | Issue | Title | Module | Owner | Status |
 |-------|-------|--------|-------|--------|
-| QUEUE-001 | outbound-table-component | QUEUE | Person A | ready |
-| QUEUE-002 | queue-store-with-websocket | QUEUE | Person A | ready |
-| ORCH-001 | state-machine-skeleton | ORCH | Person D | ready |
+| FRONTEND-001 | outbound-table-component | FRONTEND | 주실 | ready |
+| FRONTEND-002 | queue-store-with-websocket | FRONTEND | 주실 | ready |
+| AGENT-001 | state-machine-skeleton | AGENT | 은경 | ready |
 ```
 
 ### 3.7 합의
@@ -143,8 +143,8 @@ GitHub Project가 있으면 `--project "Hackathon 2026"` 추가.
 
 - ❌ **1인당 in-progress issue 1개 이상 가지지 않기** (1인 1이슈, trivial 1시간 미만은 예외)
 - ❌ **다른 사람 모듈 파일을 자기 issue의 files_expected에 넣지 않기** → 다른 사람 issue로 분리
-- ❌ **TEAM LOCK 파일 (tailwind.config, package.json 등)을 feature issue에 섞지 않기** → `INFRA-NNN` 으로 따로
-- ❌ **schema 변경 (API contract, WS message)을 일반 issue에 섞지 않기** → `ORCH-NNN` 으로 따로 만들고 다른 모듈에 "blocked by"
+- ❌ **TEAM LOCK 파일 (tailwind.config, package.json 등)을 feature issue에 섞지 않기** → `CLOUD-NNN` 으로 따로
+- ❌ **schema 변경 (API contract, WS message)을 일반 issue에 섞지 않기** → `BACKEND-NNN` 으로 따로 만들고 다른 모듈에 "blocked by"
 - ❌ **slice ID 형식 안 맞추기** (`<MODULE>-<NNN>-<short-desc>` 강제)
 - ✅ **모든 issue에 `Module:` + `Files I expect to change:` 명시**
 - ✅ **dependency graph는 가능한 한 fan-out** (chain A→B→C보다 동시 A,B,C)

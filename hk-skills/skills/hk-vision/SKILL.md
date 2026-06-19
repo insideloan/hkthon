@@ -50,7 +50,7 @@ description: 해커톤 시작 시 제품 비전을 명확히 lock-in. PRODUCT-BR
 - 1. 한 문장 요약
 - 2. 사용자
 - 3. 핵심 시나리오 (S1)
-- 4. 화면 구성 (Agent UI, Customer UI, Mic toggle)
+- 4. 화면 구성 (Agent UI, 음성 채널/Mic)
 - 5. 비기능 요구사항
 - 6. Out of Scope
 - 7. 성공 기준

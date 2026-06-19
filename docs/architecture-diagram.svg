@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="760" viewBox="0 0 1080 760" font-family="'Pretendard',system-ui,sans-serif" role="img" aria-label="AI 상담 코파일럿 — Next.js + AWS 부스 데모 아키텍처">
+  <defs>
+    <style>
+      .lyr   { fill:#F4F7FE; stroke:#C3D0EA; stroke-width:1.4; rx:16; }
+      .lyrlbl{ fill:#3551D6; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+      .node  { fill:#FFFFFF; stroke:#9FB0C4; stroke-width:1.6; rx:11; }
+      .accent{ fill:#EAF0FF; stroke:#3551D6; stroke-width:1.8; rx:11; }
+      .ai    { fill:#FFF8EC; stroke:#CF8A3C; stroke-width:1.6; rx:11; }
+      .data  { fill:#F0FAF4; stroke:#2E9E6E; stroke-width:1.6; rx:11; }
+      .t     { fill:#23293A; font-size:14px; font-weight:700; }
+      .ts    { fill:#5E6678; font-size:11px; font-weight:500; }
+      .te    { fill:#8A8A8A; font-size:12px; font-weight:600; }
+      .edge  { fill:none; stroke:#5B78F0; stroke-width:1.8; }
+      .edged { fill:none; stroke:#9AA0AC; stroke-width:1.6; stroke-dasharray:5 4; }
+      .el    { fill:#5E6678; font-size:10.5px; font-weight:600; }
+      .title { fill:#23293A; font-size:19px; font-weight:800; }
+      .sub   { fill:#5E6678; font-size:12px; font-weight:500; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5B78F0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#9AA0AC" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="760" fill="#FCFBF8"/>
+  <text x="40" y="40" class="title">AI 상담 코파일럿 — Next.js + AWS 아키텍처 (부스 데모 · 라이트 서버리스)</text>
+  <text x="40" y="60" class="sub">SSOT: data/consult_merged-4.html · 스크립트 모드(기본) + 라이브 모드(옵션)가 동일 AppSync 계약 공유</text>
+
+  <!-- ── Layer: 브라우저 ── -->
+  <rect class="lyr" x="40" y="84" width="360" height="96"/>
+  <text x="56" y="106" class="lyrlbl">브라우저</text>
+  <rect class="node" x="56" y="116" width="328" height="50"/>
+  <text x="220" y="138" class="t" text-anchor="middle">관리자/상담원 UI</text>
+  <text x="220" y="155" class="ts" text-anchor="middle">관리자 화면 · AI 상담화면 · 상담 CRM</text>
+
+  <!-- ── Layer: 엣지/호스팅 ── -->
+  <rect class="lyr" x="40" y="216" width="360" height="118"/>
+  <text x="56" y="238" class="lyrlbl">엣지 · 호스팅</text>
+  <rect class="node" x="56" y="248" width="328" height="34"/>
+  <text x="220" y="270" class="t" text-anchor="middle">CloudFront — CDN / TLS</text>
+  <rect class="accent" x="56" y="290" width="328" height="36"/>
+  <text x="220" y="307" class="t" text-anchor="middle">Amplify Hosting · Next.js 15</text>
+  <text x="220" y="321" class="ts" text-anchor="middle">App Router · SSR / ISR</text>
+
+  <!-- ── Layer: 실시간/API ── -->
+  <rect class="lyr" x="40" y="372" width="360" height="92"/>
+  <text x="56" y="394" class="lyrlbl">실시간 · API</text>
+  <rect class="accent" x="56" y="404" width="328" height="48"/>
+  <text x="220" y="425" class="t" text-anchor="middle">AppSync (GraphQL)</text>
+  <text x="220" y="441" class="ts" text-anchor="middle">구독 푸시 · 뮤테이션 (createCall · dialCall · nextTurn)</text>
+
+  <!-- ── Layer: 데이터/스토리지 ── -->
+  <rect class="lyr" x="40" y="500" width="360" height="140"/>
+  <text x="56" y="522" class="lyrlbl">데이터 · 스토리지</text>
+  <rect class="data" x="56" y="532" width="328" height="48"/>
+  <text x="220" y="552" class="t" text-anchor="middle">DynamoDB + Streams</text>
+  <text x="220" y="568" class="ts" text-anchor="middle">call · turn · MOT · compliance</text>
+  <rect class="data" x="56" y="588" width="328" height="44"/>
+  <text x="220" y="608" class="t" text-anchor="middle">S3</text>
+  <text x="220" y="623" class="ts" text-anchor="middle">scenario.json · 렉시콘 · mp3</text>
+
+  <!-- ── Layer: 오케스트레이션 ── -->
+  <rect class="lyr" x="600" y="372" width="440" height="160"/>
+  <text x="616" y="394" class="lyrlbl">오케스트레이션</text>
+  <rect class="accent" x="616" y="404" width="408" height="36"/>
+  <text x="820" y="426" class="t" text-anchor="middle">Lambda “orchestrator”</text>
+  <rect class="node" x="616" y="450" width="196" height="68"/>
+  <text x="714" y="473" class="t" text-anchor="middle">스크립트 모드</text>
+  <text x="714" y="490" class="ts" text-anchor="middle">scenario.json</text>
+  <text x="714" y="505" class="ts" text-anchor="middle">다음 턴 emit (기본)</text>
+  <rect class="node" x="828" y="450" width="196" height="68"/>
+  <text x="926" y="473" class="t" text-anchor="middle">라이브 모드</text>
+  <text x="926" y="490" class="ts" text-anchor="middle">실시간 AI 호출</text>
+  <text x="926" y="505" class="ts" text-anchor="middle">옵션</text>
+
+  <!-- ── Layer: AI · 음성 ── -->
+  <rect class="lyr" x="600" y="564" width="440" height="140"/>
+  <text x="616" y="586" class="lyrlbl">AI · 음성 (라이브 모드)</text>
+  <rect class="ai" x="616" y="596" width="196" height="34"/>
+  <text x="714" y="618" class="t" text-anchor="middle">Bedrock Converse · LLM</text>
+  <rect class="ai" x="828" y="596" width="196" height="34"/>
+  <text x="926" y="618" class="t" text-anchor="middle">Bedrock Guardrails</text>
+  <rect class="ai" x="616" y="638" width="196" height="34"/>
+  <text x="714" y="660" class="t" text-anchor="middle">Transcribe · STT</text>
+  <rect class="ai" x="828" y="638" width="196" height="34"/>
+  <text x="926" y="660" class="t" text-anchor="middle">Typecast · TTS</text>
+  <text x="926" y="690" class="ts" text-anchor="middle">ssfm-v30 · 혜라/진서/유라 · 외부 REST</text>
+
+  <!-- ── 공통 / 비고 ── -->
+  <rect class="lyr" x="600" y="84" width="440" height="96"/>
+  <text x="616" y="106" class="lyrlbl">공통 · 비고</text>
+  <text x="616" y="132" class="ts">· 공통(경량): IAM · CloudWatch</text>
+  <text x="616" y="152" class="ts">· TTS Typecast는 AWS 외부 서비스 (X-API-KEY REST)</text>
+  <text x="616" y="172" class="ts">· 운영 헤비 자원(Fargate/Aurora/Cognito 등)은 부스 범위 외</text>
+
+  <!-- ── Edges ── -->
+  <!-- 브라우저 → CloudFront -->
+  <path class="edge" marker-end="url(#arr)" d="M220 166 L220 248"/>
+  <text x="230" y="208" class="el">HTTPS / WSS (GraphQL)</text>
+  <!-- CloudFront → Amplify -->
+  <path class="edge" marker-end="url(#arr)" d="M220 282 L220 290"/>
+  <!-- Amplify → AppSync -->
+  <path class="edge" marker-end="url(#arr)" d="M180 326 L180 404"/>
+  <text x="120" y="368" class="el">GraphQL</text>
+  <!-- Amplify → S3 (정적 시나리오) -->
+  <path class="edge" marker-end="url(#arr)" d="M320 326 C360 360, 372 500, 330 588"/>
+  <text x="345" y="470" class="el" transform="rotate(90 345 470)">정적 시나리오 로드</text>
+  <!-- AppSync → DynamoDB (Resolver 직결) -->
+  <path class="edge" marker-end="url(#arr)" d="M150 452 L150 532"/>
+  <text x="60" y="494" class="el">Resolver 직결</text>
+  <!-- AppSync → Lambda orchestrator (데이터소스) -->
+  <path class="edge" marker-end="url(#arr)" d="M384 428 L616 423"/>
+  <text x="430" y="418" class="el">Lambda 데이터소스</text>
+  <!-- orchestrator → 스크립트/라이브 -->
+  <path class="edge" marker-end="url(#arr)" d="M714 440 L714 450"/>
+  <path class="edge" marker-end="url(#arr)" d="M926 440 L926 450"/>
+  <!-- 스크립트 모드 → S3 (read) -->
+  <path class="edged" marker-end="url(#arrg)" d="M616 500 C470 520, 410 600, 384 606"/>
+  <text x="450" y="556" class="el">read scenario</text>
+  <!-- orchestrator → DynamoDB (write) -->
+  <path class="edge" marker-end="url(#arr)" d="M616 432 C470 470, 400 510, 384 546"/>
+  <text x="430" y="486" class="el">write</text>
+  <!-- DynamoDB Streams → AppSync (팬아웃) -->
+  <path class="edge" marker-end="url(#arr)" d="M70 532 C30 480, 30 460, 56 440"/>
+  <text x="2" y="500" class="el">Streams → 팬아웃</text>
+  <!-- 라이브 모드 → AI 4종 -->
+  <path class="edge" marker-end="url(#arr)" d="M880 518 C840 560, 760 580, 730 596"/>
+  <path class="edge" marker-end="url(#arr)" d="M926 518 L926 596"/>
+  <path class="edge" marker-end="url(#arr)" d="M900 518 C860 600, 760 630, 720 638"/>
+  <path class="edge" marker-end="url(#arr)" d="M950 518 C980 590, 960 620, 940 638"/>
+</svg>

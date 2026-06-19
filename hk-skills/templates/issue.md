@@ -26,7 +26,7 @@
 
 ## Module / 모듈
 
-<!-- QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA 중 하나 -->
+<!-- CLOUD | DATA | AGENT | BACKEND | FRONTEND 중 하나 -->
 
 `<MODULE>`
 
@@ -36,7 +36,7 @@
 
 ## Dependencies / 의존성 (있다면)
 
-<!-- 다른 issue가 끝나야 시작 가능하면 명시. 예: blocked by #QUEUE-001 -->
+<!-- 다른 issue가 끝나야 시작 가능하면 명시. 예: blocked by #BACKEND-001 -->
 
 - blocked by: <#ISSUE-NUM or none>
 - blocks: <#ISSUE-NUM or none>
@@ -53,7 +53,7 @@
 <!-- optional. PR로 처리 -->
 
 - none, or:
-- `backend/app/api/calls.py` — ORCH PR 필요, reason: ...
+- `backend/app/api/calls.py` — BACKEND PR 필요, reason: ...
 
 ---
 

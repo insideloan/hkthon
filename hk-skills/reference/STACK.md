@@ -73,7 +73,7 @@ backend/
 │   │   └── S1_handoff.py
 │   ├── ws/
 │   │   ├── agent_ws.py         # /ws/agent
-│   │   └── customer_ws.py      # /ws/customer
+│   │   └── audio_ws.py         # /ws/audio (마이크/스피커)
 │   └── api/
 │       ├── queue.py            # /api/queue
 │       ├── calls.py            # /api/calls/*
@@ -153,8 +153,7 @@ frontend/
 │   ├── app/
 │   │   ├── layout.tsx
 │   │   ├── page.tsx             # / → 관리자 대시보드 (outbound queue)
-│   │   ├── call/[id]/page.tsx   # /call/[id] → agent 통화 화면
-│   │   └── phone/page.tsx       # /phone → customer iPhone UI
+│   │   └── call/[id]/page.tsx   # /call/[id] → agent 통화 화면
 │   ├── components/
 │   │   ├── ui/                  # wrapper components (template origin)
 │   │   │   ├── Button.tsx
@@ -168,8 +167,7 @@ frontend/
 │   │   ├── call/GuidancePanel.tsx
 │   │   ├── call/PersonaCard.tsx
 │   │   ├── call/ProductApproval.tsx
-│   │   ├── call/SummaryPanel.tsx
-│   │   └── phone/PhoneFrame.tsx        # iPhone UI
+│   │   └── call/SummaryPanel.tsx
 │   ├── lib/
 │   │   ├── api.ts               # REST client
 │   │   ├── ws.ts                # WebSocket client
@@ -248,7 +246,7 @@ detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agen
     "output": { "audio_format": "mp3" }
   }
   ```
-- **출력**: 바이너리 오디오(MP3) 응답 → customer UI로 WebSocket 전송. 실패 시 `TTS_ERROR` → fallback (`API.md` §0.3).
+- **출력**: 바이너리 오디오(MP3) 응답 → 상담원 화면 오디오 채널(`/ws/audio`)로 WebSocket 전송 → 노트북 스피커 재생. 실패 시 `TTS_ERROR` → fallback (`API.md` §0.3).
 
 ---
 
@@ -257,7 +255,7 @@ detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agen
 | Endpoint | 용도 | 메시지 |
 |---|---|---|
 | `/ws/agent` | 관리자 UI ↔ backend | queue update, call state, transcript chunk, LLM guide |
-| `/ws/customer` | 고객 iPhone UI ↔ backend | incoming call, audio out, transcript in |
+| `/ws/audio` | 마이크/스피커 ↔ backend | audio chunk(in), audio out, transcript in |
 | (내부) | backend ↔ LLM (LangChain) | stream chat |
 | (내부) | backend ↔ AWS Transcribe | stream STT |
 | (내부) | backend ↔ Typecast | REST TTS (`/v1/text-to-speech`) |

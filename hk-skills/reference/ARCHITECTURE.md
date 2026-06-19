@@ -11,24 +11,21 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       Single Developer Machine                       │
 │                                                                       │
-│  ┌──────────────────────────┐    ┌──────────────────────────────┐   │
-│  │  Next.js (port 3000)     │    │  Next.js (port 3000)         │   │
-│  │  / → 관리자 UI            │    │  /phone → Customer iPhone UI │   │
-│  │  /call/[id] → Call View  │    │  (별도 브라우저 탭/창)        │   │
-│  │  - Outbound Queue        │    │  - Incoming call screen      │   │
-│  │  - React Flow graph      │    │  - In-call screen + timer    │   │
-│  │  - LLM guidance          │    │  - Hangup button             │   │
-│  │  - Persona card          │    │                              │   │
-│  │  - Product approval      │    │                              │   │
-│  │  - Summary panel         │    │                              │   │
-│  └──────────────────────────┘    └──────────────────────────────┘   │
-│            │ WS+REST                            │ WS                │
-│            ▼                                    ▼                    │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Next.js (port 3000) — 단일 상담원 화면                     │   │
+│  │  / → 관리자 UI         /call/[id] → Call View              │   │
+│  │  - Outbound Queue      - React Flow graph                  │   │
+│  │  - LLM guidance        - Persona card                      │   │
+│  │  - Product approval    - Summary panel                     │   │
+│  │  - 마이크/스피커(오디오 채널, 노트북 내장)                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│            │ WS(agent/audio) + REST                              │
+│            ▼                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │             FastAPI Backend (port 8000)                       │   │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐  │   │
 │  │  │ /ws/    │  │ /ws/    │  │ /api/   │  │ /api/calls/*    │  │   │
-│  │  │ agent   │  │ customer│  │ queue   │  │ /api/summaries  │  │   │
+│  │  │ agent   │  │ audio   │  │ queue   │  │ /api/summaries  │  │   │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘  │   │
 │  │            │                                                  │   │
 │  │            ▼                                                  │   │
@@ -78,23 +75,20 @@
 ## 2. 데이터 흐름 (정상 통화 1건) / Data Flow (One Call)
 
 ```
-1. 관리자(Manager) clicks row in OutboundQueueTable
-   └─→ POST /api/calls/start {customerId}
+1. 관리자(Manager) clicks row → 사전 고객분석 → "통화" 버튼 클릭
+   └─→ POST /api/calls/start {customerId} (버튼이 명시적으로 발신; 자동 발신 아님)
        └─→ Call Orchestrator: create call row, state=DIALING
 
-2. Backend pushes "incoming call" to /ws/customer for that customer
-   └─→ Customer iPhone UI shows "받는 화면"
-
-3. Customer clicks "받기"
-   └─→ WS cmd {type: 'accept'}
+2. 발신 → 통화 시작
+   └─→ /ws/audio {type: 'start'}
        └─→ state=IN_CALL, scenario=S1 (default)
-       └─→ Backend starts STT stream on customer mic
+       └─→ Backend starts STT stream on mic
 
 4. Loop (per utterance) — LangGraph 1턴:
    Customer speaks → mic chunk (2-3s) → STT (Transcribe) → text
    → LangGraph node (LangChain LLM: system + scenario state + history) → response text
    → TTS (Typecast) → MP3
-   → push to /ws/customer (audio out)
+   → push to /ws/audio (audio out → 노트북 스피커)
    → push to /ws/agent (transcript chunk, node_entered)
    → update graph node
 
@@ -120,7 +114,7 @@
 7. Agent clicks "가입 승인" or no-op (거부 = no-op, 통화는 계속)
    → if approved: write approval record
 
-8. Customer clicks "종료" (in iPhone UI)
+8. 통화 종료 ("종료" 버튼 또는 /ws/audio hangup)
    → state=ENDED
    → AI generates handoff summary
    → POST /api/summaries → DB save (summaries table)
@@ -141,9 +135,9 @@ DIALING → RINGING → ACCEPTED → IN_CALL → TRANSFER_PENDING
                                             ENDED
 ```
 
-- `DIALING` — backend initiated, customer not yet notified
-- `RINGING` — push sent to /ws/customer
-- `ACCEPTED` / `REJECTED` — customer's first decision
+- `DIALING` — "통화" 버튼으로 발신 시작 (자동 발신 아님)
+- `RINGING` — 발신음 (오디오 채널 `/ws/audio` 준비)
+- `ACCEPTED` / `REJECTED` — 통화 시작/미연결
 - `IN_CALL` — AI bot in conversation
 - `TRANSFER_PENDING` — LLM triggered transfer, waiting for agent to click
 - `AGENT_JOINED` — agent took over
@@ -240,11 +234,10 @@ monthly_fee     INTEGER
 | STT bridge | `backend/app/stt/transcribe_stt.py` |
 | TTS bridge | `backend/app/tts/typecast_tts.py` |
 | Agent WS | `backend/app/ws/agent_ws.py` |
-| Customer WS | `backend/app/ws/customer_ws.py` |
+| Audio WS (마이크/스피커) | `backend/app/ws/audio_ws.py` |
 | Agent queue UI | `frontend/src/components/queue/OutboundQueueTable.tsx` |
 | Call graph | `frontend/src/components/call/CallGraph.tsx` |
-| Customer phone | `frontend/src/components/phone/PhoneFrame.tsx` |
-| Mic toggle | `frontend/src/lib/mic.ts` + `agent UI toggle` |
+| Mic capture | `frontend/src/lib/mic.ts` (agent UI 내장) |
 
 > **우회 금지**: 이 구조를 따르세요. 새로 파일을 만들 때는 위 위치를 우선 사용.
 

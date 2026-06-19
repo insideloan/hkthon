@@ -2,9 +2,9 @@
 
 > **Title format**: `[<target-module>] <short description>`
 > Examples:
-> - `[QUEUE] add outbound table component`
-> - `[ORCH] add S1 state machine + LLM script`
-> - `[TEAM-LOCK] add @tanstack/react-query to package.json`
+> - `[FRONTEND] add outbound table component`
+> - `[AGENT] add S1 state machine + LLM script`
+> - `[CLOUD] add @tanstack/react-query to package.json`
 
 ## Related issue
 

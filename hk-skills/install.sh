@@ -101,7 +101,7 @@ Actions:
   --verify               Check installation is intact
   --verify-modules       Check docs/MODULES.md yaml SSOT vs human tables (drift)
   --setup-project        Bootstrap a new hackathon project (delegates to setup-project.sh)
-                         Pass through --module QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA
+                         Pass through --module CLOUD|DATA|AGENT|BACKEND|FRONTEND
                          Pass through --name <project-name>
 
 Options:

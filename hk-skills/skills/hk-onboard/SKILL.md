@@ -89,12 +89,12 @@ cp ~/.claude/reference/STACK.md .env.example  # 참고용
 
 그리고 STACK.md의 §2 디렉토리 구조에 따라 `app/main.py`, `app/config.py` 등 **빈 파일**(stub) 생성. 내용은 `hk-implement`에서 채움.
 
-**이탈위험도 사전 데이터 복사 (ORCH 모듈 — `app/agent/`)**:
-`analysis.churn_risk`(이탈위험도) 점수 계산은 ORCH의 agent 턴 파이프라인이 키워드 사전을 로드합니다 (`reference/CHURN-RISK-LEXICON.md` SSOT). `app/agent/*`는 ORCH 소유 (`docs/MODULES.md` §2).
+**이탈위험도 사전 데이터 복사 (AGENT 모듈 — `app/agent/`)**:
+`analysis.churn_risk`(이탈위험도) 점수 계산은 AGENT의 agent 턴 파이프라인이 키워드 사전을 로드합니다 (`reference/CHURN-RISK-LEXICON.md` SSOT). `app/agent/*`는 AGENT 소유 (`docs/MODULES.md` §2).
 코드가 런타임에 읽을 수 있게 machine-readable 사전을 backend 안으로 복사 (빈 stub 아님, 실데이터):
 
 ```bash
-# 이탈위험도 키워드 사전 (ORCH의 backend/app/agent/churn_risk.py에서 로드)
+# 이탈위험도 키워드 사전 (AGENT의 backend/app/agent/churn_risk.py에서 로드)
 cp ~/.claude/reference/churn_risk_lexicon.json backend/app/agent/churn_risk_lexicon.json
 ```
 
@@ -208,7 +208,7 @@ cd frontend && pnpm dev
 - reference/ARCHITECTURE.md (구조)
 - reference/STACK.md (의존성)
 - reference/CONVENTIONS.md (규약)
-- reference/CHURN-RISK-LEXICON.md (이탈위험도 키워드 사전 — ORCH의 backend/app/agent/churn_risk_lexicon.json로 복사됨)
+- reference/CHURN-RISK-LEXICON.md (이탈위험도 키워드 사전 — AGENT의 backend/app/agent/churn_risk_lexicon.json로 복사됨)
 
 다음 단계: 팀 전체가 끝나면 /hk-backlog
 ```

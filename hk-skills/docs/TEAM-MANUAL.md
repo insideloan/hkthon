@@ -85,13 +85,13 @@ pwd && ls
 
 **"본인 모듈은 무엇인가요?"** 옵션:
 
-| 코드 | 역할 | 담당 파일 예시 |
+| 코드 | 담당 | 담당 파일 예시 |
 |---|---|---|
-| `QUEUE` | Outbound Call Queue | `frontend/src/components/queue/*`, `backend/app/api/queue.py` |
-| `PHONE` | Customer iPhone UI | `frontend/src/components/phone/*`, `backend/app/ws/customer_ws.py` |
-| `CALL` | Agent Call View | `frontend/src/components/call/*`, `backend/app/api/calls.py` |
-| `SUMMARY` | Handoff Summary | `frontend/src/components/call/SummaryPanel.tsx`, `backend/app/api/summaries.py` |
-| `ORCH` | Orchestrator Hub | `backend/app/scenarios/*`, `backend/app/llm/*`, `backend/app/agent/*` (이탈위험도 `churn_risk.py` 포함), `backend/app/main.py` |
+| `CLOUD` | 일조 | `infra/*`, `.github/workflows/*`, `*/package.json`·`pyproject.toml` (의존성/설정·PR 관리) |
+| `DATA` | 수민 | `backend/app/models/*`, `backend/app/seed.py`, `backend/app/scenarios/*` |
+| `AGENT` | 은경 | `backend/app/agent/*` (이탈위험도 `churn_risk.py` 포함), `backend/app/llm/*`, `backend/app/stt/*`, `backend/app/tts/*` |
+| `BACKEND` | 지원 | `backend/app/api/*`, `backend/app/ws/*`, `backend/app/{main,config,db}.py` |
+| `FRONTEND` | 주실 | `frontend/src/*` (관리자/통화/요약 화면 전체) |
 
 ### 실행
 
@@ -105,7 +105,7 @@ git config hk.module "<선택한-모듈>"
 
 확인:
 ```bash
-git config hk.module  # QUEUE 등 출력되면 OK
+git config hk.module  # FRONTEND 등 출력되면 OK
 ```
 
 ---
@@ -129,7 +129,7 @@ git pull origin main
 브랜치명 생성 규칙: `<MODULE>-<NNN>-<short-kebab-desc>`
 - MODULE: 사용자의 `git config hk.module` 값 또는 `DOCS` (문서 변경 시)
 - NNN: 3자리 번호 (001, 002 ...)
-- 예: `QUEUE-001-fix-queue-color`, `DOCS-002-update-readme`, `ORCH-003-add-fallback`
+- 예: `FRONTEND-001-fix-queue-color`, `DOCS-002-update-readme`, `AGENT-003-add-fallback`
 
 ```bash
 git checkout -b <브랜치명>
@@ -225,7 +225,7 @@ gh pr create \
 ```
 
 PR 제목 규칙: `[<모듈>] <설명>`
-- 예: `[QUEUE] fix queue row color`, `[DOCS] update team manual`
+- 예: `[FRONTEND] fix queue row color`, `[DOCS] update team manual`
 - TEAM-LOCK 변경: `[TEAM-LOCK] <설명>`
 
 PR 본문에 포함할 내용 (사용자에게 확인):
@@ -268,8 +268,8 @@ gh pr merge <PR번호> --squash --delete-branch
 ### 규칙
 
 - 본인이 만든 PR은 본인이 merge 못 함 (다른 팀원이)
-- TEAM-LOCK PR은 **모든 팀원 approve** 필요
-- Schema 변경 PR은 **ORCH owner + 사용 모듈 owner** approve 필요
+- TEAM-LOCK PR은 **CLOUD(일조) + 관련 팀원 approve** 필요
+- Schema 변경 PR은 **BACKEND owner + 사용 모듈(DATA/FRONTEND) owner** approve 필요
 
 ---
 
