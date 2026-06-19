@@ -1,0 +1,5 @@
+# Placeholder schema for scaffold synth only.
+# Replaced by BACKEND's graphql/schema.graphql in CLOUD-007 (#49).
+type Query {
+  _scaffold: String
+}
