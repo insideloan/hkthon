@@ -1,0 +1,43 @@
+name: module-boundary
+
+# Enforces module ownership (MODULES.md SSOT) on every PR, plus a drift check
+# that the YAML block and human-readable tables agree. Mirrors the local
+# pre-push hook so violations fail in CI even if someone bypassed the hook.
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need base..head history for the diff
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Module drift check (yaml vs tables)
+        run: |
+          python3 hk-skills/scripts/lint-modules.py --modules-md hk-skills/MODULES.md
+
+      - name: Module boundary check
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Derive the module from the branch-name prefix (convention:
+          # <MODULE>-<NNN>-<desc>, e.g. CLOUD-011-cdk-scaffold -> CLOUD).
+          MODULE="$(printf '%s' "$HEAD_REF" | sed -E 's/^([A-Za-z]+)-.*/\1/' | tr '[:lower:]' '[:upper:]')"
+          echo "Derived module: ${MODULE:-<none>} (from branch '$HEAD_REF')"
+          python3 hk-skills/scripts/check-module-boundary.py \
+            --module "$MODULE" \
+            --base "$BASE_SHA" \
+            --modules-md hk-skills/MODULES.md \
+            --ci
