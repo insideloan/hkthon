@@ -58,8 +58,10 @@ export class HkthonStack extends cdk.Stack {
     });
 
     // ── Lambda orchestrator (Python 3.13) ───────────────────────────────
-    // Placeholder inline code so synth works before #50 ships the real
-    // bundle. ORCHESTRATOR_MODE defaults to script mode.
+    // Placeholder bundle (infra/lambda-placeholder/) that resolves createCall /
+    // nextTurn by writing real DynamoDB items — proves the AppSync->Lambda->
+    // DynamoDB path in script mode. Replaced by the real orchestrator bundle in
+    // CLOUD-008 (#50). ORCHESTRATOR_MODE defaults to script mode.
     const orchestratorLogs = new logs.LogGroup(this, 'OrchestratorLogs', {
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -68,11 +70,7 @@ export class HkthonStack extends cdk.Stack {
     const orchestrator = new lambda.Function(this, 'Orchestrator', {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'handler.handler',
-      code: lambda.Code.fromInline(
-        'def handler(event, context):\n' +
-        '    # Placeholder — replaced by orchestrator bundle in CLOUD-008 (#50).\n' +
-        '    return {"ok": True, "mode": "script", "note": "scaffold placeholder"}\n',
-      ),
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambda-placeholder')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
@@ -135,7 +133,20 @@ export class HkthonStack extends cdk.Stack {
 
     // Data sources: DynamoDB (resolver direct) + Lambda (orchestrator).
     api.addDynamoDbDataSource('TableDataSource', table);
-    api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
+    const orchestratorDs = api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
+
+    // Placeholder resolvers: route createCall / nextTurn to the orchestrator
+    // Lambda. Default Lambda-DS request/response mapping passes the GraphQL
+    // field + arguments through as the event. #49 replaces these with the
+    // resolvers defined against BACKEND's real schema.
+    orchestratorDs.createResolver('CreateCallResolver', {
+      typeName: 'Mutation',
+      fieldName: 'createCall',
+    });
+    orchestratorDs.createResolver('NextTurnResolver', {
+      typeName: 'Mutation',
+      fieldName: 'nextTurn',
+    });
 
     // ── Bedrock Guardrail ───────────────────────────────────────────────
     // Compliance loop for generated drafts (STACK.md §5). Model *account*
