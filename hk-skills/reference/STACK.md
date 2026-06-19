@@ -36,7 +36,6 @@ boto3 = ">=1.35"              # AWS (Bedrock + Transcribe STT)
 langchain = ">=0.3"           # LLM 추상화
 langgraph = ">=0.2"           # Agent state graph (오케스트레이터)
 langchain-aws = ">=0.2"       # Bedrock (ChatBedrockConverse)
-langchain-openai = ">=0.2"    # OpenAI (대체, ChatOpenAI)
 amazon-transcribe = ">=0.6"   # AWS Transcribe streaming STT
 python-multipart = ">=0.0.20" # WebSocket audio upload
 ```
@@ -61,9 +60,8 @@ backend/
 │   │   ├── state.py            # CallState (messages, scenario, node, intent...)
 │   │   └── nodes.py            # 노드 함수 (greeting, classify, transfer, warn...)
 │   ├── llm/
-│   │   ├── router.py           # LangChain chat model 선택 (bedrock | openai)
-│   │   ├── bedrock.py          # ChatBedrockConverse (langchain-aws)
-│   │   └── openai_compat.py    # ChatOpenAI (langchain-openai)
+│   │   ├── router.py           # LangChain chat model (Bedrock 전용)
+│   │   └── bedrock.py          # ChatBedrockConverse (langchain-aws)
 │   ├── stt/
 │   │   └── transcribe_stt.py   # AWS Transcribe streaming STT
 │   ├── tts/
@@ -84,13 +82,9 @@ backend/
 ### 환경변수 / Env vars (`.env.example`)
 
 ```bash
-# LLM
-LLM_PROVIDER=bedrock          # bedrock | openai
-LLM_MODEL=anthropic.claude-3-5-sonnet-20241022
+# LLM (Bedrock 전용)
+LLM_MODEL=global.anthropic.claude-sonnet-4-6
 AWS_REGION=ap-northeast-2
-# OpenAI (대체 시)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o
 
 # AWS STT (Transcribe)
 # 자격증명은 표준 AWS 체인 사용 (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 또는 프로필)
@@ -110,8 +104,8 @@ LOG_LEVEL=INFO
 
 ### LLM Provider 라우팅 + Agent 그래프
 
-- `app/llm/router.py`가 `LLM_PROVIDER` env를 보고 LangChain chat model 선택 (bedrock → `ChatBedrockConverse`, openai → `ChatOpenAI`) → `BaseChatModel` 반환
-- 두 provider 모두 LangChain `.astream()` 스트리밍 인터페이스로 통일
+- `app/llm/router.py`가 LangChain chat model(`ChatBedrockConverse`, langchain-aws)을 생성해 `BaseChatModel` 반환 — **Bedrock 전용**
+- LangChain `.astream()` 스트리밍 인터페이스로 통일
 - 오케스트레이터는 **LangGraph `StateGraph`** (`app/agent/graph.py`). 노드가 LangChain model을 호출하고, conditional edge로 시나리오 분기 (§4 참고)
 - 함수 시그니처: `async def run_turn(state: CallState) -> CallState` (그래프 1턴 실행)
 
@@ -213,8 +207,7 @@ detect_fraud (매 턴 병렬 체크) ──→ fraud_suspected=true → /ws/agen
 
 ### LLM (LangChain)
 
-- **Model**: AWS Bedrock — `global.anthropic.claude-sonnet-4-6` (`ChatBedrockConverse`, langchain-aws)
-- **대체**: OpenAI `ChatOpenAI` (langchain-openai)
+- **Model**: AWS Bedrock — `global.anthropic.claude-sonnet-4-6` (`ChatBedrockConverse`, langchain-aws). **Bedrock 전용** (다른 provider 없음)
 - **System prompt 위치**: `app/llm/prompts/system_ko.txt`
 
 ### STT (AWS Transcribe Streaming)
@@ -304,7 +297,7 @@ type AgentCmd =
 - ❌ **새 의존성 추가 금지** (해커톤 중). 정말 필요하면 팀 합의 + 이 문서 업데이트.
 - ❌ **직접 SQL 작성 금지** — SQLModel ORM만 사용.
 - ❌ **Inline `style={{...}}` 금지** — Tailwind 클래스만.
-- ❌ **새 LLM provider 추가 금지** (bedrock/openai만, LangChain 경유).
+- ❌ **새 LLM provider 추가 금지** (AWS Bedrock 전용, LangChain 경유).
 - ❌ **새 STT/TTS provider 추가 금지** (STT는 AWS Transcribe, TTS는 Typecast만). TTS voice는 `혜라`/`진서`/`유라` 중에서만 선택.
 - ❌ **인증/인가 추가 금지** — 데모는 그냥 open.
 

@@ -77,8 +77,8 @@ mkdir -p backend && cd backend
 uv init --no-readme
 # 또는 pip-tools
 # pyproject.toml에 STACK §2의 의존성 추가
-uv add fastapi 'uvicorn[standard]' websockets sqlmodel duckdb pydantic pydantic-settings httpx boto3 langchain langgraph langchain-aws langchain-openai amazon-transcribe python-multipart
-# boto3: Bedrock + Transcribe STT 공통 사용; openai 직접 dep은 langchain-openai로 대체
+uv add fastapi 'uvicorn[standard]' websockets sqlmodel duckdb pydantic pydantic-settings httpx boto3 langchain langgraph langchain-aws amazon-transcribe python-multipart
+# boto3: Bedrock + Transcribe STT 공통 사용; LLM은 langchain-aws(ChatBedrockConverse) Bedrock 전용
 # Typecast TTS는 REST이므로 별도 SDK 없이 httpx로 호출 (새 의존성 없음)
 
 # .env.example 복사
@@ -201,7 +201,7 @@ cd frontend && pnpm dev
 ✅ Onboard 완료
 - Backend: http://localhost:8000 OK (CORS 설정됨)
 - Frontend: http://localhost:3000 OK
-- Stack: FastAPI + LangGraph + Next.js + DuckDB + Bedrock/OpenAI (LangChain) + AWS Transcribe STT + Typecast TTS
+- Stack: FastAPI + LangGraph + Next.js + DuckDB + AWS Bedrock (LangChain) + AWS Transcribe STT + Typecast TTS
 - Template: <사용했으면 URL, 안 했으면 "placeholder wrapper 사용 중">
 
 문서:

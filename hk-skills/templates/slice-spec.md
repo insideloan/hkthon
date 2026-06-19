@@ -74,7 +74,7 @@ so that AI 봇이 적절한 응답을 생성할 수 있다.
 - [ ] (FE) 페이지 진입 시 row 1개 표시, 색상 정확
 - [ ] (WS) `/ws/agent`에서 `queue_update` 메시지 수신
 - [ ] (DB) row가 DuckDB에 저장됨
-- [ ] (LLM) `llm/router.py`가 LangChain `BaseChatModel`을 반환하고, bedrock/openai 양쪽에서 동일 응답
+- [ ] (LLM) `llm/router.py`가 LangChain `BaseChatModel`(Bedrock `ChatBedrockConverse`)을 반환하고 정상 응답
 - [ ] (i18n) UI 라벨 한국어 자연스러움
 - [ ] (convention) wrapper 패턴, `any` 없음
 - [ ] (manual) `pnpm dev` + `uvicorn` 동시 실행 → 브라우저에서 확인

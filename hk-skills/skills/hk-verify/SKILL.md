@@ -99,11 +99,7 @@ Issue의 `## Acceptance` 각 항목을 **실제로 실행**해서 확인.
 - 같은 입력으로 3번 실행
 - 3/3 JSON parse 성공
 - 한국어 자연스러움
-- **Provider switch**:
-  ```bash
-  # .env의 LLM_PROVIDER=openai로 바꾼 뒤 backend 재시작
-  # 같은 입력 3번, 동작
-  ```
+- **Bedrock 연결 확인**: `.env`의 AWS 자격증명/리전으로 `ChatBedrockConverse` 호출 성공 (Bedrock 전용, provider 전환 없음)
 
 ### 3.8 VERIFY.md F섹션 — 외부 API (해당 시, 2분)
 
