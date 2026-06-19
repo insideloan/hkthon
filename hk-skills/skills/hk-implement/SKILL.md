@@ -28,8 +28,8 @@ description: 본인 owner의 GitHub issue 1개를 실제로 구현. pre-push hoo
 - 본인 GitHub issue (`gh issue view <num>`)
 - `docs/MODULES.md` §2 (file ownership matrix — **반드시 확인**)
 - `reference/ARCHITECTURE.md`, `STACK.md`, `CONVENTIONS.md`
-- `reference/API.md` (REST/WS 스펙 시트 — endpoint/메시지 구현 시 **반드시 확인**)
-- `reference/CHURN-RISK-LEXICON.md` (AGENT가 `index_update.churn_risk` 산출 / FRONTEND가 게이지 표시 구현 시 **반드시 확인** — 점수 모델 + 키워드 사전 SSOT)
+- `reference/API.md` (AppSync GraphQL 계약 — 뮤테이션/구독/쿼리 구현 시 **반드시 확인**)
+- `reference/CHURN-RISK-LEXICON.md` (AGENT가 `onIndexUpdate.churnRisk` 산출 / FRONTEND가 게이지 표시 구현 시 **반드시 확인** — 점수 모델 + 키워드 사전 SSOT)
 - `OWNER.md` (본인 issue가 in_progress로 표시되어야 함)
 
 > **본인 issue가 아니면 시작 금지.** `OWNER.md` 또는 `gh issue view --json assignees`로 확인.
@@ -96,14 +96,14 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 
 > **hook이 막으면**: 해당 파일을 revert (`git checkout -- <file>`) 후 다시 push. PR이 필요한 변경이면 그 파일만 별도 브랜치 + PR.
 
-#### Backend (Python/FastAPI)
+#### Orchestrator (Python Lambda)
 
 - `reference/ARCHITECTURE.md` §5의 디렉토리 위치
-- type hints, `logging`, ORM (SQLModel) only, raw SQL 금지
-- LLM: 에이전트 로직은 `app/agent/` (LangGraph — `graph.py` / `nodes.py` / `state.py`) 에 위치. LLM 접근은 `app/llm/router.py`를 통해 LangChain `BaseChatModel`을 반환받아 호출 (`.astream()` 사용)
-- REST endpoint: `reference/API.md` §1의 요청/응답 schema 그대로 구현 (path, 본문 필드, 에러 envelope §0.3). machine-readable 계약은 `reference/openapi.yaml`. 구현 후 FastAPI가 생성한 `GET /openapi.json` / `/docs`와 대조
-- WebSocket: `reference/API.md` §2 + `STACK.md` §5 schema 준수 (type 값, payload 필드)
-- 이탈위험도(`index_update.churn_risk` / `analysis.churn_risk`): **AGENT**가 산출자. `app/agent/churn_risk.py`(AGENT 소유 `app/agent/*`)가 `app/agent/churn_risk_lexicon.json`(onboard에서 복사됨)을 로드해 `reference/CHURN-RISK-LEXICON.md` §1 점수 모델(baseline 50, 가중치 합산, EMA α=0.6, 부정/강조 처리)대로 계산 → agent 턴마다 `index_update` 방출. 고객 STT(`speaker: customer`) 발화에만 적용. **FRONTEND**는 `index_update`를 구독해 우상단 게이지를 표시(소비자, 점수 계산 안 함)
+- type hints, `logging`, DynamoDB 접근은 boto3 싱글-테이블 패턴만, 직접 SQL/관계형 DB 금지
+- LLM: 에이전트 로직은 `lambda/orchestrator/agent/` (LangGraph in live mode — `graph.py` / `nodes.py` / `state.py`) 에 위치. LLM 접근은 `lambda/orchestrator/llm/router.py`를 통해 호출
+- AppSync 뮤테이션/구독은 `graphql/schema.graphql`(BACKEND 소유) 계약대로 구현. resolver는 `lambda/orchestrator/resolvers/`, 핸들러 엔트리는 `handler.py`. 구현 후 AppSync 콘솔/`aws appsync get-introspection-schema` 또는 `graphql/schema.graphql`와 대조
+- AppSync 구독(`onTurn`/`onIndexUpdate`/...) — schema는 `graphql/schema.graphql`, 값 산출은 DynamoDB write→Streams 팬아웃
+- 이탈위험도(`onIndexUpdate.churnRisk` / `analysis.churnRisk`): **AGENT**가 산출자. `lambda/orchestrator/agent/churn_risk.py`(AGENT 소유)가 `data/lexicon/churn_risk_lexicon.json`을 로드해 `reference/CHURN-RISK-LEXICON.md` §1 점수 모델(baseline 50, 가중치 합산, EMA α=0.6, 부정/강조 처리)대로 계산 → 매 고객 턴 후 `onIndexUpdate` 방출. 고객 STT(`speaker: customer`) 발화에만 적용. **FRONTEND**는 `onIndexUpdate`를 구독해 우상단 게이지를 표시(소비자, 점수 계산 안 함)
 
 #### Frontend (TypeScript/Next.js)
 
@@ -111,21 +111,21 @@ git checkout -b <MODULE>-<NNN>-<short-desc> origin/main
 - wrapper `src/components/ui/*` 통해서 (`CONVENTIONS.md` §6.1)
 - inline `style={{}}` 금지
 - `any` 금지, 모든 함수에 타입
-- WebSocket: `lib/ws.ts` 통해서
-- API: `lib/api.ts` 통해서
+- AppSync 구독: `lib/appsync.ts` 통해서 (`Amplify generateClient().subscribe()`)
+- AppSync 뮤테이션/쿼리: `lib/appsync.ts` 통해서
 
 #### 자주 쓰는 패턴
 
 | 상황 | 패턴 |
 |---|---|
-| 새 API endpoint | `app/api/<thing>.py` router, `app/main.py`에 `app.include_router(...)` |
-| 새 DB 테이블 | `app/models/<thing>.py` SQLModel, `python -m app.db_init` |
-| 새 WebSocket 메시지 | `app/ws/<agent|audio>_ws.py` handler (schema 변경은 BACKEND PR) |
-| 이탈위험도 점수 (churn_risk) | AGENT: `app/agent/churn_risk.py`가 `app/agent/churn_risk_lexicon.json` 로드 → `reference/CHURN-RISK-LEXICON.md` §1 모델대로 계산 → `index_update` 방출. FRONTEND은 그 메시지를 구독만. 사전 수정은 `reference/`의 .md+.json 동시 변경 |
+| 새 GraphQL 필드 | `graphql/schema.graphql`에 타입/필드 + `lambda/orchestrator/resolvers/<thing>.py` |
+| 새 DynamoDB 엔터티 | `lambda/orchestrator/models/<thing>.py` (boto3 마샬링), 싱글 테이블 PK/SK |
+| 새 구독 | `graphql/schema.graphql` 필드 + AGENT가 DynamoDB write → Streams 팬아웃 |
+| 이탈위험도 점수 (churn_risk) | AGENT: `lambda/orchestrator/agent/churn_risk.py`가 `data/lexicon/churn_risk_lexicon.json` 로드 → `reference/CHURN-RISK-LEXICON.md` §1 모델대로 계산 → `onIndexUpdate` 방출. FRONTEND은 그 구독을 소비만. 사전 수정은 `reference/`의 .md+.json 동시 변경 |
 | 새 Frontend 페이지 | `src/app/<route>/page.tsx` |
 | 새 wrapper | `src/components/ui/<Name>.tsx` (누구나 push 가능, `*`) |
-| 새 env var | `app/config.py` Settings, `.env.example` (BACKEND→config / CLOUD→.env.example) |
-| 새 dep | `CLOUD-NNN-add-<dep>` issue + 합의 (거의 안 함) |
+| 새 env var | Secrets Manager + `infra/` CDK (CLOUD 소유). `.env.example`에 키 이름만 기록 |
+| 새 dep | `lambda/orchestrator/requirements.txt` 또는 `frontend/package.json` (CLOUD PR 필요) |
 
 ### 3.5 중간 점검 (45분 시점)
 
@@ -142,9 +142,17 @@ issue가 1.5시간 이상 걸릴 것 같으면:
 구현이 끝나면, **issue의 `## Acceptance`** 각 줄을 본인 앞에서 실행 (curl, browser, DB):
 
 ```bash
-# 예시: API 200 + row 생성
-curl -X POST http://localhost:8000/api/foo -H "Content-Type: application/json" -d '{...}'
-duckdb backend/app.duckdb 'SELECT * FROM calls ORDER BY started_at DESC LIMIT 3;'
+# 예시: AppSync 뮤테이션 호출 + DynamoDB 확인
+curl -X POST https://<api-id>.appsync-api.<region>.amazonaws.com/graphql \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: <appsync-api-key>" \
+  -d '{"query":"mutation { nextTurn(callId: \"<callId>\") { seq speaker text } }"}'
+
+aws dynamodb query \
+  --table-name <table> \
+  --key-condition-expression "PK = :pk" \
+  --expression-attribute-values '{":pk":{"S":"CALL#<callId>"}}' \
+  --query "Items[*]"
 ```
 
 모두 [x] 가 될 때까지.
@@ -228,8 +236,8 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 - ❌ **`pre-push` hook 우회 (`--no-verify`) 절대 금지.** 24h에 자동화가 안전.
 - ❌ **본인 모듈 외 파일 edit** (issue의 Shared files에도 없으면).
 - ❌ **TEAM LOCK 파일** (tailwind.config, package.json 등) edit — PR 필요.
-- ❌ **Schema 변경** (WS message, API contract) — BACKEND PR, 합의.
-- ❌ **이탈위험도 사전을 코드에 하드코딩 금지** — 키워드/가중치는 `reference/CHURN-RISK-LEXICON.md`(prose) + `reference/churn_risk_lexicon.json`(code)을 **동시** 수정. backend의 `churn_risk_lexicon.json`은 복사본이며 직접 편집하지 말 것.
+- ❌ **Schema 변경** (GraphQL 스키마/구독 계약) — BACKEND PR, 합의.
+- ❌ **이탈위험도 사전을 코드에 하드코딩 금지** — 키워드/가중치는 `reference/CHURN-RISK-LEXICON.md`(prose) + `reference/churn_risk_lexicon.json`(code)을 **동시** 수정. `data/lexicon/churn_risk_lexicon.json`은 S3 배포본이며 reference가 SSOT.
 - ❌ **새 dep 추가** — `CLOUD-NNN` issue 합의.
 - ❌ **plan 없이 바로 코드 작성 금지** (3.3 통과 필수).
 - ❌ **acceptance criteria 일부만 채우고 "done" 금지** (100% 또는 fail).
@@ -249,8 +257,8 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 | **schema 변경 필요** | issue acceptance에 없었는데 필요해짐 | issue 새로 만들기 (`BACKEND-NNN-...`), 본인 issue에 "blocked by" 추가 |
 | **TEAM LOCK 파일 변경** | tailwind.config 등 | `CLOUD-NNN-...` issue 합의, 본인 issue는 close (변경 불필요) |
 | **lint FAIL** | tsc / ruff error | 고치고 push. 모듈 boundary와 무관. |
-| **WS 메시지 안 옴** | type mismatch | `STACK.md` §5 schema + 본인 코드 비교. snake_case/camelCase. |
-| **CORS error** | frontend에서 backend 호출 실패 | `app/main.py` `CORSMiddleware(allow_origins=["http://localhost:3000"])` |
+| **구독 이벤트 안 옴** | DynamoDB write 누락 또는 Streams 미설정 | Lambda orchestrator 로그 확인 → DynamoDB write → Streams → AppSync 팬아웃 경로 점검 |
+| **AppSync 401/403** | API 키 누락 또는 만료 | `x-api-key` 헤더 확인, CDK 출력에서 키 재확인 |
 
 ---
 
@@ -259,7 +267,7 @@ gh issue edit <num> --remove-label "status:in-progress" --add-label "status:in-r
 **조건**:
 - [ ] Issue의 `## Acceptance` 모든 항목 [x]
 - [ ] `pnpm tsc --noEmit` 0 errors (FE인 경우)
-- [ ] `ruff check backend/` 0 errors (BE인 경우)
+- [ ] `ruff check lambda/orchestrator/` 0 errors (BE인 경우)
 - [ ] `docs/slices/<id>/VERIFY.md` 작성됨
 - [ ] `pre-push` hook 통과
 - [ ] PR 생성됨, reviewer 지정됨

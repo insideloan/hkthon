@@ -3,12 +3,12 @@
 > **이 문서는 `analysis.churn_risk`(이탈 위험도 0–100) 산출을 위한 키워드 사전 + 점수 모델의 SSOT입니다.**
 > **SSOT for the keyword dictionaries and scoring model behind `analysis.churn_risk` (0–100).**
 >
-> 상위 진실: 화면/지표 정의는 `reference/PRODUCT-BRIEF.md` §4.1, wire-format은 `reference/API.md`
-> (`analysis.churn_risk`, `index_update.churn_risk`), 그래프 노드는 `reference/ARCHITECTURE.md` §3.
+> 상위 진실: 화면/지표 정의는 `reference/PRODUCT-BRIEF.md` §4.1, wire-format은 `graphql/schema.graphql`
+> (`analysis.churn_risk`, `onIndexUpdate.churn_risk`), 그래프 노드는 `reference/ARCHITECTURE.md` §3.
 > 충돌 시 PRODUCT-BRIEF가 우선.
 >
-> 소유: **CALL 모듈** (`index_update` 방출자). 점수 계산 코드는
-> `backend/app/agent/churn_risk.py`(신규)에 위치하고 이 사전 + `churn_risk_lexicon.json`을 로드합니다.
+> 소유: **AGENT 모듈** (`onIndexUpdate` 방출자). 점수 계산 코드는
+> `lambda/orchestrator/agent/churn_risk.py`에 위치하고 이 사전 + `data/lexicon/churn_risk_lexicon.json`(S3)을 로드합니다.
 >
 > **언어**: 고객 발화는 STT `ko-KR`(`STACK.md` §4)이므로 사전은 **한국어 표현**이 기준입니다.
 > 매칭은 STT 텍스트(고객 발화, `speaker: customer`)에만 적용합니다 — 봇/상담원 발화는 점수화하지 않습니다.
@@ -54,7 +54,7 @@ churn_risk(t)  = clamp(churn_risk(t), 0, 100)
 5. **강조 배수**: `진짜·완전·너무·전혀·절대·당장` 등 강조어가 키워드에 인접하면 가중치 ×1.5(소수 반올림).
 6. **무발화/침묵**: 고객 응답이 STT 공백이거나 `네…`/`음…` 류 최소응답만 2턴 연속이면 +6(주저 신호).
 7. **클램프**: 모든 단계에서 0–100.
-8. **방출**: 갱신된 `churn_risk`는 `/ws/agent`의 `index_update`로 push, `GET /api/calls/{id}`의
+8. **방출**: 갱신된 `churn_risk`는 AppSync 구독 `onIndexUpdate`로 push(DynamoDB write→Streams 팬아웃), `call(id)` 쿼리의
    `analysis.churn_risk`에 반영(`API.md` §1.2, §2.1).
 
 > **LLM 보정(선택)**: `classify` 노드가 의미 기반으로 ±10 보정을 제안할 수 있으나, 사전 점수가 1차 진실이며
@@ -225,7 +225,7 @@ T5 고객: "그럼 제 한도 좀 조회해 주세요"  → "한도조회"(-20) 
 
 ## 6. 사전 운영 규칙 / Maintenance
 
-- **추가/수정**: `CHURN-RISK-LEXICON.md`(사람용) + `churn_risk_lexicon.json`(코드용)을 **동시** 갱신 → CALL owner PR.
+- **추가/수정**: `CHURN-RISK-LEXICON.md`(사람용) + `churn_risk_lexicon.json`(코드용)을 **동시** 갱신 → AGENT owner PR.
   (스키마 변경 규칙은 `API.md` 헤더, `WORKFLOW.md` §3.1 준용.)
 - **튜닝**: 가중치는 데모 리허설로 보정. 게이지가 한 발화에 과반응하면 `α`를 낮추거나 턴 상한을 줄입니다.
 - **검증**: `hk-verify`에서 §5 예시를 골든 케이스로 사용(고정 입력 → 고정 churn_risk 궤적).

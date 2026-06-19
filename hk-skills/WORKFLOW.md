@@ -193,7 +193,8 @@ git checkout <pr-branch>
 git fetch origin pull/<num>/head:<pr-branch>
 git checkout <pr-branch>
 # lint + test + smoke
-cd backend && ruff check . && python -m app.smoke
+cd lambda/orchestrator && ruff check . && python -m pytest -q
+cd infra && cdk synth >/dev/null
 cd frontend && pnpm tsc --noEmit && pnpm lint
 
 # OK면 GitHub UI에서 "Squash and merge" (권장)
@@ -225,8 +226,8 @@ git rebase origin/main
 3. CLOUD(일조) + 관련 팀원 approve (TEAM LOCK PR)
 4. 머지 후:
    - `reference/STACK.md` §2/§3에 dep 추가
-   - `pyproject.toml` 또는 `package.json`에 dep 추가
-   - `pnpm-lock.yaml` 또는 `uv.lock` 갱신
+   - `lambda/orchestrator/requirements.txt`(Python) 또는 `frontend/package.json`(FE) 또는 `infra/package.json`(CDK)에 dep 추가
+   - `frontend/pnpm-lock.yaml` 갱신 (Python은 requirements.txt 핀)
 5. issue close
 
 **24h에 흔한 함정**:
@@ -318,9 +319,9 @@ git rebase origin/main
 
 > 5명 중 1명은 30분마다 한 번 **main을 pull + 통합 smoke test**:
 > 1. `git pull origin main`
-> 2. `cd backend && ruff check . && python -m app.smoke`
+> 2. `cd lambda/orchestrator && ruff check . && python -m pytest -q && cd ../../infra && cdk synth >/dev/null`
 > 3. `cd frontend && pnpm tsc --noEmit && pnpm lint`
-> 4. backend + frontend 실행 후 `/` 페이지 응답 200 확인
+> 4. `pnpm dev`(frontend) → `/` 페이지 200 + 배포된 AppSync `queue` 쿼리 응답 확인
 
 이걸 잊으면 **24h 끝에 "main이 안 돌아가"** disaster. 역할 분담:
 - 모니터 1명: 통합 smoke (예: CLOUD(일조) 또는 순환)

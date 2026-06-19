@@ -25,7 +25,7 @@ description: 모든 slice가 done이고 통합 데모가 끝났을 때 마지막
 
 - `PRODUCT-BRIEF.md` (성공 기준 §7)
 - `BACKLOG.md` (Demo Plan §)
-- 본인 환경: backend + frontend 둘 다 실행 가능
+- 본인 환경: Lambda orchestrator (배포됨 또는 로컬 pytest) + `pnpm dev` frontend 실행 가능
 - (선택) 발표 시간 (예: 4분)
 
 ---
@@ -59,7 +59,7 @@ description: 모든 slice가 done이고 통합 데모가 끝났을 때 마지막
 DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 
 #### A. 데모 데이터 시드
-- `python -m app.seed`로 **테스트용 고객 10명**이 들어가 있는가
+- `python lambda/orchestrator/seed.py`로 **테스트용 고객 10명**이 DynamoDB에 들어가 있는가
 - 그 중 최소 1명은 S1 시나리오에 맞춰 페르소나가 세팅되어 있는가
 - (이상적으로) 시드 직후 첫 손님이 S1 happy path로 흘러가게
 
@@ -67,7 +67,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 - 데모 중 뭔가 망가지면? 다음 3개 fallback:
   1. **LLM timeout** → 5초 안에 안 오면 미리 준비해둔 hardcoded script로 자동 전환 (state machine에 fallback node)
   2. **STT/TTS 안 됨** → 그냥 "음성" 부분 빼고 transcript + 그래프만 보여주기 (시각적 데모)
-  3. **WebSocket 끊김** → 새로고침 자동 재연결 (frontend에 reconnect logic 있어야)
+  3. **AppSync 구독 끊김** → 새로고침 자동 재연결 (frontend에 Amplify client reconnect logic 있어야)
 
 #### C. 브라우저/탭 셋업
 - 발표 직전 chrome 창:
@@ -126,7 +126,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 ## 5. 발표 중 팁 / Presentation Tips
 
 1. **첫 15초가 가장 중요** — "이게 뭔가요?"가 한 문장으로. 심사위원 1명당 집중 시간 1분.
-2. **기술 자랑 < 사용자 가치** — "저희는 React 19, FastAPI, WebSocket streaming, AWS Transcribe/Typecast를..." ❌ → "AI가 직접 전화를 걸고, 한도조회 요청 시 상담원에게 자동으로 연결합니다" ⭕
+2. **기술 자랑 < 사용자 가치** — "저희는 React 19, AppSync, Lambda, DynamoDB, AWS Bedrock/Transcribe/Typecast를..." ❌ → "AI가 직접 전화를 걸고, 한도조회 요청 시 상담원에게 자동으로 연결합니다" ⭕
 3. **데모가 1번 망가져도 멘탈 유지** — "아, 잘 보이시죠? (재시도)" 한 마디로 살림.
 4. **숫자 3개 외우기** — 예: "0.8초 응답, 상담원 자동 연결, 4분 안에 풀 데모"
 5. **질문 시간에 "잘 모르겠습니다" OK** — 없는 knowledge를 지어내는 것보다 100배 낫다.
@@ -137,7 +137,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 
 - ❌ **데모 중 live coding 금지** — 미리 다 짜두고 시연만.
 - ❌ **새 기능 추가 시도 금지** — 24h 종료 직전 새 시도 = disaster.
-- ❌ **fallback 없이 데모 시작 금지** — LLM timeout, STT 끊김, WebSocket 끊김 중 1개는 거의 100% 일어남.
+- ❌ **fallback 없이 데모 시작 금지** — LLM timeout, STT 끊김, AppSync 구독 끊김 중 1개는 거의 100% 일어남.
 - ❌ **시간 초과 무시** — 4분 안에 안 끝나면 진짜 감점. 끝낼 타이밍 미리 정하기.
 - ✅ **리허설 최소 1회.**
 - ✅ **DB를 깨끗한 시드 상태로** — 발표 직전 1번.
@@ -154,7 +154,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 | STT가 한국어 인식 못함 | transcript가 영어 또는 빈값 | Transcribe `LanguageCode=ko-KR` 명시 |
 | 발신 표현이 약함 | "전화 거는 중" 느낌 부족 | 통화 버튼 클릭 시 발신음/링톤 재생 (`afplay` .m4a, Mac) |
 | 노드 그래프가 너무 작아 안 보임 | 데모 projector에서 글씨 안 보임 | 폰트 키우기 (tw-2xl), 줌 디폴트 1.5배 |
-| 통화 중 backend 죽음 | 30분 데모 중 1번 | supervisor로 자동 재시작, 또는 발표 전 재시작 |
+| Lambda cold start / timeout | 첫 뮤테이션 응답 지연 | 발표 직전 warm-up 뮤테이션 1회 실행 (provisioned concurrency 없을 때) |
 | AI 인계 요약의 LLM 내용이 별로 | "통화가 종료되었습니다" 같은 일반론 | system prompt에 "구체적: 고객이 X에 대해 Y라고 말함" 강조 |
 | 통합 충돌 | BE/FE schema 다름 | 발표 직전 1시간은 통합 fix만 |
 
@@ -164,7 +164,7 @@ DEMO.md 작성하면서 동시에 다음 5가지를 점검:
 
 **조건**:
 - [ ] DEMO.md 4분 타임라인 확정
-- [ ] 폴백 시나리오 정의됨 (LLM timeout / STT 끊김 / WebSocket 끊김)
+- [ ] 폴백 시나리오 정의됨 (LLM timeout / STT 끊김 / AppSync 구독 끊김)
 - [ ] 리허설 1회 성공
 - [ ] 발표자 2명 역할 명확
 - [ ] DB 시드 상태

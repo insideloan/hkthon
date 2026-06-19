@@ -26,8 +26,8 @@
 | TypeScript 타입/인터페이스 | PascalCase | `type AgentMsg` |
 | DB 테이블 | snake_case, 복수형 | `customers`, `transcripts` |
 | DB 컬럼 | snake_case | `customer_id`, `started_at` |
-| API endpoint | kebab-case, 복수 | `/api/outbound-queue`, `/api/calls` |
-| WebSocket 메시지 type | snake_case, UPPER_SNAKE 값 | `{type: "queue_update"}` |
+| GraphQL operation | camelCase | `dialCall`, `nextTurn`, `onMotDetected` |
+| GraphQL subscription field | camelCase | `onIndexUpdate`, `onTurn`, `onCallEnded` |
 | React 컴포넌트 파일 | PascalCase.tsx | `SummaryPanel.tsx` |
 | 비-컴포넌트 TS 파일 | camelCase.ts | `api.ts`, `ws.ts` |
 | Python 파일 | snake_case.py | `agent_ws.py` |
@@ -36,11 +36,11 @@
 
 ## 3. 파일 구조 / File Structure
 
-### 3.1 Backend (Python)
+### 3.1 Backend (Python — Lambda orchestrator)
 
 - 한 파일 = 한 책임 (Single Responsibility)
-- 모듈은 `app/<domain>/<thing>.py`
-- 순환 import 금지. 필요하면 `app/dependencies.py`에서 wire
+- 모듈은 `lambda/orchestrator/<domain>/<thing>.py`
+- 순환 import 금지. 필요하면 `lambda/orchestrator/api/dependencies.py`에서 wire
 - Public API는 `__init__.py`에서 명시적으로 re-export
 
 ### 3.2 Frontend (TypeScript)
@@ -75,7 +75,7 @@ const rows = data as QueueRow[];  // ← 가능하면 zod parse
 const rows = QueueRowSchema.array().parse(data);
 ```
 
-**공유 타입**: `frontend/src/types/*`에 정의. backend가 OpenAPI로 export하면 그거 import. 안 그러면 손으로 mirror + 주석으로 출처 표시.
+**공유 타입**: `frontend/src/types/*`에 정의. AppSync 스키마(`graphql/schema.graphql`)에서 자동 생성하거나, 안 그러면 손으로 mirror + 주석으로 출처 표시.
 
 ---
 
@@ -190,7 +190,7 @@ export default {
 
 ### 7.2 Branch 전략
 
-- `main` — 항상 `pnpm dev` + `uvicorn`이 로컬에서 실행 가능. **PR로만 머지.**
+- `main` — `pnpm dev`(frontend) + `cdk synth`(infra) + orchestrator pytest가 통과. **PR로만 머지.**
 - 작업 브랜치: `<MODULE>-<NNN>-<short-desc>` (예: `FRONTEND-001-outbound-table`)
 - 24h 안에서는 **squash merge 권장** (history 깨끗)
 - 자기 모듈 작업 시 rebase: `git fetch && git rebase origin/main && git push --force-with-lease`
@@ -229,7 +229,7 @@ scope: backend | frontend | infra | slice
 
 ### 7.6 의존성 추가 (TEAM LOCK)
 
-`package.json` / `pnpm-lock.yaml` / `pyproject.toml` / `uv.lock` / `tailwind.config.ts` 변경은 **PR + CLOUD(일조) 리뷰**. `CLOUD-NNN-add-<dep>` issue로 합의 먼저. 상세: `docs/WORKFLOW.md` §4.
+`frontend/package.json` / `frontend/pnpm-lock.yaml` / `lambda/orchestrator/requirements.txt` / `infra/package.json` / `tailwind.config.ts` 변경은 **PR + CLOUD(일조) 리뷰**. `CLOUD-NNN-add-<dep>` issue로 합의 먼저. 상세: `docs/WORKFLOW.md` §4.
 
 ### 7.7 Owner / 모듈 합의
 
@@ -245,7 +245,7 @@ scope: backend | frontend | infra | slice
 1. PR에 사유 + 대안 + 24h 내 risk 명시
 2. 팀 리드 승인
 3. `reference/STACK.md` 업데이트
-4. `pnpm-lock.yaml` 또는 `pyproject.toml` lock 갱신
+4. `pnpm-lock.yaml` 또는 `lambda/orchestrator/requirements.txt` 갱신
 
 > 24h 안에 dependency 추가는 9/10 위험. **대부분의 필요는 우리가 이미 가진 것들로 해결 가능.**
 
@@ -282,7 +282,7 @@ PR 올릴 때 본인이 self-check:
 
 ```python
 # ✅ 한국어 + action 가능
-raise ValueError("고객 ID가 필요합니다. /api/calls/start 요청에 customer_id를 포함하세요.")
+raise ValueError("고객 ID가 필요합니다. `dialCall` 뮤테이션에 customerId를 포함하세요.")
 
 # ❌ stack trace 그대로 노출
 raise Exception("KeyError: customer_id")

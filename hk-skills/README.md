@@ -31,11 +31,11 @@
 
 | 코드 | Owner | 영역 |
 |---|---|---|
-| **CLOUD** | 일조 | AWS 배포·CI·의존성/설정·PR 관리 |
-| **DATA** | 수민 | 데이터 모델 · 시드 · 시나리오 데이터 |
-| **AGENT** | 은경 | LangGraph agent · LLM · STT/TTS · 이탈위험도 |
-| **BACKEND** | 지원 | REST API · WebSocket · 앱 코어 |
-| **FRONTEND** | 주실 | Next.js 화면 전체(관리자/통화/요약) |
+| **CLOUD** | 일조 | AWS IaC(CDK)·Amplify/AppSync/DynamoDB/Lambda 배포·CI |
+| **DATA** | 수민 | DynamoDB 모델·시드·시나리오(scenario.json)/렉시콘 |
+| **AGENT** | 은경 | Lambda orchestrator 로직(churn·MOT·classify·compliance)·LLM/STT/TTS |
+| **BACKEND** | 지원 | AppSync GraphQL 스키마·resolver·Lambda 코어 |
+| **FRONTEND** | 주실 | Next.js 화면 전체(관리자/세그먼트/상담/CRM) |
 
 > AWS Cloud 환경 전환으로 기능 기반(QUEUE/PHONE/CALL/SUMMARY/ORCH)에서 역할/계층 기반으로 재편. 고객 iPhone UI는 제거.
 > 상세 file ownership: `docs/MODULES.md`
@@ -51,7 +51,8 @@
 - Claude Code 최신 버전 (https://docs.claude.com/claude-code)
 - Python 3.13+
 - Node.js 20+
-- AWS 자격증명 (Bedrock + Transcribe), Typecast API 키 (TTS)
+- AWS CDK CLI (`npm install -g aws-cdk`)
+- AWS 자격증명 (Bedrock + Transcribe + DynamoDB + Lambda + Amplify), Typecast API 키 (TTS)
 
 ### 원라이너 설치 (권장) / One-liner Install
 
@@ -132,8 +133,12 @@ cp -r templates/*  ~/.claude/templates/
 생성 결과 (`~/workspace/hackathon-2026/`):
 ```
 hackathon-2026/
-├── backend/                   # FastAPI (BE 모듈은 여기)
-├── frontend/                  # Next.js (FE 모듈은 여기)
+├── frontend/                  # Next.js · Amplify (FRONTEND 모듈)
+├── lambda/
+│   └── orchestrator/          # Python orchestrator: agent/llm/stt/tts/models/api/resolvers
+├── graphql/                   # AppSync 스키마 (BACKEND 모듈)
+├── data/                      # scenarios/lexicon (DATA 모듈)
+├── infra/                     # CDK IaC (CLOUD 모듈)
 ├── docs/
 │   ├── MODULES.md            # 모듈 정의 + file ownership matrix
 │   ├── WORKFLOW.md           # 이슈/PR/머지 프로토콜
@@ -162,8 +167,8 @@ hackathon-2026/
 ```
 [pre-push] ❌ PUSH BLOCKED
 You are module 'BACKEND', but these files belong to other modules:
-  - backend/app/ws/agent_ws.py  (owned by BACKEND)   ← OK
-  - frontend/src/components/call/CallGraph.tsx  (owned by FRONTEND)  ← VIOLATION
+  - graphql/schema.graphql  (owned by BACKEND)   ← OK
+  - frontend/src/components/consult/JourneyMap.tsx  (owned by FRONTEND)  ← VIOLATION
 
 Options:
   1) Revert the offending file changes
@@ -273,8 +278,8 @@ git push --force-with-lease
   1. S1 한도조회/상담원 연결 요청 → 상담원 연결 상태로 전환
 - 관리자 UI: 노드 그래프 (통화 흐름) + LLM 가이드라인 + 페르소나/금융정보 + 통화 종료 후 AI 인계 요약
 
-**아키텍처 / Stack**: FastAPI + LangGraph + Next.js + Tailwind + DuckDB + AWS Bedrock Claude (LangChain) + AWS Transcribe STT / Typecast TTS
-상세는 `reference/ARCHITECTURE.md`, `reference/STACK.md` 참고.
+**아키텍처 / Stack**: Next.js(Amplify) + AppSync(GraphQL) + Lambda orchestrator + DynamoDB(+Streams) + S3 + AWS Bedrock(Converse+Guardrails) + Transcribe STT + Typecast TTS. 스크립트 모드(기본)/라이브 모드(옵션) 동일 AppSync 계약 공유.
+상세는 `docs/architecture-diagram.svg`, `docs/nextjs-aws-architecture.md` 참고.
 
 > 다른 제품에도 적용 가능합니다 — 이 경우 `reference/PRODUCT-BRIEF.md`만 갈아끼우면 됩니다.
 

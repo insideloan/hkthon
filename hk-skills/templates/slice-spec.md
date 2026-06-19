@@ -62,7 +62,7 @@ so that AI 봇이 적절한 응답을 생성할 수 있다.
 
 - **blocks** (이게 끝나야 시작): `S1.1`, `S1.2`
 - **blocks this** (이게 시작해야 함): `S1.5`
-- **shared files** (다른 사람과 동시에 작업 시): 없음 / `backend/app/ws/agent_ws.py` (합의 필요)
+- **shared files** (다른 사람과 동시에 작업 시): 없음 / `graphql/schema.graphql` (BACKEND 합의 필요) or `lambda/orchestrator/agent/nodes.py`
 
 ---
 
@@ -70,14 +70,14 @@ so that AI 봇이 적절한 응답을 생성할 수 있다.
 
 각 항목이 **체크 가능한 진술**:
 
-- [ ] (BE) `POST /api/foo` 호출 시 200 + 정확한 JSON 응답
+- [ ] (BE) GraphQL mutation/query 호출 시 정확한 응답 (AppSync)
 - [ ] (FE) 페이지 진입 시 row 1개 표시, 색상 정확
-- [ ] (WS) `/ws/agent`에서 `queue_update` 메시지 수신
-- [ ] (DB) row가 DuckDB에 저장됨
-- [ ] (LLM) `llm/router.py`가 LangChain `BaseChatModel`(Bedrock `ChatBedrockConverse`)을 반환하고 정상 응답
+- [ ] (구독) AppSync `onQueueUpdate` 메시지 수신
+- [ ] (DB) 아이템이 DynamoDB에 저장됨
+- [ ] (LLM) `lambda/orchestrator/llm/`가 Bedrock `ChatBedrockConverse`를 반환하고 정상 응답
 - [ ] (i18n) UI 라벨 한국어 자연스러움
 - [ ] (convention) wrapper 패턴, `any` 없음
-- [ ] (manual) `pnpm dev` + `uvicorn` 동시 실행 → 브라우저에서 확인
+- [ ] (manual) `pnpm dev`(frontend) + 배포된 AppSync(또는 Lambda 로컬 invoke) → 브라우저에서 확인
 
 ---
 

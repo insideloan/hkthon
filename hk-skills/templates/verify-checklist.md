@@ -9,11 +9,11 @@
 
 > Claude가 자동 실행. 결과만 확인하세요.
 
-- [ ] `ruff check backend/` — 0 errors
-- [ ] `mypy backend/app` — 0 errors (optional)
+- [ ] `ruff check lambda/orchestrator/` — 0 errors
+- [ ] `mypy lambda/orchestrator` — 0 errors (optional)
 - [ ] `pnpm --filter frontend tsc --noEmit` — 0 errors
 - [ ] `pnpm --filter frontend lint` — 0 errors
-- [ ] `python -m app.db_init && python -m app.seed` — 성공
+- [ ] `python -m orchestrator.seed` (DynamoDB에 시드 데이터 기록, boto3) — 성공
 
 ---
 
@@ -42,13 +42,13 @@ slice spec의 §6에서 그대로 복사. 각 줄을 확인:
 
 ---
 
-## D. WebSocket 메시지 확인 (있는 경우) / WS Check (if applicable)
+## D. AppSync 구독 메시지 확인 (있는 경우) / AppSync Subscription Check (if applicable)
 
-> 브라우저 DevTools → Network → WS 탭에서 메시지 확인.
+> 브라우저 DevTools → Network → WS 탭에서 AppSync 구독 소켓 메시지 확인.
 
-- [ ] (백엔드→프론트) 메시지 type, payload JSON이 schema와 일치
-- [ ] (프론트→백엔드) 메시지 type, payload JSON이 schema와 일치
-- [ ] (재연결) 새로고침 시 자동 재연결
+- [ ] (AppSync→프론트) 구독 이벤트 type, payload JSON이 `graphql/schema.graphql`과 일치
+- [ ] (프론트→AppSync) mutation payload JSON이 schema와 일치
+- [ ] (재연결) 새로고침 시 AppSync 구독 자동 재연결
 
 ---
 

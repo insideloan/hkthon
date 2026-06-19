@@ -87,11 +87,11 @@ pwd && ls
 
 | 코드 | 담당 | 담당 파일 예시 |
 |---|---|---|
-| `CLOUD` | 일조 | `infra/*`, `.github/workflows/*`, `*/package.json`·`pyproject.toml` (의존성/설정·PR 관리) |
-| `DATA` | 수민 | `backend/app/models/*`, `backend/app/seed.py`, `backend/app/scenarios/*` |
-| `AGENT` | 은경 | `backend/app/agent/*` (이탈위험도 `churn_risk.py` 포함), `backend/app/llm/*`, `backend/app/stt/*`, `backend/app/tts/*` |
-| `BACKEND` | 지원 | `backend/app/api/*`, `backend/app/ws/*`, `backend/app/{main,config,db}.py` |
-| `FRONTEND` | 주실 | `frontend/src/*` (관리자/통화/요약 화면 전체) |
+| `CLOUD` | 일조 | `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*` (의존성/설정·PR 관리) |
+| `DATA` | 수민 | `lambda/orchestrator/models/*`, `lambda/orchestrator/seed.py`, `data/scenarios/*`, `data/lexicon/*` |
+| `AGENT` | 은경 | `lambda/orchestrator/agent/*` (이탈위험도 `churn_risk.py` 포함), `lambda/orchestrator/llm/*`, `lambda/orchestrator/stt/*`, `lambda/orchestrator/tts/*` |
+| `BACKEND` | 지원 | `graphql/*`, `lambda/orchestrator/handler.py`, `lambda/orchestrator/api/*`, `lambda/orchestrator/resolvers/*` |
+| `FRONTEND` | 주실 | `frontend/src/*` (관리자/상담/CRM 화면 전체) |
 
 ### 실행
 
@@ -162,6 +162,7 @@ python3 hk-skills/scripts/check-module-boundary.py \
 다음 파일은 **모든 팀원 approve**가 필요:
 - `docs/MODULES.md`, `docs/WORKFLOW.md`
 - `frontend/package.json`, `frontend/pnpm-lock.yaml`, `frontend/tailwind.config.ts`
+- `lambda/orchestrator/requirements.txt`, `infra/package.json`, `infra/cdk.json`
 - `docs/reference/*`
 
 수정해야 한다면 사용자에게 "TEAM-LOCK 파일입니다. PR에 모든 팀원이 approve해야 합니다" 안내.
