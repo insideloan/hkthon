@@ -105,6 +105,7 @@ modules:
       - .github/workflows/*
       - docs/cloud/*
       - hk-skills/scripts/*
+      - initialize.sh
 
   # Shared: anyone can write. Wrappers, OWNER.md, slice docs, tests, etc.
   - code: SHARED
@@ -192,7 +193,7 @@ modules:
 
 | Path | 규칙 |
 |---|---|
-| `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*`, `hk-skills/scripts/*` | AWS IaC·배포·CI·운영 도구(boundary 훅/드리프트). CLOUD(일조) 소유 |
+| `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*`, `hk-skills/scripts/*`, `initialize.sh` | AWS IaC·배포·CI·운영 도구(boundary 훅/드리프트/온보딩). CLOUD(일조) 소유 |
 | `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
 | `lambda/orchestrator/requirements.txt` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
 | `infra/package.json`, `infra/cdk.json` | CDK 의존성·설정. PR → CLOUD 리뷰 |

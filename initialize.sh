@@ -16,12 +16,12 @@
 #   4) Sets local git config: hk.module, core.hooksPath, hk.checkscript, hk.modulesmd
 #   5) Installs the pre-push module-boundary hook locally
 #
-# Leader-only (once): pass --scaffold to also create backend/frontend stubs and
+# Leader-only (once): pass --scaffold to also create lambda/frontend stubs and
 # commit the shared bits (.githooks, .gitignore entry) to the current branch.
 #
 # Usage:
-#   ./initialize.sh --module QUEUE          # team member
-#   ./initialize.sh --module ORCH --scaffold # leader, first run
+#   ./initialize.sh --module FRONTEND        # team member
+#   ./initialize.sh --module CLOUD --scaffold # leader, first run
 #   ./initialize.sh --verify                # check local setup is intact
 #   ./initialize.sh --uninstall             # remove skill symlinks + worktree
 #
@@ -71,19 +71,19 @@ while [[ $i -lt ${#ARGS[@]} ]]; do
       cat <<EOF
 Usage: $0 --module <MODULE> [--scaffold]
 
-Modules: QUEUE | PHONE | CALL | SUMMARY | ORCH | INFRA
+Modules: CLOUD | DATA | AGENT | BACKEND | FRONTEND
          (omitted = observer; pre-push check will warn-only)
 
 Actions:
   (default)      Local setup: worktree + skill symlinks + git config + hook
-  --scaffold     Also create backend/frontend stubs and commit shared bits
+  --scaffold     Also create lambda/frontend stubs and commit shared bits
                  (leader runs this ONCE on the integration branch)
   --verify       Check local setup is intact
   --uninstall    Remove skill symlinks and the .hk-skills worktree
 
 Examples:
-  ./initialize.sh --module QUEUE
-  ./initialize.sh --module ORCH --scaffold
+  ./initialize.sh --module FRONTEND
+  ./initialize.sh --module CLOUD --scaffold
 EOF
       exit 0
       ;;
@@ -94,8 +94,8 @@ done
 
 validate_module() {
   case "$1" in
-    QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA|"") return 0 ;;
-    *) err "unknown module: $1 (must be QUEUE|PHONE|CALL|SUMMARY|ORCH|INFRA)"; exit 2 ;;
+    CLOUD|DATA|AGENT|BACKEND|FRONTEND|"") return 0 ;;
+    *) err "unknown module: $1 (must be CLOUD|DATA|AGENT|BACKEND|FRONTEND)"; exit 2 ;;
   esac
 }
 validate_module "$MODULE"
@@ -111,7 +111,11 @@ cd "$REPO_ROOT"
 # Resolve where the skill files live inside the worktree. The `skills` branch
 # may keep them at the root OR nested under hk-skills/ — detect both.
 skill_src_dir() {
-  if [[ -d "${WORKTREE_DIR}/hk-skills/skills" ]]; then
+  # Prefer hk-skills committed directly in the repo tree (current layout).
+  if [[ -d "${REPO_ROOT}/hk-skills/skills" ]]; then
+    echo "hk-skills"
+  # Fall back to the legacy `skills`-branch worktree layout.
+  elif [[ -d "${WORKTREE_DIR}/hk-skills/skills" ]]; then
     echo "${WORKTREE_DIR}/hk-skills"
   elif [[ -d "${WORKTREE_DIR}/skills" ]]; then
     echo "${WORKTREE_DIR}"
@@ -120,7 +124,16 @@ skill_src_dir() {
   fi
 }
 
+# True when hk-skills lives directly in the repo tree (no worktree needed).
+skills_in_tree() { [[ -d "${REPO_ROOT}/hk-skills/skills" ]]; }
+
 ensure_worktree() {
+  # If hk-skills is committed in the repo tree, no worktree is needed.
+  if skills_in_tree; then
+    log "hk-skills/ present in repo tree — skipping ${WORKTREE_DIR}/ worktree"
+    return
+  fi
+
   if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "worktree .*/${WORKTREE_DIR}$"; then
     log "worktree ${WORKTREE_DIR}/ already present — updating"
     ( cd "$WORKTREE_DIR" && git fetch --quiet origin "$SKILL_BRANCH" 2>/dev/null || true
@@ -211,16 +224,16 @@ configure_git() {
     log "hk.module = $MODULE (this clone only)"
   else
     warn "no --module given. pre-push will warn-only until you set:"
-    warn "   git config hk.module <QUEUE|PHONE|CALL|SUMMARY|ORCH>"
+    warn "   git config hk.module <CLOUD|DATA|AGENT|BACKEND|FRONTEND>"
   fi
 }
 
 # -------- leader scaffold (once) --------
 scaffold_project() {
   log "Scaffolding project tree (leader, once)"
-  mkdir -p backend/app/{models,api,ws,scenarios,llm/prompts,stt,tts,tests} \
-           backend/scripts \
-           frontend/src/{app,components/{ui,queue,phone,call},lib,stores,types} \
+  mkdir -p lambda/orchestrator/{agent,llm,stt,tts,models,api,resolvers,tests} \
+           graphql data/scenarios data/lexicon infra \
+           frontend/src/{app,components/{ui,queue,consult,crm},lib,stores,types} \
            docs/slices \
            .github/ISSUE_TEMPLATE
 
@@ -242,11 +255,11 @@ scaffold_project() {
 
 | Code | Name | Owner | GitHub |
 |------|------|-------|--------|
-| QUEUE | Outbound Call Queue | Person A | @personA |
-| PHONE | Customer iPhone UI | Person B | @personB |
-| CALL | Agent Call View | Person C | @personC |
-| SUMMARY | Handoff Summary | Person D | @personD |
-| ORCH | Orchestrator + State Machine | Person E | @personE |
+| CLOUD | AWS Infra & Delivery | 일조 | @solduma |
+| DATA | Data & Scenario | 수민 | @suminjeong3170-tech |
+| AGENT | Orchestrator Logic | 은경 | @jooeunkyung |
+| BACKEND | API Contract & Core | 지원 | @cckr34 |
+| FRONTEND | Next.js App | 주실 | @jusilkkk |
 
 ## Active work
 
@@ -258,7 +271,7 @@ EOF
   fi
 
   log "Scaffold complete. Review, then commit on '${INTEGRATION_BRANCH}':"
-  hint "  git add backend frontend docs OWNER.md .github .githooks .gitignore"
+  hint "  git add lambda graphql data infra frontend docs OWNER.md .github .githooks .gitignore"
   hint "  git commit -m 'chore: scaffold hackathon project (hk initialize --scaffold)'"
 }
 
@@ -275,7 +288,7 @@ do_install() {
   echo
   hint "Branch model: feature -> ${INTEGRATION_BRANCH} -> main"
   echo "  git fetch origin"
-  echo "  git checkout -b ${MODULE:-QUEUE}-001-<desc> origin/${INTEGRATION_BRANCH}"
+  echo "  git checkout -b ${MODULE:-FRONTEND}-001-<desc> origin/${INTEGRATION_BRANCH}"
   echo "  # ...work... then:"
   echo "  git push -u origin HEAD          # pre-push checks module boundary vs origin/${INTEGRATION_BRANCH}"
   echo "  gh pr create --base ${INTEGRATION_BRANCH} --reviewer <owner>"
@@ -286,8 +299,8 @@ do_install() {
 do_verify() {
   local ok=0
   local src; src="$(skill_src_dir)"
-  if [[ -z "$src" ]]; then err "FAIL ${WORKTREE_DIR}/ worktree missing"; exit 1; fi
-  log "OK   worktree ${WORKTREE_DIR}/ (src: ${src})"
+  if [[ -z "$src" ]]; then err "FAIL hk-skills source not found (tree or ${WORKTREE_DIR}/ worktree)"; exit 1; fi
+  log "OK   hk-skills source: ${src}"
   for s in "${SKILL_NAMES[@]}"; do
     if [[ -L "${SKILLS_DIR}/${s}" && -e "${SKILLS_DIR}/${s}/SKILL.md" ]]; then
       log "OK   skill ${s}"

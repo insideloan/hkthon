@@ -3,7 +3,7 @@
 # Runs `check-module-boundary.py` to verify the pusher is only modifying
 # their own module's files. Blocks push if boundary is violated.
 #
-# Install via: ./setup-project.sh (sets core.hooksPath = .githooks)
+# Install via: ./initialize.sh (sets core.hooksPath = .githooks)
 # Bypass (DON'T): git push --no-verify
 #
 set -euo pipefail
@@ -48,7 +48,7 @@ fi
 # Get current branch (push is from current branch)
 LOCAL_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
-# Get local module (set by setup-project.sh or manually)
+# Get local module (set by initialize.sh or manually)
 MODULE="$(git config --get "$CONFIG_KEY" || true)"
 
 # Git passes the pre-push hook two positional args: <remote-name> <remote-url>.
