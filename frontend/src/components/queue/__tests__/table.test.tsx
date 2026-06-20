@@ -1,4 +1,8 @@
 // RTL tests for OutboundQueueTable (FRONTEND-001 / #30 Acceptance).
+// jest-dom/vitest extends `expect` with DOM matchers (toBeInTheDocument 등) and
+// registers their types — needed under `tsc --noEmit` since this branch has no
+// vitest setup file.
+import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
