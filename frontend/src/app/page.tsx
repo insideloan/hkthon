@@ -1,10 +1,12 @@
-// PLACEHOLDER page — infra/Amplify build verification only (CLOUD-003 / #44).
-// Replaced by the real admin UI in FRONTEND-001+ (주실 / hk-onboard).
+// 관리자 대시보드 (/) — 콜 큐 + 요약 카드. FRONTEND-001 (#30).
+// 초기 로드 `queue` 쿼리 + 실시간 `onQueueUpdate` 구독은 OutboundQueueTable이 수행.
+import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
+
 export default function Home() {
   return (
-    <main>
-      <h1>AI 상담 코파일럿</h1>
-      <p>Amplify 배포 placeholder — FRONTEND 모듈이 교체합니다.</p>
+    <main className="mx-auto max-w-6xl p-6">
+      <h1 className="mb-4 text-xl font-semibold">관리자 콜 큐</h1>
+      <OutboundQueueTable />
     </main>
   );
 }
