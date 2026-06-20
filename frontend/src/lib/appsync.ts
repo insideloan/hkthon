@@ -6,6 +6,7 @@ import { Amplify } from 'aws-amplify';
 import { generateClient, type GraphQLSubscription } from 'aws-amplify/api';
 import type { V6Client } from '@aws-amplify/api-graphql';
 import { QueueResultSchema, type QueueResult } from '@/types/queue';
+import { ComplianceStateSchema, type ComplianceState } from '@/types/compliance';
 
 let configured = false;
 
@@ -98,6 +99,51 @@ export function subscribeQueueUpdates(
     .subscribe({
       next: ({ data }) => {
         const parsed = QueueResultSchema.safeParse(data?.onQueueUpdate);
+        if (parsed.success) onData(parsed.data);
+        else onError?.(parsed.error);
+      },
+      error: (err: unknown) => onError?.(err),
+    });
+  return () => sub.unsubscribe();
+}
+
+// ── onComplianceState (realtime) — FRONTEND-008 / #37 ────────────────────────
+// Drives the compliance panel state machine (drafting → reviewing → redacting →
+// redrafting → approved). Producer: AGENT-010 (#18); contract pending in
+// graphql/schema.graphql.
+const ON_COMPLIANCE_STATE_SUB = /* GraphQL */ `
+  subscription OnComplianceState($callId: ID!) {
+    onComplianceState(callId: $callId) {
+      callId
+      phase
+      draft
+      violations
+      checks { law desc flagged }
+      violatedPolicies
+      final { text del ins added }
+    }
+  }
+`;
+
+type OnComplianceState = { onComplianceState: ComplianceState };
+
+/**
+ * Subscribe to compliance state-machine transitions for a call.
+ * Returns an unsubscribe function. Parse failures route to onError.
+ */
+export function subscribeComplianceState(
+  callId: string,
+  onData: (state: ComplianceState) => void,
+  onError?: (err: unknown) => void,
+): () => void {
+  const sub = getClient()
+    .graphql<GraphQLSubscription<OnComplianceState>>({
+      query: ON_COMPLIANCE_STATE_SUB,
+      variables: { callId },
+    })
+    .subscribe({
+      next: ({ data }) => {
+        const parsed = ComplianceStateSchema.safeParse(data?.onComplianceState);
         if (parsed.success) onData(parsed.data);
         else onError?.(parsed.error);
       },
