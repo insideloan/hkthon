@@ -224,8 +224,6 @@ emit approved → Typecast TTS
 | LangGraph 그래프 조립 | `lambda/orchestrator/agent/graph.py` | AGENT (은경) |
 | LangGraph 노드 함수 | `lambda/orchestrator/agent/nodes.py` | AGENT |
 | LangGraph 상태 타입 | `lambda/orchestrator/agent/state.py` | AGENT |
-| 상태 재구성 (DynamoDB→CallState) | `lambda/orchestrator/agent/context.py` | AGENT |
-| stage별 시스템 프롬프트 (xlsx 시나리오) | `lambda/orchestrator/agent/prompts.py` | AGENT |
 | 이탈위험도 계산 | `lambda/orchestrator/agent/churn_risk.py` | AGENT |
 | MOT 탐지 | `lambda/orchestrator/agent/mot.py` | AGENT |
 | 컴플라이언스 루프 | `lambda/orchestrator/agent/compliance.py` | AGENT |
