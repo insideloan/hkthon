@@ -1,0 +1,63 @@
+name: ci
+
+# PR-time lint/test for backend (ruff + pytest) and frontend (tsc).
+# Each job is conditional: it runs the check only when the target exists, so
+# the workflow is green before real code lands and starts enforcing the moment
+# AGENT/BACKEND/FRONTEND add their modules. Companion to module-boundary.yml.
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Ruff lint (orchestrator)
+        run: |
+          if [ -d lambda/orchestrator ]; then
+            pip install ruff
+            ruff check lambda/orchestrator/
+          else
+            echo "lambda/orchestrator/ not present yet — skipping ruff."
+          fi
+
+      - name: Pytest (orchestrator)
+        run: |
+          if [ -d lambda/orchestrator/tests ]; then
+            pip install -r lambda/orchestrator/requirements.txt pytest
+            python -m pytest lambda/orchestrator/tests/
+          else
+            echo "lambda/orchestrator/tests/ not present yet — skipping pytest."
+          fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Type check + lint (frontend)
+        run: |
+          if [ -f frontend/package.json ]; then
+            corepack enable
+            cd frontend
+            pnpm install --frozen-lockfile
+            pnpm exec tsc --noEmit
+            # next lint only if an eslint config is present (scaffolded with
+            # --no-eslint, so don't fail when it's intentionally absent).
+            if ls .eslintrc* eslint.config.* >/dev/null 2>&1; then
+              pnpm run lint
+            else
+              echo "no eslint config — skipping next lint."
+            fi
+          else
+            echo "frontend/ not present yet — skipping."
+          fi
