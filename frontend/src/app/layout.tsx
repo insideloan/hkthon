@@ -1,7 +1,8 @@
-// PLACEHOLDER root layout — replaced by FRONTEND-001+ (주실).
+import './globals.css';
+
 export const metadata = {
   title: 'AI 상담 코파일럿',
-  description: 'Amplify deploy placeholder',
+  description: '관리자 콜 큐 대시보드',
 };
 
 export default function RootLayout({
