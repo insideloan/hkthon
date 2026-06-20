@@ -206,8 +206,13 @@ export class HkthonStack extends cdk.Stack {
         '      phases:',
         '        preBuild:',
         '          commands:',
-        '            - npm i -g pnpm',
-        '            - pnpm install',
+        // Enable corepack and let it use the pnpm version pinned in
+        // frontend/package.json#packageManager. NOT `pnpm@latest`: latest
+        // enables a minimumReleaseAge supply-chain policy that rejects very
+        // recently published transitive deps (e.g. semver), breaking CI while
+        // local installs pass. Pinning keeps local == CI.
+        '            - corepack enable',
+        '            - pnpm install --frozen-lockfile',
         '        build:',
         '          commands:',
         '            - pnpm run build',
