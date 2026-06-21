@@ -165,13 +165,37 @@ def classify_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
     ).strip()
 
 
-def respond_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
-    """nodes.respond용 — 실제 봇 발화 생성 지시."""
+def _strategy_block(tactic: Tactic | None, emotion: Emotion | None) -> str:
+    """classify가 고른 전략·감정을 respond에 주입. 신호가 없으면 빈 블록(stage 지침만으로 응대)."""
+    if not tactic and not emotion:
+        return ""
+    lines = ["[이번 턴 신호 기반 응대 지침]"]
+    if emotion is not None:
+        e_def, _ = signals.EMOTION_DEF.get(emotion, ("", ""))
+        lines.append(f"- 고객 감정: {emotion.value} — {e_def}")
+    if tactic is not None:
+        t_def, t_example = signals.TACTIC_DEF.get(tactic, ("", ""))
+        lines.append(f"- 채택 전략: {tactic.value} — {t_def}")
+        if t_example:
+            lines.append(f"  (발화 방향 예시) {t_example}")
+        lines.append("  위 전략의 '방향'을 따르되 예시 문장을 그대로 읽지 말고 고객 발화에 맞춰 자연스럽게 재구성하세요.")
+    return "\n".join(lines)
+
+
+def respond_system(
+    stage: Stage,
+    customer: CustomerCtx | None = None,
+    *,
+    tactic: Tactic | None = None,
+    emotion: Emotion | None = None,
+) -> str:
+    """nodes.respond용 — 실제 봇 발화 생성 지시. classify 신호(전략/감정)를 반영."""
     return "\n\n".join(
         [
             PERSONA,
             COMMON_RULES,
             STAGE_GUIDE.get(stage, ""),
+            _strategy_block(tactic, emotion),
             _customer_block(customer),
             (
                 "[작업]\n"

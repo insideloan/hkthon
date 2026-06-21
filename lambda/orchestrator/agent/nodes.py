@@ -164,7 +164,12 @@ def respond(state: CallState) -> CallState:
 
     공통요건 강제: 확정멘트 금지(수치→예시/가정+심사), 중요사항 누락금지, 선택권 존중, 재설득 금지.
     """
-    system = prompts.respond_system(state.get("stage", Stage.IDENTIFY), state.get("customer"))
+    system = prompts.respond_system(
+        state.get("stage", Stage.IDENTIFY),
+        state.get("customer"),
+        tactic=signals.to_tactic((state.get("strategy") or {}).get("tactic")),
+        emotion=state.get("emotion"),
+    )
     draft = router.converse(system, _render_history(state), stream=True)
     return {"bot_draft": draft}
 

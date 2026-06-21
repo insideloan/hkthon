@@ -70,3 +70,52 @@ def test_classify_system_prompt_embeds_catalog():
     assert "월납입 절감" in sys                # Need
     assert "기존 대출 비교 후 판단" in sys      # Usability
     assert "대환 제안 전략" in sys             # Tactic
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# respond 신호 주입 — classify가 고른 전략·감정이 응답 프롬프트에 반영
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_respond_system_embeds_tactic_and_emotion():
+    from orchestrator.agent import prompts
+    from orchestrator.agent.state import Stage
+
+    sys = prompts.respond_system(
+        Stage.PROPOSE, tactic=Tactic.PROPOSE_REFINANCE, emotion=Emotion.BURDENED
+    )
+    assert "대환 제안 전략" in sys
+    assert "부담" in sys
+    assert "신호 기반 응대 지침" in sys
+
+
+def test_respond_system_without_signals_omits_block():
+    """신호가 없으면 전략 블록을 넣지 않는다(stage 지침만으로 응대)."""
+    from orchestrator.agent import prompts
+    from orchestrator.agent.state import Stage
+
+    sys = prompts.respond_system(Stage.IDENTIFY)
+    assert "신호 기반 응대 지침" not in sys
+
+
+def test_respond_node_passes_signals_to_prompt(monkeypatch):
+    """nodes.respond가 state의 strategy.tactic/emotion을 respond_system에 전달."""
+    captured = {}
+
+    def fake_respond_system(stage, customer=None, *, tactic=None, emotion=None):
+        captured["tactic"] = tactic
+        captured["emotion"] = emotion
+        return "SYS"
+
+    monkeypatch.setattr(nodes.prompts, "respond_system", fake_respond_system)
+    monkeypatch.setattr(nodes.router, "converse", lambda system, user, stream=True: "응답")
+
+    out = nodes.respond({
+        "customer_text": "월 납입 줄어요?",
+        "history": [],
+        "strategy": {"tactic": Tactic.PROPOSE_REFINANCE.value},
+        "emotion": Emotion.BURDENED,
+    })
+    assert out["bot_draft"] == "응답"
+    assert captured["tactic"] == Tactic.PROPOSE_REFINANCE
+    assert captured["emotion"] == Emotion.BURDENED
