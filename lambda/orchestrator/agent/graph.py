@@ -26,6 +26,7 @@ def build_graph():
     g.add_node("load_context", nodes.load_context)
     g.add_node("fast_route", nodes.fast_route)
     g.add_node("classify", nodes.classify)
+    g.add_node("detect_fraud", nodes.detect_fraud)
     g.add_node("churn_score", nodes.churn_score)
     g.add_node("respond", nodes.respond)
     g.add_node("compliance", nodes.compliance)
@@ -45,7 +46,10 @@ def build_graph():
         nodes.fast_route_branch,
         {"classify": "classify", "silence": "silence", "churn_score": "churn_score"},
     )
-    g.add_edge("classify", "churn_score")
+    # classify(LLM) 경로는 detect_fraud를 경유해 fraud 플래그를 보강한 뒤 churn_score로.
+    # detect_fraud는 분기 없는 경유 노드 — 라우팅을 바꾸지 않는다(통화 계속).
+    g.add_edge("classify", "detect_fraud")
+    g.add_edge("detect_fraud", "churn_score")
 
     # churn 이후 최종 라우팅
     g.add_conditional_edges(
