@@ -59,6 +59,20 @@ class Route(str, Enum):
     NEEDS_LLM = "NEEDS_LLM"    # fast_route가 판단 못 함 → classify 노드로
 
 
+class CallStatus(str, Enum):
+    """통화 수명주기 상태 (persist가 Call 아이템에 반영). 라우팅(Route)과 별개의 축이다.
+
+    - ACTIVE: 통화 진행 중 (기본값)
+    - TRANSFER_PENDING: 상담원 이관 대기 (transfer_node 진입 → 성공경로)
+    - ENDED: 통화 종료 (close_node / silence 2회↑)
+    fraud_suspected는 상태가 아니라 플래그(통화를 종료/전이시키지 않음).
+    """
+
+    ACTIVE = "ACTIVE"
+    TRANSFER_PENDING = "TRANSFER_PENDING"
+    ENDED = "ENDED"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 보조 구조체 (TypedDict)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,6 +155,7 @@ class CallState(TypedDict, total=False):
     customer_text: str
     churn_before: int
     next_seq: int
+    call_status: CallStatus   # 통화 수명주기 (기본 ACTIVE; transfer→TRANSFER_PENDING, 종단→ENDED)
 
     # fast_route / classify
     intent: Intent
