@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 상담 Hub — 콜봇 (Sales Hub Style)</title>
+<style>
+:root{
+  --bg-cream:#FAF6EE; --lav:#ECEAF1; --lav-2:#F0EFF3;
+  --card:rgba(255,255,255,.72); --card-solid:#FFFFFF;
+  --pill:#ECECF1; --pill-line:rgba(0,0,0,.05); --line:rgba(0,0,0,.07);
+  --lime:#E7F46A; --lime-soft:#F0FB9C; --lime-pale:#F5FBCC;
+  --teal:#4E9D90; --teal-dk:#3C857A; --pink:#F7DEDD;
+  --ink:#27272B; --ink-btn:#19191B; --gray:#8C8C95; --gray-2:#6B6B74;
+  --sky:#7FC4F5; --sky-bg:#EAF6FF; --sky-line:#9AD1F7;
+  --mint:#8FCB6A; --mint-bg:#E9F7DF; --mint-line:#BFE3A8;
+  --ai-bg:#EEF0F2; --ai-line:#D4D8DE;
+  --r:18px; --r-sm:12px;
+  --shadow:0 1px 2px rgba(20,20,30,.05),0 8px 24px rgba(20,20,30,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color:var(--ink);background:var(--lav);-webkit-font-smoothing:antialiased;font-size:12px;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;min-height:620px;overflow:hidden}
+.ic{width:16px;height:16px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-sm{width:14px;height:14px}
+
+/* TOP BAR (제거됨) */
+
+/* BODY 3-PANE */
+.body{flex:1;display:flex;min-height:0}
+.sidebar{width:150px;flex:none;background:var(--lav);padding:14px 12px;overflow-y:auto}
+.menu-head{margin:4px 2px 16px}
+.menu-head h1{font-size:18px;font-weight:600;letter-spacing:-.3px;white-space:nowrap}
+.nav-label{font-size:10px;letter-spacing:.4px;color:var(--gray);font-weight:600;margin:14px 4px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:12px;color:#3a3a40;cursor:pointer;font-size:12px;margin-bottom:3px}
+.nav-item:hover{background:rgba(255,255,255,.6)}
+.nav-item.active{background:var(--lime);color:#33361a;font-weight:600}
+.nav-item .badge{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(0,0,0,.12);color:#55555c;flex:none}
+.nav-item.active .badge{border-color:rgba(0,0,0,.2);color:#33361a}
+
+/* DETAIL (gradient bg) */
+.detail{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:12px 18px 16px;
+  background:
+   radial-gradient(120% 80% at 0% 0%, #E9F79A 0%, rgba(233,247,154,0) 42%),
+   radial-gradient(115% 80% at 2% 100%, #F8DEDD 0%, rgba(248,222,221,0) 48%),
+   linear-gradient(135deg,#F6FAE2 0%, #FAF6EE 48%, #FBEFEF 100%)}
+
+/* contact header */
+.contact-head{display:flex;align-items:center;gap:14px;padding:6px 4px 14px;flex:none}
+.ch-av{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:linear-gradient(135deg,#e7c9a8,#caa07a);color:#3a2c1c;font-size:13px;font-weight:800;letter-spacing:-.3px;
+  border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 6px rgba(120,120,130,.32)}
+.ch-pills{display:flex;flex-wrap:wrap;gap:9px}
+.info-pill{background:#fff;border:1px solid var(--line);border-radius:11px;padding:7px 14px;font-size:12.5px;
+  font-weight:800;color:#33333a;box-shadow:0 2px 6px rgba(120,120,130,.30)}
+
+/* ===== 상담 진행 상태(좌) + 이탈 위험도 게이지(우) ===== */
+.risk-row{display:flex;gap:18px;align-items:stretch;margin:0 0 12px;flex:none}
+
+/* 이탈 위험도 게이지 (컴팩트 · 가로형) */
+.gauge-card{flex:none;width:212px;background:var(--card-solid);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:8px 14px;display:flex;flex-direction:row;align-items:center;gap:10px;position:relative;transition:box-shadow .4s ease}
+.gauge-svg{width:104px;height:61px;display:block;flex:none}
+.gauge-read{display:flex;flex-direction:column;line-height:1.1}
+.gauge-title{font-size:10px;font-weight:700;color:#8c8c95;letter-spacing:.2px;white-space:nowrap}
+.gauge-big{font-size:24px;font-weight:800;color:#2b3340;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.gauge-big i{font-size:14px;font-weight:800;font-style:normal;margin-left:1px}
+.gauge-lvl{font-size:11px;font-weight:700;color:#8d9097}
+/* 위험도별 정적 하이라이트 (그림자 유지 · 깜빡임 없음) */
+.gauge-card.lv-lo{box-shadow:0 0 0 2px rgba(47,191,94,.35),var(--shadow)}
+.gauge-card.lv-mid{box-shadow:0 0 0 2px rgba(232,146,43,.42),var(--shadow)}
+.gauge-card.lv-hi{box-shadow:0 0 0 3px rgba(226,59,59,.5),var(--shadow)}
+
+/* 상담 진행 상태 */
+.status-card{flex:1;min-width:0;background:rgba(255,255,255,.55);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:7px 16px;display:flex;flex-direction:column;justify-content:center;overflow-x:auto}
+.status-title{font-size:10px;font-weight:700;color:#8c8c95;letter-spacing:.3px;margin-bottom:5px}
+.proc-track{display:flex;align-items:center}
+.proc-step{flex:none;display:flex;align-items:center;gap:6px;color:#5a5a62;font-size:10.5px}
+.proc-step .ps-label{white-space:nowrap}
+.proc-step .chip{width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;color:#9a9aa2}
+.proc-step .chip svg{width:11px;height:11px}
+.proc-step.active{color:#222;font-weight:700}
+.proc-step.active .chip{border-color:var(--teal);color:var(--teal);animation:chipPulse 1.2s ease-in-out infinite}
+@keyframes chipPulse{0%,100%{box-shadow:0 0 0 0 rgba(78,157,144,.4)}50%{box-shadow:0 0 0 5px rgba(78,157,144,0)}}
+.proc-step.done .chip{background:var(--teal);border-color:var(--teal);color:#fff}
+/* 단계 연결선 — 얇은 정적 선 (애니메이션 없음) */
+.proc-line{flex:1;min-width:12px;height:1.5px;background:var(--line);margin:0 6px}
+.proc-line.done{background:var(--teal)}
+.proc-step .chip .spinner{width:12px;height:12px;border-width:2px}
+.spinner{width:16px;height:16px;border-radius:50%;border:2px solid #d7d7dc;border-top-color:var(--teal);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* nav controls */
+.navrow{display:flex;align-items:center;gap:10px;margin:0 2px 12px;flex:none}
+.navbtn{display:flex;align-items:center;gap:6px;background:var(--ink-btn);color:#fff;border-radius:18px;padding:7px 15px;font-size:12px;cursor:pointer;border:0}
+.navbtn.ghost{background:#fff;color:#33333a;border:1px solid var(--line)}
+.navbtn:disabled{opacity:.35;cursor:default}
+.navind{font-size:12px;color:var(--gray-2)}
+.navspace{flex:1}
+.legend{display:flex;gap:10px;align-items:center;font-size:10.5px;color:var(--gray-2)}
+.legend i{width:22px;height:8px;border-radius:4px;display:inline-block;vertical-align:middle;margin-right:4px}
+.lg-lo i{background:linear-gradient(90deg,#9ed99e,#43a047)}
+.lg-hi i{background:linear-gradient(90deg,#e6a3a3,#c0392b)}
+
+/* stage columns */
+.stage-cols{flex:1;display:flex;gap:16px;min-height:0}
+.col-box{background:var(--card);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.stt-box{flex:0 0 24%;min-width:0}
+.ana-box{flex:1;min-width:0}
+.box-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 11px;border-bottom:1px solid var(--line);flex:none}
+.box-head h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.box-head .sub{font-size:11px;color:var(--gray)}
+.box-head .tmr{font-size:12px;font-weight:600;color:var(--teal);font-variant-numeric:tabular-nums}
+
+/* ===== 통화 카드 (통화중 + 통화시간만) ===== */
+.call-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;
+  padding:12px 12px 11px;border-bottom:1px solid var(--line);flex:none;
+  background:linear-gradient(180deg,rgba(232,238,248,.55),rgba(232,238,248,0))}
+.call-status{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray);font-weight:600}
+.call-status .ldot{width:6px;height:6px;border-radius:50%;background:#43a047;animation:livePulse 1.4s ease infinite}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(67,160,71,.55)}50%{box-shadow:0 0 0 5px rgba(67,160,71,0)}}
+.call-tmr{font-size:22px;font-weight:800;color:#27303f;font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.stt-cap{display:flex;align-items:center;gap:6px;padding:9px 14px 4px;font-size:11px;font-weight:700;color:#4a4a52;flex:none}
+.box-body{flex:1;overflow-y:auto;padding:14px 16px}
+
+/* transcript bubbles */
+.tx{display:flex;flex-direction:column;gap:11px}
+.sys{align-self:center;background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:14px;
+  padding:6px 13px;font-size:11px;color:var(--gray-2)}
+.bub{max-width:86%;padding:10px 13px;border-radius:15px;font-size:12.5px;line-height:1.5;border:1px solid var(--line);position:relative}
+.bub .who{font-size:10px;color:var(--gray);margin-bottom:3px;font-weight:600}
+.bub.cu{align-self:flex-start;background:#fff;border-bottom-left-radius:5px}
+.bub.ai{align-self:flex-end;background:#fff;border-bottom-right-radius:5px}
+.bub.cu.live{background:var(--mint-bg);border-color:var(--mint-line);font-weight:600;box-shadow:0 0 0 3px rgba(143,203,106,.32);animation:cuPulse 1.3s ease infinite}
+@keyframes cuPulse{0%,100%{box-shadow:0 0 0 3px rgba(143,203,106,.30)}50%{box-shadow:0 0 0 7px rgba(143,203,106,.10)}}
+.bub.ai.cur{background:var(--ai-bg);border-color:var(--ai-line);font-weight:600;box-shadow:0 0 0 3px rgba(170,176,184,.32)}
+.bub.ai.cur.loading{color:#9aa0a8;animation:aiPulse 1.3s ease infinite}
+@keyframes aiPulse{0%,100%{box-shadow:0 0 0 3px rgba(170,176,184,.32)}50%{box-shadow:0 0 0 7px rgba(170,176,184,.10)}}
+.bub.folded{align-self:stretch;max-width:100%;background:transparent;border:0;border-bottom:1px dashed var(--line);
+  border-radius:0;padding:6px 2px 6px 8px;font-size:11px;color:var(--gray-2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;box-shadow:none;animation:none;font-weight:400}
+.bub.folded .who-s{margin-right:6px;opacity:.85}
+.bub.folded.cu{border-left:2px solid var(--mint-line)}
+.bub.folded.ai{border-left:2px solid var(--ai-line)}
+.bub.in{animation:bubIn .4s ease}
+@keyframes bubIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:2px 0}
+.typing i{width:6px;height:6px;border-radius:50%;background:#b6bcc4;animation:tdot 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes tdot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* fly highlight */
+.fly{position:fixed;z-index:9999;border-radius:14px;pointer-events:none;
+  transition:transform .7s cubic-bezier(.5,0,.2,1),opacity .7s ease,width .7s ease,height .7s ease}
+
+/* customer analysis strip */
+.cuana-wrap{margin-bottom:12px;display:none}
+.cuana-wrap.show{display:block;animation:fadeUp .4s ease}
+.cuana-t{font-size:11px;font-weight:600;color:#1d5f8f;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cuana{display:flex;flex-wrap:wrap;gap:6px}
+.ct{background:var(--sky-bg);border:1px solid #bfe0fa;color:#1d5f8f;border-radius:8px;padding:4px 9px;font-size:11px}
+.ct b{font-weight:700}
+
+/* analysis cards */
+.ana-body{display:flex;flex-direction:column;padding:14px 16px;overflow:hidden}
+.ana-box.phase-cu{background:radial-gradient(135% 135% at 0% 0%, rgba(143,203,106,.42) 0%, rgba(143,203,106,0) 46%), var(--card)}
+.ana-box.phase-ai{background:radial-gradient(135% 135% at 0% 0%, rgba(170,176,184,.5) 0%, rgba(170,176,184,0) 46%), var(--card)}
+.cards-row{display:flex;gap:12px;flex:1;min-height:0}
+.acard{flex:1;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.66);overflow:hidden;position:relative;transition:box-shadow .3s,background .3s}
+.acard .ah{display:flex;align-items:center;gap:9px;padding:11px 13px}
+.acard .anum{width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:12px;color:#7a7a82;flex:none}
+.acard .at{font-size:13px;font-weight:600}
+.acard .ah .ah-ic{margin-left:auto;color:var(--gray);display:grid;place-items:center}
+.acard .ab{padding:0 13px 13px;font-size:12px;color:var(--gray-2);line-height:1.55;display:none;overflow-y:auto;flex:1}
+.acard.revealed .ab{display:block;animation:fadeUp .4s ease}
+.acard.activating{box-shadow:0 9px 28px rgba(78,157,144,.5),0 0 0 2px rgba(78,157,144,.55);animation:cardBlink .7s ease infinite}
+@keyframes cardBlink{0%,100%{box-shadow:0 11px 32px rgba(78,157,144,.55),0 0 0 2px rgba(78,157,144,.6)}50%{box-shadow:0 4px 13px rgba(78,157,144,.16),0 0 0 2px rgba(78,157,144,.16)}}
+.acard.done .anum{background:var(--teal);color:#fff;border-color:var(--teal)}
+.acard.done{background:rgba(255,255,255,.86)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.tbls{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.tbl{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:11px;color:#4a4a52}
+.tbl svg{width:13px;height:13px;color:var(--teal)}
+.orch{font-size:10.5px;color:var(--gray);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.orch .spin2{width:11px;height:11px;border-radius:50%;border:2px solid #dcdce2;border-top-color:var(--teal);animation:spin 1s linear infinite}
+.drow{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.drow:last-child{border:0}.drow b{color:var(--ink);font-weight:600}
+.note{background:var(--lime-pale);border-radius:8px;padding:7px 10px;font-size:11px;color:#4a4a30;margin-top:8px}
+.concl{background:var(--ink-btn);color:#fff;border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:2px}
+.concl .cl{font-size:10px;color:rgba(255,255,255,.6);margin-bottom:3px;letter-spacing:.5px}
+
+/* === 카드 시각화 (멀리서도 한눈에) === */
+/* 카드1: 조회 소스 칩 + KPI 타일 */
+.vsrcs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.vsrc{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:10px;color:#5a5a62;font-weight:600;white-space:nowrap}
+.vsrc svg{width:12px;height:12px;color:var(--teal)}
+.vkpis{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.vkpi{background:#fff;border:1px solid var(--line);border-left:4px solid #c2c2c9;border-radius:9px;padding:7px 10px}
+.vkpi .vk-l{font-size:9.5px;color:var(--gray);font-weight:700;letter-spacing:.2px;margin-bottom:2px;line-height:1.2}
+.vkpi .vk-v{font-size:15px;font-weight:800;color:var(--ink);line-height:1.25;letter-spacing:-.3px}
+.vkpi.num{border-left-color:var(--teal)}
+.vkpi.ok{border-left-color:#43a047;background:#f3faf3}.vkpi.ok .vk-v{color:#2e7d33}
+.vkpi.warn{border-left-color:#c0392b;background:#fdf4f3}.vkpi.warn .vk-v{color:#b23b32}
+.vnote{background:var(--lime-pale);border-radius:8px;padding:6px 9px;font-size:10.5px;color:#4a4a30;line-height:1.45}
+
+/* 카드2: 전략 플로우 */
+.vflow{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.vflow-step{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:700;color:#33333a;line-height:1.3}
+.vflow-step.goal{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 5px 14px rgba(78,157,144,.32)}
+.vflow-arr{color:var(--teal);font-weight:900;font-size:14px}
+
+/* 카드3: Next Action (1·2번 카드 하단 텍스트 모음) */
+.na{display:flex;flex-direction:column;gap:9px}
+.na-block{border:1px solid var(--line);border-left:4px solid var(--teal);border-radius:10px;padding:9px 12px;background:#fff}
+.na-block.na-strat{border-left-color:var(--teal);background:#f3faf8}
+.na-block.na-evi{border-left-color:#7FC4F5;background:#f4fbff}
+.na-lab{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.3px;color:#5a5a62;margin-bottom:5px}
+.na-block.na-strat .na-lab{color:var(--teal-dk)}
+.na-block.na-evi .na-lab{color:#1d6fa8}
+.na-lab svg{width:12px;height:12px}
+.na-txt{font-size:12px;color:#33333a;line-height:1.55;font-weight:600}
+
+/* summary view */
+.summary{flex:1;display:none;min-height:0;overflow-y:auto;padding-right:2px}
+.summary.show{display:block}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.spanel{background:var(--card);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.spanel h3{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;gap:7px;align-items:center}
+.srow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.srow:last-child{border:0}.srow b{font-weight:600;color:var(--ink)}
+.stags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.stag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:9px;background:#fff;border:1px solid var(--line);color:#4a4a52}
+.stag.warn{background:var(--pink);border-color:#e9b7b6;color:#9c3a38}
+.stag.ok{background:#e8f5e9;border-color:#a5d6a7;color:#2e6b30}
+.act-item{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+.act-item:last-child{border:0}
+.act-n{width:20px;height:20px;border-radius:50%;background:var(--teal);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;flex:none;margin-top:1px}
+.act-n.warn{background:#c0392b}
+.act-name{font-weight:600;font-size:12px}
+.act-do{font-size:11px;color:#3a5a3a;margin-top:2px;line-height:1.4}
+.act-why{font-size:10.5px;color:#7a7060;margin-top:2px;line-height:1.4}
+.flow{display:flex;align-items:flex-end;gap:5px;height:54px;margin:6px 0}
+.fcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.fbarw{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.fbar{width:66%;border-radius:4px 4px 0 0}
+.fx{font-size:8px;font-weight:700;margin-top:3px}
+.memo{font-size:11.5px;line-height:1.6;padding:3px 0;display:flex;gap:6px}
+.memo .mk{color:var(--teal-dk);font-weight:700;flex:none}
+.mscript{margin-top:8px;background:#fff;border:1px dashed #b9c9bf;border-radius:10px;padding:9px 11px;font-size:11.5px;color:#2c4a3c;line-height:1.5}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6 4h3l2 5-2 1a10 10 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+  <symbol id="i-act" viewBox="0 0 24 24"><path d="M5 5h14v14H5zM8 9h8M8 13h6"/></symbol>
+  <symbol id="i-fore" viewBox="0 0 24 24"><path d="M4 18 9 12l4 4 7-8M4 18h16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 13 4 4 12-12"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H10l-4 4z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 19.5c0-3.6 3.4-5.5 7-5.5s7 1.9 7 5.5"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M17.5 6.5 15 9M9 15l-2.5 2.5"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="app">
+  <div class="body">
+    <!-- ===== 메뉴 ===== -->
+    <aside class="sidebar">
+      <div class="menu-head"><h1>AI 상담</h1></div>
+      <div class="nav-label">MENU</div>
+      <div class="nav-item" data-view="monitor"><span class="badge"><svg class="ic ic-sm"><use href="#i-grid"/></svg></span>관리자 관제 화면</div>
+      <div class="nav-item active" data-view="live"><span class="badge"><svg class="ic ic-sm"><use href="#i-phone"/></svg></span>상담 화면</div>
+      <div class="nav-item" data-view="result"><span class="badge"><svg class="ic ic-sm"><use href="#i-act"/></svg></span>상담 결과</div>
+      <div class="nav-item" data-view="summary"><span class="badge"><svg class="ic ic-sm"><use href="#i-fore"/></svg></span>요약 화면</div>
+    </aside>
+
+    <!-- ===== 메인 ===== -->
+    <section class="detail">
+      <div class="contact-head">
+        <div class="ch-av">박서준</div>
+        <div class="ch-pills">
+          <span class="info-pill">38세</span>
+          <span class="info-pill">KCB 744</span>
+          <span class="info-pill">추정금리 13%대</span>
+          <span class="info-pill">차량보유 · 할부잔여</span>
+        </div>
+      </div>
+
+      <!-- 이탈 위험도 = Sales Process bar -->
+      <!-- 상담 진행 상태(좌) + 이탈 위험도 게이지(우) · 위치 교체 -->
+      <div class="risk-row">
+        <div class="status-card">
+          <div class="status-title">상담 진행 상태</div>
+          <div class="proc-track" id="procTrack"></div>
+        </div>
+        <div class="gauge-card" id="gaugeCard">
+          <svg class="gauge-svg" viewBox="0 0 120 70">
+            <defs>
+              <linearGradient id="gGrad" x1="12" y1="60" x2="108" y2="60" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#2fbf5e"/>
+                <stop offset="0.5" stop-color="#f0b429"/>
+                <stop offset="1" stop-color="#e23b3b"/>
+              </linearGradient>
+            </defs>
+            <path d="M12 60 A48 48 0 0 1 108 60" fill="none" stroke="#EAEAEF" stroke-width="9" stroke-linecap="round"/>
+            <path id="gFill" d="M12 60 A48 48 0 0 1 108 60" pathLength="100" fill="none" stroke="url(#gGrad)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 100"/>
+            <circle id="gMark" cx="12" cy="60" r="6" fill="#fff" stroke="#8d9097" stroke-width="3"/>
+          </svg>
+          <div class="gauge-read">
+            <div class="gauge-title">이탈 위험도</div>
+            <div class="gauge-big"><span id="gNumV">0</span><i>%</i></div>
+            <div class="gauge-lvl" id="gLabel">대기</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="navrow" id="navRow">
+        <button class="navbtn ghost" id="btnPrev"><svg class="ic ic-sm"><use href="#i-prev"/></svg>이전</button>
+        <button class="navbtn" id="btnNext">다음<svg class="ic ic-sm"><use href="#i-next"/></svg></button>
+        <span class="navind" id="navInd">— / 7</span>
+        <span class="navspace"></span>
+        <span class="legend lg-lo"><i></i>낮음(초록)</span>
+        <span class="legend lg-hi"><i></i>높음(빨강)</span>
+      </div>
+
+      <!-- 상담 화면: STT + 분석 -->
+      <div class="stage-cols" id="liveView">
+        <!-- 가운데: STT -->
+        <div class="col-box stt-box">
+          <div class="call-card">
+            <div class="call-status"><span class="ldot"></span>통화 중</div>
+            <div class="call-tmr" id="tmr">00:00</div>
+          </div>
+          <div class="stt-cap"><svg class="ic ic-sm" style="color:var(--teal)"><use href="#i-chat"/></svg> 실시간 통화 (STT)</div>
+          <div class="box-body"><div class="tx" id="tx"></div></div>
+        </div>
+        <!-- 오른쪽: 분석 엔진 -->
+        <div class="col-box ana-box">
+          <div class="box-head">
+            <h3><svg class="ic ic-sm" style="color:var(--teal)"><use href="#i-spark"/></svg> AI 분석 엔진</h3>
+            <span class="sub" id="anaSub">대기 중</span>
+          </div>
+          <div class="box-body ana-body">
+            <div class="cuana-wrap" id="cuanaWrap">
+              <div class="cuana-t"><svg class="ic ic-sm"><use href="#i-chat"/></svg> 고객 발화 분석 (음성·감정·숨은 의도)</div>
+              <div class="cuana" id="cuana"></div>
+            </div>
+            <div class="cards-row">
+              <div class="acard" id="card0">
+                <div class="ah"><span class="anum">1</span><span class="at">AI 발화 전략수립</span><span class="ah-ic"><svg class="ic ic-sm"><use href="#i-target"/></svg></span></div>
+                <div class="ab" id="ab0"></div>
+              </div>
+              <div class="acard" id="card1">
+                <div class="ah"><span class="anum">2</span><span class="at">DB 조회 · 오케스트레이션</span><span class="ah-ic"><svg class="ic ic-sm"><use href="#i-db"/></svg></span></div>
+                <div class="ab" id="ab1"></div>
+              </div>
+              <div class="acard" id="card2">
+                <div class="ah"><span class="anum">3</span><span class="at">Next Action</span><span class="ah-ic"><svg class="ic ic-sm"><use href="#i-act"/></svg></span></div>
+                <div class="ab" id="ab2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 요약 화면 -->
+      <div class="summary" id="summaryView"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+/* ============== 데이터 (콜봇 내용 유지) ============== */
+const STEPS=[
+ {label:'본인확인',churn:35,
+  cu:'네, 맞는데요. 근데 대출 전화면 안 받아요.',
+  ai:'네, 고객님. 요즘 대출 전화가 많아 피로감 있으실 수 있는데, 오늘은 바로 신청하는 게 아니라 지금 쓰시는 대출을 유지하는 게 나은지, 갈아타는 게 나은지 비교해 드리려는 겁니다. 잠시만 안내드려도 괜찮으실까요?',
+  voice:'톤 단호·짧은 문장 / 통화는 유지', emotion:'경계심 높음 / 방어 본능', intent:'즉각 끊을 가능성 높으나 전화 유지=기회 · 잠재 관심 있으나 방어벽 먼저',
+  tables:['이탈 패턴 DB','타사 DB','공시금리 매핑'],
+  orch:'이탈패턴·타사·공시금리 조회 → 현재금리 추정 + 거부유형 매핑',
+  rows:[['이탈패턴("대출전화 거부")','거부 후 통화유지 61% · 전환 시 설득 54%'],['타사 DB','A저축은행 신용대출 · 잔여 약 2,800만원'],['공시금리 매핑','KCB 700~799 → 12.9~15.4% → 13%대']],
+  note:'거부 후 통화유지 61% · 포지셔닝 전환 시 설득성공 54%',
+  strategy:'"갈아타기 권유"가 아닌 "유지 vs 대환 비교" 프레임으로 경계심 완화 → 대화 지속 판단',
+  gen:'"대출 권유" 프레임 즉시 해제 → "비교 서비스" 포지셔닝 → 자율성 강조("결정은 고객님이")'},
+
+ {label:'신뢰구축',churn:55,
+  cu:'결국 갈아타라는 거잖아요. 말로는 낮아진다는데, 막상 해보면 조건 다를 수도 있는 거 아닌가요?',
+  ai:'네, 맞습니다. 조건은 실제로 확인해보셔야 합니다. 지금 바로 갈아타시라는 말씀은 아니고요. 현재 10%를 초과하는 금리를 쓰고 계시면 대환 했을 때 월 부담이 줄 수 있는지 확인해보실 만합니다. 중도상환수수료까지 감안해서 비교하셔야 하고요.',
+  voice:'불신 톤 / 반문형 / 통화 유지', emotion:'손실 회피 강함 / 불신', intent:'과거 기만적 상담 경험 → 신뢰 붕괴 상태 → 논리보다 공감·인정 먼저',
+  tables:['이탈 패턴 DB','고객 이력','공시금리 재확인'],
+  orch:'이탈패턴·이력·금리 동시 조회 → 불신 발화 유형 분류',
+  rows:[['이탈패턴("결국~거잖아요")','부정 시 반발 78% · 인정·공감 시 지속 67%'],['고객 이력','타사 대출 2건 · 민원 없음 · 중도상환 경험 없음'],['공시금리 재확인','KCB744 ≈13%대 · HC 대환 11.5~12.8%']],
+  note:'부정 시 반발 78% · 인정 후 공감 시 지속 67%',
+  strategy:'불신 인정 → 객관 비교 기준 제시 → 신뢰 구축 경로 확정',
+  gen:'조건 불확실성 먼저 인정 → 방어막↓ → 10% 초과 고금리 기준 제시 → 중도상환수수료 언급으로 신뢰도↑'},
+
+ {label:'조건확인',churn:28,
+  cu:'지금 제가 13%대 쓰고 있긴 해요. 그거보다 더 낮아질 수 있어요?',
+  ai:'현재 그렇게 이용 중이시면 비교해보셔도 좋습니다. 신용대출 대환일 경우 고객님 신용정보와 기존 조건에 따라 예상 금리 12%대가 가능할 수 있습니다. 다만 확정 조건은 아니고, 실제 금리·한도는 심사 후 결정됩니다.',
+  voice:'톤 부드러움 / 질문형', emotion:'경계심→기대감 전환 시작 / 관심 상승', intent:'구체 수치 요구 = 관심 확정 · 설득 가능 구간 진입',
+  tables:['ML 실시간 업데이트','금리 시뮬레이션'],
+  orch:'ML 3모델 오케스트레이션 → 부도민감 4.2%(낮음) 투입 승인',
+  rows:[['상품반응모형','72% → 81% ↑'],['금리최적화','민감 확정 · 재원 50bp · 우대 -35bp'],['금리 시뮬','신용대환 12%대 · 우대 11.5%대']],
+  note:'상품반응 72→81%↑ · 우대(-35bp) 시 11.5%대',
+  strategy:'13%대→신용대환 12%대 예상 · 차이 작게 느껴질 수 있는 이탈 위험 지점 → 우대 가능성 제시로 기대감 유지',
+  gen:'12%대 예상 제시 → 우대 시 10%대 가능 순차 제시 → 확정 아님·심사 후 결정 강조'},
+
+ {label:'심화제안',churn:20,
+  cu:'낮아지긴 하는데… 생각보다 큰 차이는 아니네요.',
+  ai:'맞습니다. 금리 숫자만 보면 차이가 작게 느껴질 수 있습니다. 고객님 조건상 우대 대상에 적용되시면 예상 금리가 10%대까지 낮아질 가능성도 있습니다.',
+  voice:'미온적 톤 / 평이한 반응', emotion:'가격 저항 — 차이가 작다고 느낌', intent:'10%대가 수용 기준 · 더 낮은 금리가 전환 열쇠 → 차량담보로 유도 가능',
+  tables:['ML 오케스트레이션','차량 보유 DB','최종 금리 시뮬'],
+  orch:'상품반응 유지 + 추가 재원 + 차량 보유 교차 검증',
+  rows:[['상품반응','81% 유지 · 차량담보 적기'],['금리최적화','+15bp → 최종 50bp 투입'],['최종 시뮬','우대 10%대 · 차량담보 8~9%대']],
+  note:'차량담보 연계 시 8~9%대 진입 가능',
+  strategy:'반응 81% + 금리민감 + 부도低 → 차량담보 카드 오픈 적기 · 최종 50bp 재원 투입 확정',
+  gen:'차량담보 연계 제안 → 8~9%대 가능성 제시 → 우대 시 10%대 진입 강조'},
+
+ {label:'차량담보',churn:48,
+  cu:'차량담보요? 차 할부도 아직 남았는데. 그럼 차 못 쓰는 거 아니에요?',
+  ai:'일반적으로 차량 운행은 가능하십니다. 그 부분은 걱정하지 않으셔도 됩니다. 다만 담보가 설정되는 만큼 확인하셔야 할 조건도 함께 안내드리겠습니다.',
+  voice:'불안 톤 / 급한 반문 / 관심은 유지', emotion:'담보=불이익 선입견 / 일상 제약 공포', intent:'담보 오해 패턴 → 팩트 정정으로 해소 가능한 이탈 위험',
+  tables:['베테랑 패턴 DB','담보 조건 DB'],
+  orch:'담보 불안 패턴 #2 매칭 → 해소 사례 검색',
+  rows:[['담보 불안 #2','"차 못 쓰는 것" · 해소 사례 814건'],['운행 가능','✅ 담보설정 후에도 이용'],['확인 필요','할부 잔여 조건']],
+  note:'해소 사례 814건 → 운행 가능 사실 확인 후 조건 설명이 핵심',
+  strategy:'팩트 기반 안심이 해소 경로 · 강압 없이 사실로 신뢰 유지 판단',
+  gen:'운행 가능 사실 확인 → "무조건 괜찮다" 강조 배제 → "일반적으로 가능 + 확인할 조건 있음" 솔직 안내'},
+
+ {label:'이탈방어',churn:62,
+  cu:'괜히 담보 잡혔다가 불편해지는 건 싫은데요.',
+  ai:'걱정하시는 부분 당연합니다. 담보가 설정되는 만큼 확인하셔야 할 조건도 함께 솔직하게 안내드리겠습니다. 신청이 아니라 조건만 비교해보시는 것도 가능합니다.',
+  voice:'거부감 톤 / 감정적 발화 / 이탈 임박', emotion:'담보 거부감 최고조 / 논리 무효 구간', intent:'감정적 거부 → 강요 시 100% 이탈 → "확인할 조건" 언급으로 솔직함 강조',
+  tables:['이탈 위험 분석 DB','전략 옵션 평가'],
+  orch:'실시간 이탈위험 재계산 → 전략 옵션 점수화',
+  rows:[['이탈 위험','62% (위험 구간 진입)'],['공감+솔직 인정','✅ 채택'],['추가 설득 / 장점 재나열','❌ 배제']],
+  note:'감정 기반 거부 → 공감+자율성 부여가 유일 탈출구',
+  strategy:'"조건 비교만 해볼 수 있어요?" 유도 → 결정권을 고객에게 부여하는 전략 채택',
+  gen:'걱정 당연 인정 → 담보 조건 확인 필요 솔직 안내 → 신청 아닌 "조건 비교" 옵션 제시 → 선택권 강조'},
+
+ {label:'전환',churn:8,
+  cu:'그럼 신청 말고 조건만 비교해볼 수 있어요? 상담원 연결해주세요.',
+  ai:'네, 가능합니다. 최종 금리·한도는 심사 후 결정되고 진행 여부는 고객님이 직접 결정하시면 됩니다. 담당 상담원에게 바로 연결해 드리겠습니다.',
+  voice:'톤 누그러짐 / 자발적 질문', emotion:'부담 해소 / 진행 의향 형성', intent:'"신청 말고 비교만" = 부담 없이 진행 희망 → 전환 의사 확정 · 인간 핸드오프',
+  tables:['상담 성과 DB','핸드오프 준비'],
+  orch:'성과 집계 + 인계 패킷 생성',
+  rows:[['이탈 고비','4회 / 4회 극복'],['신뢰 구축','완료 · 상담 약 6분'],['인계 정보','KCB744 · 13%대 · 비교 의향 ✅']],
+  note:'남은 절차 = 조건확인 + 심사 (AI는 설득·정리 완료)',
+  strategy:'이탈방어★★★★★ 신뢰구축★★★★★ → 우수 케이스 자동 분류 · 고객 자발 요청에 따라 상담원 연결 자동 선택',
+  gen:'가능함 확인 → 진행은 고객 결정임을 명시 → 자율성 유지하며 상담원 연결로 핸드오프'},
+];
+
+/* 오프닝 인사말 (통화 연결 직후 AI가 먼저 발화 · 분석 없음) */
+const GREETING='안녕하세요 고객님, 현대캐피탈 AI 상담원입니다. 본 상담은 AI 음성으로 제공되며, 상담 내용은 녹음됨을 안내드립니다. 박서준 고객님 맞으실까요?';
+
+/* 요약 데이터 */
+const SUMMARY={
+  cust:[['고객','박서준 · 38세 직장인'],['신용/차량','KCB 744 · 차량보유(할부잔여)'],['현재 금리','13%대 (추정)'],['탐색 이력','대출비교앱 2회 (14일내)'],['ML 스코어','반응 72→81% · 부도 4.2%']],
+  custTags:[['초반 강한 경계','warn'],['손실회피 민감',''],['비교·자율성에 반응','ok']],
+  flowTags:[['이탈 고비 4회','warn'],['4회 모두 방어','ok'],['상담 약 6분','ok']],
+  keywords:[['#고금리13%대',''],['#대환비교',''],['#유지vs대환',''],['#신뢰회복',''],['#우대금리10%대',''],['#차량담보',''],['#담보운행오해','warn'],['#이탈방어4회','warn'],['#자율성존중','ok'],['#상담원연결요청','ok']],
+  memo:[['상태','비교 의향 확인 · "신청 아닌 조건 비교" 전제 동의'],['검토','신용대환 12%대(우대 시 10%대) / 차량담보 8~9%대'],['주의','초반 강한 거부 → "비교·자율 결정" 톤 유지 필수'],['미해소','담보 운행 안내 완료 · 잔여 할부/담보 조건 추가 확인'],['남은절차','조건 확정 + 심사 (AI는 설득·정리 완료)']],
+  script:'"AI 상담 이어받았습니다. 비교만 원하신다고 들었어요. 부담 없이 조건만 같이 확인해 드릴게요."',
+  log:[
+   [1,'본인확인 · 경계 해제',true,'"대출 권유" 프레임 해제 → "비교" 포지셔닝','거부 후 통화유지 61% → 전환 시 설득 54%'],
+   [2,'신뢰구축 · 불신 인정',true,'조건 불확실성 인정 → 객관 기준 제시','부정 시 반발 78% → 공감·인정이 우선'],
+   [3,'조건확인 · 기대 형성',false,'12%대 + 우대 10%대 순차 제시','13%대 자진 공개 → 반응 72→81%'],
+   [4,'심화제안 · 카드 오픈',false,'차량담보 연계 → 8~9%대 제시','10%대 긍정 반응 → 차량보유 확인'],
+   [5,'차량담보 · 오해 해소',true,'운행 가능 + 확인 조건 솔직 안내','담보=불이익 오해 → 해소 사례 814건'],
+   [6,'이탈방어 · 자율성 부여',true,'공감 + "조건 비교만" 옵션 제시','이탈 62% 최고조 → 결정권을 고객에게'],
+   [7,'전환 · 채널 선택',false,'상담원 연결 선택 · 심사/확정만 인계','"상담원 연결" 자발 요청 → 전환 확정'],
+  ]
+};
+
+/* 매크로 단계 (Sales Process track) */
+const MACRO=['본인확인','신뢰구축','조건확인','심화제안','자동차담보 상품 제안','이탈방어','전환','성공'];
+const STEP2MACRO=[0,1,2,3,4,5,6];
+
+/* ============== 상태/유틸 ============== */
+let cur=-1, timers=[], tmrInt=null, elapsed=0;
+const $=id=>document.getElementById(id);
+const T=(fn,ms)=>{const id=setTimeout(fn,ms);timers.push(id);};
+const clearT=()=>{timers.forEach(clearTimeout);timers=[];document.querySelectorAll('.fly').forEach(e=>e.remove());};
+
+/* ===== 이탈 위험도 게이지 ===== */
+let gaugeVal=0, gaugeRAF=null;
+function gaugePoint(v){const t=Math.PI*(1-v/100);return [60+48*Math.cos(t), 60-48*Math.sin(t)];}
+function zoneColor(v){return v>=50?'#e23b3b':v>=30?'#e8922b':'#2fbf5e';}
+function zoneLabel(v){return v>=50?'위험':v>=30?'주의':'안정';}
+function animateGauge(to){
+  if(gaugeRAF)cancelAnimationFrame(gaugeRAF);
+  const from=gaugeVal, dur=950, t0=performance.now();
+  const lbl=$('gLabel'); lbl.textContent=zoneLabel(to); lbl.style.color=zoneColor(to);
+  function frame(now){
+    let p=Math.min(1,(now-t0)/dur); p=1-Math.pow(1-p,3);
+    const v=from+(to-from)*p;
+    const [mx,my]=gaugePoint(v);
+    const mk=$('gMark'); mk.setAttribute('cx',mx.toFixed(1)); mk.setAttribute('cy',my.toFixed(1)); mk.setAttribute('stroke',zoneColor(v));
+    $('gFill').setAttribute('stroke-dasharray',Math.max(0,v).toFixed(1)+' 100');
+    $('gNumV').textContent=Math.round(v);
+    if(p<1){gaugeRAF=requestAnimationFrame(frame);}else{gaugeVal=to;}
+  }
+  gaugeRAF=requestAnimationFrame(frame);
+}
+function setGaugeBlink(v){
+  const card=$('gaugeCard');
+  card.classList.remove('lv-lo','lv-mid','lv-hi');
+  card.classList.add(v>=50?'lv-hi':v>=30?'lv-mid':'lv-lo');
+}
+
+function buildTrack(){
+  const tr=$('procTrack');tr.innerHTML='';
+  MACRO.forEach((m,i)=>{
+    const d=document.createElement('div');d.className='proc-step';d.id='ps'+i;
+    d.innerHTML='<span class="chip"><svg class="ic ic-sm"><use href="#i-lock"/></svg></span><span class="ps-label">'+m+'</span>';
+    tr.appendChild(d);
+    if(i<MACRO.length-1){
+      const ln=document.createElement('div');ln.className='proc-line';ln.id='pl'+i;
+      tr.appendChild(ln);
+    }
+  });
+}
+function setRisk(churn,active){
+  animateGauge(churn);
+  setGaugeBlink(churn);
+  // track
+  const macro=STEP2MACRO[active];
+  MACRO.forEach((_,i)=>{
+    const el=$('ps'+i);el.className='proc-step';
+    const chip=el.querySelector('.chip');
+    if(i<macro){el.classList.add('done');chip.innerHTML='<svg class="ic ic-sm"><use href="#i-check"/></svg>';}
+    else if(i===macro){el.classList.add('active');chip.innerHTML='<span class="spinner"></span>';}
+    else{chip.innerHTML='<svg class="ic ic-sm"><use href="#i-lock"/></svg>';}
+  });
+  // 연결선: 지난 단계까지만 색칠(정적), 애니메이션 없음
+  for(let i=0;i<MACRO.length-1;i++){
+    const ln=$('pl'+i);if(!ln)continue;
+    ln.classList.toggle('done',i<macro);
+  }
+}
+
+function startTimer(){if(tmrInt)return;tmrInt=setInterval(()=>{elapsed++;
+  $('tmr').textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');},1000);}
+
+function addBubble(role,text,opts){
+  opts=opts||{};
+  const tx=$('tx');
+  const b=document.createElement('div');
+  let cls='bub in '+role;
+  if(role==='cu'&&opts.live)cls+=' live';
+  if(role==='ai'&&opts.cur)cls+=' cur';
+  if(opts.loading)cls+=' loading';
+  b.className=cls;
+  const who=role==='cu'?'👤 고객':'🤖 AI';
+  if(opts.loading){b.innerHTML='<div class="who">'+who+'</div><span class="typing"><i></i><i></i><i></i></span>';}
+  else{b.innerHTML='<div class="who">'+who+'</div>'+text;}
+  tx.appendChild(b);scrollTx();return b;
+}
+function foldEl(el,role,text){el.className='bub folded '+role;el.innerHTML='<span class="who-s">'+(role==='cu'?'👤':'🤖')+'</span>'+text;}
+function scrollTx(){const bd=$('tx').parentElement;bd.scrollTop=bd.scrollHeight;}
+
+/* 하이라이트가 박스로 "넘어가는" 애니메이션 */
+function fly(fromEl,toEl,kind){
+  if(!fromEl||!toEl)return;
+  const a=fromEl.getBoundingClientRect(), b=toEl.getBoundingClientRect();
+  const f=document.createElement('div');f.className='fly';
+  const col=kind==='cu'?'rgba(143,203,106,.55)':'rgba(170,176,184,.6)';
+  const glow=kind==='cu'?'rgba(143,203,106,.75)':'rgba(160,165,173,.7)';
+  f.style.left=a.left+'px';f.style.top=a.top+'px';
+  f.style.width=Math.min(a.width,220)+'px';f.style.height=a.height+'px';
+  f.style.background=col;f.style.boxShadow='0 0 0 2px '+glow+',0 8px 26px '+glow;
+  f.style.opacity='.9';
+  document.body.appendChild(f);
+  // reflow then move to target
+  f.getBoundingClientRect();
+  requestAnimationFrame(()=>{
+    f.style.transform='translate('+(b.left-a.left+8)+'px,'+(b.top-a.top+6)+'px)';
+    f.style.width='180px';f.style.height='30px';f.style.opacity='0';
+  });
+  T(()=>{f.remove();
+    const head=toEl.querySelector('.box-head')||toEl;
+    head.animate?head.animate([{boxShadow:'0 0 0 0 '+glow},{boxShadow:'0 0 0 6px transparent'}],{duration:600}):0;
+  },760);
+}
+
+function resetAnalysis(){
+  const ana=document.querySelector('.ana-box');ana.classList.remove('phase-cu','phase-ai');
+  $('cuanaWrap').classList.remove('show');$('cuana').innerHTML='';
+  ['card0','card1','card2'].forEach(id=>{const c=$(id);c.classList.remove('activating','revealed','done');});
+  ['ab0','ab1','ab2'].forEach(id=>$(id).innerHTML='');
+  $('anaSub').textContent='대기 중';
+}
+function showCuAna(s){
+  $('cuanaWrap').classList.add('show');
+  $('cuana').innerHTML=
+    '<span class="ct">🎙 음성: <b>'+s.voice+'</b></span>'+
+    '<span class="ct">💟 감정: <b>'+s.emotion+'</b></span>'+
+    '<span class="ct">🧠 숨은 의도: <b>'+s.intent+'</b></span>';
+  $('anaSub').textContent='고객 발화 분석 중…';
+}
+function valKind(v){
+  if(/✅|채택|성공|양호|가능|확정|극복/.test(v))return 'ok';
+  if(/❌|배제|위험|실망|거부|불신|高/.test(v))return 'warn';
+  if(/[0-9].*%|→|↑|bp|건|분|만|회/.test(v))return 'num';
+  return '';
+}
+function vizDB(s){
+  const chips=s.tables.map(t=>'<span class="vsrc"><svg class="ic ic-sm"><use href="#i-db"/></svg>'+t+'</span>').join('');
+  const tiles=s.rows.map(r=>'<div class="vkpi '+valKind(r[1])+'"><div class="vk-l">'+r[0]+'</div><div class="vk-v">'+r[1]+'</div></div>').join('');
+  return '<div class="vsrcs">'+chips+'</div><div class="vkpis">'+tiles+'</div>';
+}
+function genParts(g){return g.split('→').map(x=>x.trim()).filter(Boolean);}
+function vizStrategy(s){
+  const p=genParts(s.gen);
+  const flow=p.map((x,i)=>'<span class="vflow-step'+(i===p.length-1?' goal':'')+'">'+x+'</span>').join('<span class="vflow-arr">→</span>');
+  return '<div class="vflow">'+flow+'</div>';
+}
+/* Next Action: 1·2번 카드 하단 텍스트(전략 방향 + 데이터 근거)를 모아 시각화 */
+function vizGen(s){
+  return '<div class="na">'
+    +'<div class="na-block na-strat"><div class="na-lab"><svg class="ic ic-sm"><use href="#i-target"/></svg> 전략 방향</div><div class="na-txt">'+s.strategy+'</div></div>'
+    +'<div class="na-block na-evi"><div class="na-lab"><svg class="ic ic-sm"><use href="#i-db"/></svg> 데이터 근거</div><div class="na-txt">'+s.note+'</div></div>'
+    +'</div>';
+}
+function activate(idx){$('card'+idx).classList.add('activating');$('anaSub').textContent=['AI 발화 전략 수립 중…','DB 조회 중…','Next Action 도출 중…'][idx];}
+function reveal(idx,html){const c=$('card'+idx);c.classList.remove('activating');c.classList.add('revealed','done');$('ab'+idx).innerHTML=html;}
+
+function playStep(i){
+  clearT();cur=i;
+  resetAnalysis();
+  const ana=document.querySelector('.ana-box');
+  // 트랜스크립트: 지난 발화는 접어서 표시
+  $('tx').innerHTML='';
+  foldEl(addBubble('ai',GREETING),'ai',GREETING);   // 오프닝 인사(항상 맨 위, 접힘)
+  for(let k=0;k<i;k++){
+    foldEl(addBubble('cu',STEPS[k].cu),'cu',STEPS[k].cu);
+    foldEl(addBubble('ai',STEPS[k].ai),'ai',STEPS[k].ai);
+  }
+  setRisk(STEPS[i].churn,i);
+  updateNav();
+  const s=STEPS[i];
+  const cuEl=addBubble('cu',s.cu,{live:true});         // 현재 고객 발화(연두 음영·진하게)
+  T(()=>{ana.classList.add('phase-cu');fly(cuEl,ana,'cu');},700);  // 음영이 분석창 좌상단으로 넘어감
+  T(()=>showCuAna(s),1300);                             // 음성·감정·숨은 의도
+  let aiEl;
+  T(()=>{                                               // 다음 AI 발화 로딩(회색 음영) + 고객 발화 접기
+    foldEl(cuEl,'cu',s.cu);
+    aiEl=addBubble('ai','',{cur:true,loading:true});
+  },2000);
+  T(()=>{ana.classList.remove('phase-cu');ana.classList.add('phase-ai');fly(aiEl,ana,'ai');},2650);
+  T(()=>activate(0),3050);                              // ① 전략 수립
+  T(()=>reveal(0,vizStrategy(s)),3850);
+  T(()=>activate(1),4100);                              // ② DB 조회 (전략 기반)
+  T(()=>reveal(1,vizDB(s)),4900);
+  T(()=>activate(2),5150);                              // ③ 조합 → 최종 발화 결정
+  T(()=>reveal(2,vizGen(s)),5950);
+  T(()=>{                                               // 로딩이던 AI 말풍선 채움(회색 음영 유지)
+    if(aiEl){aiEl.classList.remove('loading');aiEl.innerHTML='<div class="who">🤖 AI</div>'+s.ai;scrollTx();}
+    $('anaSub').textContent='완료';
+  },6350);
+}
+
+function updateNav(){
+  $('btnPrev').disabled=cur<=0;
+  $('btnNext').disabled=cur>=STEPS.length-1;
+  $('navInd').textContent=(cur+1)+' / '+STEPS.length;
+}
+
+/* ============== 요약 화면 ============== */
+function renderSummary(){
+  const tag=(t)=>'<span class="stag '+(t[1]||'')+'">'+t[0]+'</span>';
+  let flow='';
+  STEPS.forEach(s=>{const c=s.churn;const cc=c>50?'#c0392b':c>30?'#d98e2b':'#43a047';const h=Math.max(12,Math.min(100,c/65*100));
+    flow+='<div class="fcol"><div class="fbarw"><div class="fbar" style="height:'+h+'%;background:'+cc+'"></div></div><div class="fx" style="color:'+cc+'">'+c+'</div></div>';});
+  let log='';
+  SUMMARY.log.forEach(a=>{log+='<div class="act-item"><div class="act-n '+(a[2]?'warn':'')+'">'+a[0]+'</div><div><div class="act-name">'+a[1]+'</div><div class="act-do">▸ '+a[3]+'</div><div class="act-why">⤷ '+a[4]+'</div></div></div>';});
+  $('summaryView').innerHTML=
+  '<div class="sgrid">'+
+    '<div class="spanel"><h3>👤 고객 특성</h3>'+SUMMARY.cust.map(r=>'<div class="srow"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')+'<div class="stags">'+SUMMARY.custTags.map(tag).join('')+'</div></div>'+
+    '<div class="spanel"><h3>📈 상담 실시간 변화</h3><div style="font-size:10px;color:var(--gray)">이탈 위험도 추이 (단계별 %)</div><div class="flow">'+flow+'</div><div class="stags">'+SUMMARY.flowTags.map(tag).join('')+'</div></div>'+
+  '</div>'+
+  '<div class="spanel"><h3>🧭 단계별 Next Action &amp; 근거</h3>'+log+'</div>'+
+  '<div class="sgrid">'+
+    '<div class="spanel"><h3>🏷 주요 키워드</h3><div class="stags">'+SUMMARY.keywords.map(tag).join('')+'</div></div>'+
+    '<div class="spanel"><h3>📝 상담원 이관 메모</h3>'+SUMMARY.memo.map(m=>'<div class="memo"><span class="mk">'+m[0]+'</span><span>'+m[1]+'</span></div>').join('')+'<div class="mscript"><b>▶ 추천 오프닝</b><br>'+SUMMARY.script+'</div></div>'+
+  '</div>';
+}
+
+/* ============== 메뉴/뷰 전환 ============== */
+function showView(v){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===v));
+  const live=(v==='live'||v==='monitor'||v==='result');
+  $('liveView').style.display=live?'flex':'none';
+  $('navRow').style.display=live?'flex':'none';
+  $('summaryView').classList.toggle('show',v==='summary');
+  {const ms=$('metaStatus');if(ms)ms.textContent=v==='summary'?'상담 완료':'상담 중';}
+  if(v==='summary')renderSummary();
+}
+document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>showView(n.dataset.view)));
+$('btnPrev').onclick=()=>{if(cur>0)playStep(cur-1);};
+$('btnNext').onclick=()=>{if(cur<STEPS.length-1)playStep(cur+1);};
+
+/* ============== 오프닝 인사 → 시작 ============== */
+/* 통화 연결 직후 AI가 인사말을 먼저 발화. (고객 발화가 없으므로 음성·감정·의도 분석,
+   3단계 분석은 돌지 않고 '발화만' 한다.) 인사말이 끝나면 고객 첫 응답 턴(step 0)으로 넘어간다. */
+function playGreeting(){
+  resetAnalysis();
+  $('anaSub').textContent='상담 오프닝 · 고객 응답 대기';
+  const g=addBubble('ai','',{cur:true,loading:true});   // 인사말 말풍선 로딩 . . .
+  T(()=>{                                                // 인사말 채움
+    g.classList.remove('loading');
+    g.innerHTML='<div class="who">🤖 AI</div>'+GREETING;
+    scrollTx();
+  },1400);
+  T(()=>playStep(0),3100);                               // → 고객 첫 응답(분석 사이클 시작)
+}
+
+/* ============== 시작 (연결 → 인사말 → 1단계) ============== */
+buildTrack();
+(function(){const b=document.createElement('div');b.className='sys';b.textContent='📞 고객에게 연결 중…';$('tx').appendChild(b);})();
+T(()=>{$('tx').innerHTML='';const b=document.createElement('div');b.className='sys';b.textContent='✅ 통화 연결됨 · STT 시작';$('tx').appendChild(b);startTimer();playGreeting();},1400);
+</script>
+</body>
+</html>
