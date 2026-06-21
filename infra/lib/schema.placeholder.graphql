@@ -1,5 +1,42 @@
-# Placeholder schema for scaffold synth only.
-# Replaced by BACKEND's graphql/schema.graphql in CLOUD-007 (#49).
+# PLACEHOLDER schema — infra-owned, minimal working subset of the contract.
+# Proves the AppSync -> Lambda -> DynamoDB path end-to-end at placeholder level.
+# Replaced by BACKEND's graphql/schema.graphql in CLOUD-007 (#49); the real
+# contract (STACK.md §3) adds dialCall/endCall + the full subscription set.
+
+type Call {
+  callId: ID!
+  customerId: String
+  state: String
+  startedAt: String
+}
+
+type Turn {
+  callId: ID!
+  seq: Int!
+  speaker: String
+  text: String
+}
+
+type Mutation {
+  # Analysis-only call creation. Lambda writes CALL#{id}/META.
+  createCall(customerId: String!): Call
+  # Script-mode: emit the next turn. Lambda writes CALL#{id}/TURN#{seq}.
+  nextTurn(callId: ID!): Turn
+}
+
 type Query {
+  # Minimal read so the API has a Query root; replaced by real queries in #49.
   _scaffold: String
+}
+
+type Subscription {
+  # Pushed when nextTurn runs. Real fan-out is DynamoDB Streams in the full
+  # contract; here it's the AppSync mutation-linked subscription (placeholder).
+  onTurn(callId: ID!): Turn @aws_subscribe(mutations: ["nextTurn"])
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
 }

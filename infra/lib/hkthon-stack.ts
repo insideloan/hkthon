@@ -9,6 +9,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as amplify from 'aws-cdk-lib/aws-amplify';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as path from 'path';
 
 /**
@@ -58,8 +59,10 @@ export class HkthonStack extends cdk.Stack {
     });
 
     // ── Lambda orchestrator (Python 3.13) ───────────────────────────────
-    // Placeholder inline code so synth works before #50 ships the real
-    // bundle. ORCHESTRATOR_MODE defaults to script mode.
+    // Placeholder bundle (infra/lambda-placeholder/) that resolves createCall /
+    // nextTurn by writing real DynamoDB items — proves the AppSync->Lambda->
+    // DynamoDB path in script mode. Replaced by the real orchestrator bundle in
+    // CLOUD-008 (#50). ORCHESTRATOR_MODE defaults to script mode.
     const orchestratorLogs = new logs.LogGroup(this, 'OrchestratorLogs', {
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -68,11 +71,14 @@ export class HkthonStack extends cdk.Stack {
     const orchestrator = new lambda.Function(this, 'Orchestrator', {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'handler.handler',
-      code: lambda.Code.fromInline(
-        'def handler(event, context):\n' +
-        '    # Placeholder — replaced by orchestrator bundle in CLOUD-008 (#50).\n' +
-        '    return {"ok": True, "mode": "script", "note": "scaffold placeholder"}\n',
-      ),
+      // Bundle includes churn_risk_lexicon.json (copied from the SSOT at
+      // hk-skills/reference/) so churn_risk.py loads it from /var/task at
+      // runtime via LEXICON_LOCAL_PATH (#83 block 3).
+      // ⚠️ #50 (CLOUD-008): when this asset is swapped to the real orchestrator
+      // bundle (lambda/orchestrator/), carry the lexicon copy forward and keep
+      // LEXICON_LOCAL_PATH pointing at it — the file must ship inside the asset.
+      // The bundle copy is a build artifact of the SSOT; re-sync if the SSOT changes.
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambda-placeholder')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
@@ -80,8 +86,15 @@ export class HkthonStack extends cdk.Stack {
         ASSETS_BUCKET: bucket.bucketName,
         SCENARIO_KEY: 'scenarios/scenario.json',
         LEXICON_KEY: 'lexicon/churn_risk_lexicon.json',
+        // churn_risk.py reads LEXICON_LOCAL_PATH (a real on-disk file), not S3.
+        // The lexicon SSOT is bundled into the Lambda asset (see lambda asset
+        // dir); at runtime the bundle unzips to /var/task. Missing file →
+        // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
+        LEXICON_LOCAL_PATH: '/var/task/churn_risk_lexicon.json',
         ORCHESTRATOR_MODE: 'script',
         LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
+        // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
+        LLM_TIMEOUT_S: '6',
         TRANSCRIBE_LANGUAGE: 'ko-KR',
         TYPECAST_SECRET_ARN: typecastSecret.secretArn,
         TYPECAST_MODEL: 'ssfm-v30',
@@ -98,14 +111,28 @@ export class HkthonStack extends cdk.Stack {
 
     // Bedrock (Converse) + Guardrails apply + Transcribe streaming.
     // Scoped to actions; #52 audits/tightens resources further.
+    // Bedrock: scope InvokeModel to foundation models + the cross-region
+    // inference profile (the `global.anthropic.*` model id resolves via an
+    // inference profile, which in turn invokes region foundation models).
+    // ApplyGuardrail is scoped to our guardrail in the next statement.
     orchestrator.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'bedrock:InvokeModel',
         'bedrock:InvokeModelWithResponseStream',
-        'bedrock:ApplyGuardrail',
       ],
-      resources: ['*'],
+      resources: [
+        `arn:aws:bedrock:*::foundation-model/*`,
+        `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+      ],
     }));
+    orchestrator.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:ApplyGuardrail'],
+      resources: [
+        `arn:aws:bedrock:${this.region}:${this.account}:guardrail/*`,
+      ],
+    }));
+    // Transcribe streaming does NOT support resource-level permissions
+    // (AWS constraint) — `*` is required here and is intentional, not loose.
     orchestrator.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'transcribe:StartStreamTranscription',
@@ -135,7 +162,20 @@ export class HkthonStack extends cdk.Stack {
 
     // Data sources: DynamoDB (resolver direct) + Lambda (orchestrator).
     api.addDynamoDbDataSource('TableDataSource', table);
-    api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
+    const orchestratorDs = api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
+
+    // Placeholder resolvers: route createCall / nextTurn to the orchestrator
+    // Lambda. Default Lambda-DS request/response mapping passes the GraphQL
+    // field + arguments through as the event. #49 replaces these with the
+    // resolvers defined against BACKEND's real schema.
+    orchestratorDs.createResolver('CreateCallResolver', {
+      typeName: 'Mutation',
+      fieldName: 'createCall',
+    });
+    orchestratorDs.createResolver('NextTurnResolver', {
+      typeName: 'Mutation',
+      fieldName: 'nextTurn',
+    });
 
     // ── Bedrock Guardrail ───────────────────────────────────────────────
     // Compliance loop for generated drafts (STACK.md §5). Model *account*
@@ -158,8 +198,10 @@ export class HkthonStack extends cdk.Stack {
     });
 
     // Let the orchestrator apply this specific guardrail.
-    orchestrator.addEnvironment('GUARDRAIL_ID', guardrail.attrGuardrailId);
-    orchestrator.addEnvironment('GUARDRAIL_VERSION', guardrail.attrVersion);
+    // Names must match what compliance.py reads (BEDROCK_GUARDRAIL_ID /
+    // BEDROCK_GUARDRAIL_VERSION) — otherwise compliance silently rule-falls-back.
+    orchestrator.addEnvironment('BEDROCK_GUARDRAIL_ID', guardrail.attrGuardrailId);
+    orchestrator.addEnvironment('BEDROCK_GUARDRAIL_VERSION', guardrail.attrVersion);
 
     // ── Amplify Hosting (monorepo: frontend/) ───────────────────────────
     // App + build spec + env slot. Repo connection (GitHub App) + branch
@@ -180,8 +222,13 @@ export class HkthonStack extends cdk.Stack {
         '      phases:',
         '        preBuild:',
         '          commands:',
-        '            - npm i -g pnpm',
-        '            - pnpm install',
+        // Enable corepack and let it use the pnpm version pinned in
+        // frontend/package.json#packageManager. NOT `pnpm@latest`: latest
+        // enables a minimumReleaseAge supply-chain policy that rejects very
+        // recently published transitive deps (e.g. semver), breaking CI while
+        // local installs pass. Pinning keeps local == CI.
+        '            - corepack enable',
+        '            - pnpm install --frozen-lockfile',
         '        build:',
         '          commands:',
         '            - pnpm run build',
@@ -194,6 +241,46 @@ export class HkthonStack extends cdk.Stack {
         '          - node_modules/**/*',
       ].join('\n'),
     });
+
+    // ── CloudWatch alarms + dashboard (CLOUD-010 / #52) ─────────────────
+    // Baseline observability: alarm on orchestrator errors and AppSync 5xx.
+    const lambdaErrors = new cloudwatch.Alarm(this, 'OrchestratorErrorsAlarm', {
+      alarmName: 'hkthon-orchestrator-errors',
+      metric: orchestrator.metricErrors({ period: cdk.Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const appsync5xx = new cloudwatch.Alarm(this, 'AppSync5xxAlarm', {
+      alarmName: 'hkthon-appsync-5xx',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/AppSync',
+        metricName: '5XXError',
+        dimensionsMap: { GraphQLAPIId: api.apiId },
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const dashboard = new cloudwatch.Dashboard(this, 'Dashboard', {
+      dashboardName: 'hkthon',
+    });
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Orchestrator invocations / errors',
+        left: [orchestrator.metricInvocations(), orchestrator.metricErrors()],
+      }),
+      new cloudwatch.AlarmStatusWidget({
+        title: 'Alarms',
+        alarms: [lambdaErrors, appsync5xx],
+      }),
+    );
 
     // ── CloudFormation outputs ──────────────────────────────────────────
     // Consumed by follow-up issues + frontend .env.local distribution (#55).
