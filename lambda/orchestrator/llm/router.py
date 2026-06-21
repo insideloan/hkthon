@@ -38,10 +38,13 @@ class ClassifyResult(BaseModel):
 
     intent: str = Field(description="정규화된 고객 의도 (state.Intent 값 중 하나)")
     route: str = Field(description="RESPOND | TRANSFER | CLOSE | SILENCE")
-    emotion: str = Field(default="", description="고객 감정 한 단어 (예: 중립/불안/짜증/관심)")
+    # 신호 4축 — signals.py 카탈로그 라벨로만 응답(엄격). 카탈로그 밖이면 호출측이 None 폴백.
+    emotion: str = Field(default="", description="고객 감정 — signals.Emotion 15종 라벨 중 하나")
+    need: str = Field(default="", description="고객 니즈 — signals.Need 15종 라벨 중 하나")
+    usability: str = Field(default="", description="이용 가능성 — signals.Usability 20종 라벨 중 하나")
     fraud_suspected: bool = Field(default=False, description="보이스피싱/사기 의심 발화 여부")
     churn_adjust: int = Field(default=0, ge=-10, le=10, description="사전 점수 대비 의미 기반 보정(-10~+10)")
-    strategy_tactic: str = Field(default="", description="관리자 노출용 전략 전술")
+    strategy_tactic: str = Field(default="", description="대응 전략 — signals.Tactic 20종 라벨 중 하나")
     strategy_headline: str = Field(default="", description="전략 헤드라인 한 줄")
     rationale: str = Field(default="", description="판단 근거 한국어 1~2문장")
 

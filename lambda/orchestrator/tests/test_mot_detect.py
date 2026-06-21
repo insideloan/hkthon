@@ -4,6 +4,7 @@ RISK: Δchurn≥+12 또는 churn≥60. CONVERSION: TRANSFER_INTENT/LIMIT_INQUIRY
 """
 
 from orchestrator.agent import mot
+from orchestrator.agent.signals import Usability
 from orchestrator.agent.state import Intent
 
 
@@ -49,3 +50,32 @@ def test_conversion_takes_priority_over_risk():
     """전환 의도가 있으면 churn이 높아도 CONVERSION 우선."""
     m = mot.detect(_state(intent=Intent.BUYING_INTENT, churn_before=50, churn_after=70))
     assert m is not None and m["type"] == "CONVERSION"
+
+
+# ── 신호축(Usability) 보강 ──────────────────────────────────────────────────
+
+
+def test_conversion_by_usability_signal():
+    """진행성 이용가능성 신호 → intent가 평범해도 CONVERSION."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.PROCEED_NOW, churn_after=45))
+    assert m is not None and m["type"] == "CONVERSION"
+    assert Usability.PROCEED_NOW.value in m["triggers"]
+
+
+def test_needs_agent_usability_is_conversion():
+    """상담원 연결 필요 신호도 성공경로(CONVERSION)."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.NEEDS_AGENT, churn_after=45))
+    assert m is not None and m["type"] == "CONVERSION"
+
+
+def test_risk_by_usability_signal():
+    """이탈성 이용가능성 신호 → churn이 낮아도 RISK."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.LOAN_REFUSED, churn_after=45))
+    assert m is not None and m["type"] == "RISK"
+    assert Usability.LOAN_REFUSED.value in m["triggers"]
+
+
+def test_compliance_stop_usability_is_risk():
+    """컴플라이언스 중단 신호 → RISK."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.COMPLIANCE_STOP, churn_after=45))
+    assert m is not None and m["type"] == "RISK"
