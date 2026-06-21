@@ -9,6 +9,7 @@ draft → Guardrails.apply → (blocked면 redraft, try<2) → approved.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 
@@ -16,11 +17,27 @@ from . import prompts
 from ..llm import router
 from .state import CallState, ComplianceStep, Stage
 
+logger = logging.getLogger(__name__)
+
 _MAX_RETRIES = 2
 
 # 라이브 모드에서 Bedrock Guardrails 식별자 (설정 시 실호출, 없으면 룰 폴백)
 _GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID")
 _GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
+_REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
+
+# bedrock-runtime 클라이언트 (모듈 1회 생성, 콜드스타트 간 재사용)
+_bedrock = None
+
+
+def _bedrock_client():
+    """bedrock-runtime 클라이언트 (lazy singleton). boto3 미설치/미설정 환경에선 호출 안 됨."""
+    global _bedrock
+    if _bedrock is None:
+        import boto3  # 지연 import: 유닛테스트(boto3 없이 룰만)에서도 모듈 로드 가능
+
+        _bedrock = boto3.client("bedrock-runtime", region_name=_REGION)
+    return _bedrock
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 룰 기반 폴백 검수 — 금소법 위반 패턴 (CHURN-RISK-LEXICON/xlsx 금지사항 기반)
@@ -107,12 +124,54 @@ def _rule_guardrails(text: str) -> dict:
 
 
 def _bedrock_guardrails(text: str) -> dict | None:
-    """Bedrock Guardrails ApplyGuardrail 실호출. 오류 시 None → 룰 폴백."""
-    # TODO: boto3 bedrock-runtime.apply_guardrail(
-    #   guardrailIdentifier=_GUARDRAIL_ID, guardrailVersion=_GUARDRAIL_VERSION,
-    #   source="OUTPUT", content=[{"text": {"text": text}}])
-    #   → action == "GUARDRAIL_INTERVENED" 이면 blocked, assessments에서 violated 추출
-    return None
+    """Bedrock Guardrails ApplyGuardrail 실호출. 오류 시 None → 룰 폴백.
+
+    응답의 `action == "GUARDRAIL_INTERVENED"`이면 차단으로 보고, `assessments`에서
+    위반 정책명을 추출한다. 데모 안정성: 어떤 예외든 None을 돌려 룰 검수로 폴백한다.
+    """
+    try:
+        resp = _bedrock_client().apply_guardrail(
+            guardrailIdentifier=_GUARDRAIL_ID,
+            guardrailVersion=_GUARDRAIL_VERSION,
+            source="OUTPUT",
+            content=[{"text": {"text": text}}],
+        )
+    except Exception:  # noqa: BLE001 — LLM/네트워크 장애가 통화를 끊지 않게 룰 폴백
+        logger.exception("apply_guardrail failed; falling back to rule guardrails")
+        return None
+
+    blocked = resp.get("action") == "GUARDRAIL_INTERVENED"
+    violated = _extract_violated(resp.get("assessments", []))
+    return {
+        "blocked": blocked,
+        "violated": violated,
+        "action": "blocked" if blocked else "approved",
+    }
+
+
+def _extract_violated(assessments: list) -> list[str]:
+    """ApplyGuardrail assessments → 위반 정책명 목록.
+
+    Bedrock 응답의 각 policy 유형(topic/content/word/sensitiveInformation)에서
+    차단(action=BLOCKED/ANONYMIZED)된 항목의 식별자만 모은다. 응답 형태가 달라도
+    방어적으로 파싱(키 누락 시 건너뜀)한다.
+    """
+    violated: list[str] = []
+    for a in assessments:
+        for topic in a.get("topicPolicy", {}).get("topics", []):
+            if topic.get("action") == "BLOCKED":
+                violated.append(topic.get("name", "TOPIC"))
+        for filt in a.get("contentPolicy", {}).get("filters", []):
+            if filt.get("action") == "BLOCKED":
+                violated.append(filt.get("type", "CONTENT"))
+        for word in a.get("wordPolicy", {}).get("customWords", []):
+            if word.get("action") == "BLOCKED":
+                violated.append(word.get("match", "WORD"))
+        si = a.get("sensitiveInformationPolicy", {})
+        for pii in si.get("piiEntities", []):
+            if pii.get("action") in ("BLOCKED", "ANONYMIZED"):
+                violated.append(pii.get("type", "PII"))
+    return violated
 
 
 def _redraft(state: CallState, blocked_text: str, verdict: dict) -> str:
