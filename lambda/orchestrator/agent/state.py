@@ -102,10 +102,14 @@ class TurnMsg(TypedDict):
 
 
 class Token(TypedDict):
-    """SpeechAnalysis 카드용 키워드 토큰 (churn 매칭 결과)."""
+    """SpeechAnalysis 카드용 발화 토큰.
+
+    churn 매칭 키워드는 polarity=PRO/CONS + reason(카테고리), 비키워드 토큰은
+    polarity=None + reason="" (AGENT-011 발화 분석). onSpeechAnalysis 팬아웃용.
+    """
 
     text: str
-    polarity: Literal["PRO", "CONS"]
+    polarity: Optional[Literal["PRO", "CONS"]]
     reason: str
 
 
