@@ -52,30 +52,62 @@ def detect(state: CallState) -> Optional[MotResult]:
         triggers = [t["text"] for t in state.get("churn_tokens", [])]
         if usability in _CONVERSION_USABILITY:
             triggers.append(usability.value)
+        strategy = state.get("strategy", {})
         return MotResult(
             type="CONVERSION",
             turn_seq=state.get("next_seq", 0),
             churn_before=churn_before,
             churn_after=churn_after,
             triggers=triggers,
-            strategy=state.get("strategy", {}),
+            strategy=strategy,
             outcome="converted",
-            narrative="",  # TODO: LLM 또는 템플릿 기반 서술 생성
+            narrative=_narrative("CONVERSION", churn_before, churn_after, triggers, strategy),
         )
 
     if is_risk:
         triggers = [t["text"] for t in state.get("churn_tokens", []) if t["polarity"] == "CONS"]
         if usability in _RISK_USABILITY:
             triggers.append(usability.value)
+        strategy = state.get("strategy", {})
         return MotResult(
             type="RISK",
             turn_seq=state.get("next_seq", 0),
             churn_before=churn_before,
             churn_after=churn_after,
             triggers=triggers,
-            strategy=state.get("strategy", {}),
+            strategy=strategy,
             outcome="defended",  # TODO: 후속 턴에서 defended/lost 확정
-            narrative="",
+            narrative=_narrative("RISK", churn_before, churn_after, triggers, strategy),
         )
 
     return None
+
+
+def _narrative(
+    mot_type: str,
+    churn_before: int,
+    churn_after: int,
+    triggers: list[str],
+    strategy: dict,
+) -> str:
+    """관리자 화면용 MOT 서술 한 줄을 결정적으로 생성(LLM 비의존, 데모 안정성).
+
+    구성: [트리거 신호] + [churn 변화] + [채택 전략]. churn "사전 점수 1차 진실" 철학에 맞춰
+    LLM 없이 state의 신호값만으로 만든다.
+    """
+    delta = churn_after - churn_before
+    trig = ", ".join(dict.fromkeys(triggers)) if triggers else "신호 키워드 없음"
+    tactic = strategy.get("tactic") or "기본 응대"
+
+    if mot_type == "CONVERSION":
+        return (
+            f"전환 순간: '{trig}' 신호 포착(이탈위험 {churn_before}→{churn_after}). "
+            f"'{tactic}'(으)로 성공 경로 연결."
+        )
+    # RISK
+    arrow = f"{churn_before}→{churn_after}"
+    spike = f", +{delta} 급등" if delta >= _RISK_DELTA else (f", {churn_after} 고위험" if churn_after >= _RISK_ABS else "")
+    return (
+        f"위험 순간: '{trig}' 신호로 이탈위험 상승({arrow}{spike}). "
+        f"'{tactic}'(으)로 방어 시도."
+    )
