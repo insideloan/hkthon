@@ -10,7 +10,7 @@ AGENT 모듈. 설계: docs/agent/LANGGRAPH-DESIGN.md §4.
 
 from __future__ import annotations
 
-from . import churn_risk, compliance as compliance_mod, mot as mot_mod, prompts
+from . import churn_risk, compliance as compliance_mod, mot as mot_mod, prompts, signals
 from ..llm import router
 from .state import (
     CallState,
@@ -110,12 +110,15 @@ def classify(state: CallState) -> CallState:
             "_churn_adjust": 0,
         }
 
+    # 신호 4축은 엄격 파싱: 카탈로그 밖 값이면 None으로 폴백(데모 일관성·관리자 화면 안정).
     return {
         "intent": _to_intent(result.intent),
         "route": _to_route(result.route),
-        "emotion": result.emotion,
+        "emotion": signals.to_emotion(result.emotion),
+        "need": signals.to_need(result.need),
+        "usability": signals.to_usability(result.usability),
         "fraud_suspected": result.fraud_suspected,
-        "strategy": {"tactic": result.strategy_tactic, "headline": result.strategy_headline},
+        "strategy": {"tactic": _canon_tactic(result.strategy_tactic), "headline": result.strategy_headline},
         "rationale": result.rationale,
         "classified_by": "llm",
         # churn_adjust는 churn_score 노드가 ±10 한도로만 반영 (사전 점수 우선)
@@ -257,6 +260,12 @@ def _count_trailing_silence(state: CallState) -> int:
         else:
             break
     return streak + 1  # 이번 턴 포함
+
+
+def _canon_tactic(value: str) -> str:
+    """LLM 전략 문자열을 signals.Tactic 정규 라벨로. 카탈로그 밖이면 원문 보존(화면 표시용)."""
+    tac = signals.to_tactic(value)
+    return tac.value if tac else (value or "")
 
 
 def _to_intent(value: str) -> Intent:

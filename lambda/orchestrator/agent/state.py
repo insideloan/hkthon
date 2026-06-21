@@ -11,6 +11,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal, Optional, TypedDict
 
+from .signals import Emotion, Need, Usability
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Enums — 단계 / 의도 / 라우팅
@@ -104,9 +106,9 @@ class ComplianceStep(TypedDict):
 
 
 class Strategy(TypedDict, total=False):
-    """StrategyPanel용 전략."""
+    """StrategyPanel용 전략. tactic은 signals.Tactic 라벨(20종 정규값)."""
 
-    tactic: str
+    tactic: str       # signals.Tactic.value (카탈로그 밖이면 분류 폴백)
     headline: str
 
 
@@ -144,7 +146,9 @@ class CallState(TypedDict, total=False):
     intent: Intent
     route: Route
     classified_by: Literal["rule", "llm"]
-    emotion: str
+    emotion: Optional[Emotion]       # 신호축1 (signals.Emotion, 15종)
+    need: Optional[Need]             # 신호축2 (signals.Need, 15종)
+    usability: Optional[Usability]   # 신호축3 (signals.Usability, 20종)
     fraud_suspected: bool
     strategy: Strategy
     rationale: str
