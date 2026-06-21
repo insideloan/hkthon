@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#fff;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;min-height:600px;font-size:14px;}
+
+/* 상단 바 */
+#top-bar{display:flex;align-items:center;gap:10px;padding:5px 14px;background:#fff;border-bottom:1.5px solid #e8e8e8;flex-shrink:0;min-height:50px;}
+.cav{width:30px;height:30px;border-radius:50%;background:#1a3a6b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.ii{display:flex;flex-direction:column;}
+.il{font-size:8px;color:#aaa;}
+.iv{font-size:11px;font-weight:600;color:#1a1a1a;}
+.ibadge{display:inline-block;padding:1px 5px;border-radius:7px;font-size:8px;font-weight:700;}
+.bb{background:#e8f0fe;color:#1a3a6b;}.ba{background:#fff3e0;color:#e65100;}
+
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* ===== 왼쪽 패널 ===== */
+#left-panel{width:230px;flex-shrink:0;border-right:1.5px solid #e8e8e8;display:flex;flex-direction:column;overflow:hidden;position:relative;background:#fff;}
+
+/* Phase A: 사전분석 + 발신 대기 (통합) */
+#phase-pre{position:absolute;inset:0;z-index:20;background:linear-gradient(160deg,#1a1a2e 0%,#16213e 55%,#0f3460 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;overflow:hidden;}
+.pre-avatar{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#1a3a6b,#2456a4);display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px;box-shadow:0 0 0 4px rgba(91,141,239,.25);}
+.pre-name{font-size:18px;font-weight:900;color:#fff;margin-bottom:3px;letter-spacing:.5px;}
+.pre-phone{font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px;}
+.pre-divider{width:60%;height:1px;background:rgba(255,255,255,.1);margin-bottom:16px;}
+.pre-spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:#5b8def;animation:spin .9s linear infinite;margin-bottom:10px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pre-status{font-size:20px;font-weight:900;color:#fff;letter-spacing:.5px;text-align:center;transition:all .3s;}
+.pre-status-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:6px;transition:all .3s;}
+.pre-dots i{animation:blink 1.4s infinite;opacity:0;font-style:normal;}
+.pre-dots i:nth-child(2){animation-delay:.2s}.pre-dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+.pre-connected{display:none;font-size:28px;margin-bottom:10px;animation:popIn .4s ease;}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.wave-wrap{display:flex;align-items:center;gap:2px;height:16px;margin-top:8px;}
+.wb{width:2.5px;border-radius:2px;background:rgba(255,255,255,.4);}
+.wb:nth-child(1){animation:wv 1.2s .0s infinite;}
+.wb:nth-child(2){animation:wv 1.2s .15s infinite;}
+.wb:nth-child(3){animation:wv 1.2s .3s infinite;}
+.wb:nth-child(4){animation:wv 1.2s .45s infinite;}
+.wb:nth-child(5){animation:wv 1.2s .6s infinite;}
+@keyframes wv{0%,100%{height:3px;opacity:.3}50%{height:14px;opacity:1}}
+
+/* Phase C: 통화 중 — 밝은 배경 */
+#phase-active{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;background:#fff;}
+#active-bg{position:relative;background:rgba(232,240,254,.85);display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;border-bottom:1.5px solid #e0e8f4;flex-shrink:0;}
+.act-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1a3a6b,#2456a4);display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:4px;}
+.act-name{font-size:11px;font-weight:700;color:#1a3a6b;margin-bottom:1px;}
+.act-sub{font-size:8px;color:#8899b0;}
+.act-timer{font-size:12px;font-weight:700;color:#1a3a6b;font-variant-numeric:tabular-nums;margin-top:2px;}
+
+/* Journey */
+#journey-ov{flex:1;background:#fff;display:flex;flex-direction:column;padding:8px 8px 56px;overflow-y:auto;}
+.jov-title{font-size:9px;font-weight:800;color:#1a3a6b;letter-spacing:.9px;text-transform:uppercase;margin-bottom:6px;padding-bottom:5px;border-bottom:1.5px solid #e8f0fe;}
+.step-item{display:flex;gap:6px;padding:3px 0;align-items:flex-start;}
+.sdot-col{display:flex;flex-direction:column;align-items:center;}
+.step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;border:1.5px solid #ddd;background:#fff;color:#bbb;transition:all .4s;}
+.step-dot.done{background:#1a3a6b;border-color:#1a3a6b;color:#fff;}
+.step-dot.active{background:#e8f0fe;border-color:#1a3a6b;color:#1a3a6b;animation:pd 1.5s infinite;}
+.step-dot.warn{background:#fff3e0;border-color:#f57c00;color:#f57c00;animation:pd 1s infinite;}
+@keyframes pd{0%,100%{box-shadow:0 0 0 0 rgba(26,58,107,.2)}50%{box-shadow:0 0 0 4px rgba(26,58,107,.07)}}
+.step-conn-v{width:1.5px;background:#eee;margin:0 auto;transition:background .4s;flex:1;min-height:6px;}
+.step-conn-v.done{background:#1a3a6b;}
+.step-right{flex:1;min-width:0;padding-bottom:4px;}
+.step-lbl{font-size:13px;font-weight:800;color:#ccc;transition:all .4s;}
+.step-lbl.active{color:#1a3a6b;font-size:14px;}
+.step-lbl.done{color:#888;}
+.mini-chats{margin-top:3px;display:flex;flex-direction:column;gap:2px;}
+.mc{font-size:8px;line-height:1.35;padding:1px 4px;border-radius:3px;}
+.mc-ai{background:#e8f0fe;color:#1a3a6b;}.mc-cu{background:#f5f5f5;color:#555;}
+.mc.full{font-size:9.5px;line-height:1.4;padding:4px 7px;border-radius:7px;animation:chatIn .45s ease;}
+.mc.full.mc-cu{background:#fff;border:1px solid #e0e0e0;color:#333;}
+.mc.full.mc-ai{background:#1a3a6b;color:#fff;}
+@keyframes chatIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* Phase D: 완료 요약 */
+#phase-summary{position:absolute;inset:0;z-index:12;background:#fff;display:none;flex-direction:column;padding:8px 8px 56px;overflow-y:auto;}
+.sum-title{font-size:9px;font-weight:800;color:#1a3a6b;letter-spacing:.7px;margin-bottom:7px;padding-bottom:5px;border-bottom:1.5px solid #e8f0fe;}
+.sum-chat{display:flex;flex-direction:column;gap:4px;}
+.sc-msg{display:flex;flex-direction:column;gap:1px;}
+.sc-sender{font-size:7px;color:#bbb;padding:0 3px;}
+.sc-bubble{padding:4px 7px;border-radius:7px;font-size:9px;line-height:1.4;max-width:185px;}
+.sc-ai .sc-bubble{background:#e8f0fe;color:#1a3a6b;}
+.sc-cu{align-items:flex-end;}
+.sc-cu .sc-bubble{background:#f5f5f5;color:#333;}
+
+/* 네비 */
+#nav-bar{position:absolute;bottom:0;left:0;right:0;z-index:30;padding:5px 7px;background:#fff;border-top:1px solid #e8e8e8;display:flex;gap:4px;align-items:center;}
+#nav-bar button{flex:1;padding:5px 3px;border:1.5px solid #1a3a6b;border-radius:5px;background:#fff;color:#1a3a6b;font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;}
+#nav-bar button:hover{background:#1a3a6b;color:#fff;}
+#nav-bar button:disabled{opacity:.2;cursor:default;}
+#btn-next{background:#1a3a6b;color:#fff;}
+#step-ind{font-size:9px;color:#999;text-align:center;flex-shrink:0;min-width:28px;}
+
+/* ===== 오른쪽 패널 ===== */
+#right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#eef3f9;gap:8px;padding:8px;}
+
+/* 공통 카드 */
+.rp-card{border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(26,58,107,.06);border:1px solid rgba(26,58,107,.07);}
+.rp-head{padding:8px 13px 6px;display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.rp-head .rp-ttl{font-size:15px;font-weight:800;color:#15356a;letter-spacing:.2px;}
+.rp-head .rp-ic{font-size:16px;}
+.rp-body{flex:1;overflow-y:auto;padding:9px 13px 11px;display:flex;flex-direction:column;gap:7px;}
+
+/* 상단: 고객 발화 분석 + 이탈 위험도 */
+#rp-top{flex:0 0 31%;display:flex;gap:8px;overflow:hidden;}
+#rp-top-main{flex:1.7;background:linear-gradient(150deg,#ffffff 0%,#eaf3ff 60%,#dcebff 100%);}
+#rp-top-body{flex:1;overflow-y:auto;padding:9px 13px 11px;display:flex;flex-direction:column;gap:6px;}
+
+/* 이탈 위험도 — 반타원형 카드 */
+#rp-churn{flex:1;min-width:180px;display:flex;flex-direction:column;background:linear-gradient(180deg,#ffffff 0%,#f0f5ff 100%);border-radius:50% 50% 18px 18px / 40% 40% 18px 18px;border:1px solid rgba(26,58,107,.07);box-shadow:0 1px 4px rgba(26,58,107,.06);overflow:hidden;}
+#rp-churn .rp-head{justify-content:center;padding:10px 13px 2px;}
+#gauge-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 15px 8px;position:relative;}
+.gauge-svg{width:100%;max-width:190px;}
+#gauge-val{font-size:38px;font-weight:900;color:#1a1a1a;line-height:1;margin-top:-8px;}
+#gauge-status{font-size:13px;font-weight:700;margin-top:3px;}
+#gauge-delta{font-size:12px;font-weight:600;margin-top:2px;padding-bottom:4px;}
+
+/* 하단 2분할 */
+#rp-bottom{flex:1;display:flex;gap:8px;overflow:hidden;}
+#rp-left{flex:1;background:linear-gradient(150deg,#f2f8ff 0%,#dcecff 55%,#cbe2fc 100%);}
+#rp-left-body{flex:1;overflow-y:auto;padding:9px 13px 11px;display:flex;flex-direction:column;gap:7px;}
+#rp-right{flex:1;background:linear-gradient(150deg,#e0eeff 0%,#c6e0fb 55%,#aed2f7 100%);}
+#rp-right-body{flex:1;overflow-y:auto;padding:9px 13px 11px;display:flex;flex-direction:column;gap:7px;}
+
+/* 공통 카드 요소 */
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.dyn{animation:fadeUp .5s ease;}
+.stitle{font-size:11px;font-weight:700;color:#5a6b7d;letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.rsdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.db{background:#1a3a6b;}.da{background:#f57c00;}.dr{background:#e53935;}.dg{background:#43a047;}.dp{background:#7b1fa2;}.ds{background:#37474f;}
+.tag-row{display:flex;flex-wrap:wrap;gap:3px;}
+.tag{padding:3px 8px;border-radius:9px;font-size:11px;font-weight:600;}
+.tb{background:#e8f0fe;color:#1a3a6b;}.ta{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}.tr{background:#ffebee;color:#c62828;border:1px solid #ef9a9a;}.tg{background:#e8f5e9;color:#1b5e20;}.tgr{background:#f5f5f5;color:#555;}
+.inf{background:#fffde7;border-left:3px solid #f9a825;border-radius:0 5px 5px 0;padding:7px 9px;font-size:11px;color:#4a3800;line-height:1.55;}
+.inf strong{color:#e65100;}
+.inf.danger{background:#fff8f8;border-left-color:#e53935;}
+.inf.ok{background:#f1f8e9;border-left-color:#43a047;}
+.inf.purple{background:#f3e5f5;border-left-color:#7b1fa2;color:#4a0072;}
+.inf.blue{background:#e8f0fe;border-left-color:#1a3a6b;color:#0d2a5a;}
+.ml-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.mlb{border:1.5px solid #e0e0e0;border-radius:6px;padding:6px 5px;text-align:center;transition:all .4s;}
+.mlb.act{border-color:#1a3a6b;background:#e8f0fe;}
+.mlb.fire{border-color:#f57c00;background:#fff3e0;}
+.mlb.ok{border-color:#43a047;background:#e8f5e9;}
+.mn{font-size:9px;font-weight:700;color:#666;margin-bottom:2px;}
+.ms{font-size:15px;font-weight:800;color:#1a3a6b;}
+.md{font-size:9px;color:#888;margin-top:1px;line-height:1.2;}
+.mlb.fire .ms{color:#e65100;}.mlb.ok .ms{color:#2e7d32;}
+.na{background:linear-gradient(135deg,#1a3a6b,#0f2548);border-radius:7px;padding:10px 13px;color:#fff;}
+.na.green{background:linear-gradient(135deg,#2e7d32,#1b5e20);}
+.nal{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.9px;margin-bottom:2px;}
+.nat{font-size:13px;font-weight:700;line-height:1.4;}
+.nas{font-size:10px;color:rgba(255,255,255,.6);margin-top:3px;}
+.bep-row{display:flex;align-items:center;gap:5px;padding:3px 0;}
+.bl{font-size:11px;color:#555;width:78px;flex-shrink:0;}
+.bt{flex:1;height:8px;background:#f0f0f0;border-radius:3px;overflow:hidden;}
+.bf{height:100%;border-radius:3px;transition:width 1s ease;}
+.bv{font-size:11px;font-weight:700;width:60px;text-align:right;flex-shrink:0;}
+.hcard{background:#e8f5e9;border:1.5px solid #81c784;border-radius:7px;padding:9px 11px;}
+.htitle{font-size:11px;font-weight:700;color:#1b5e20;margin-bottom:5px;}
+.hrow{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04);}
+.hrow:last-child{border:none;}
+.hk{color:#555;}.hv{font-weight:600;color:#1a1a1a;}
+.result-box{background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#ccc;gap:6px;}
+.empty-state .ei{font-size:28px;}
+.empty-state .et{font-size:12px;}
+
+/* 로딩 상태 */
+.loading-state{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(26,58,107,.04);border-radius:8px;animation:fadeUp .4s ease;}
+.loading-spinner{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(26,58,107,.15);border-top-color:#1a3a6b;animation:spin .8s linear infinite;flex-shrink:0;}
+.loading-text{font-size:12px;font-weight:700;color:#1a3a6b;}
+
+/* DB 조회 결과 카드 */
+.db-result{background:#fff;border:1.5px solid #d0dff0;border-radius:8px;padding:8px 10px;animation:fadeUp .5s ease;}
+.db-result .db-title{font-size:10px;font-weight:800;color:#1a3a6b;margin-bottom:4px;letter-spacing:.3px;}
+.db-result .db-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.04);}
+.db-result .db-row:last-child{border:none;}
+.db-result .db-k{color:#666;}.db-result .db-v{font-weight:700;color:#1a1a1a;}
+
+/* ML 모델 개별 카드 */
+.ml-single{border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 10px;text-align:center;animation:fadeUp .5s ease;transition:all .4s;}
+.ml-single.act{border-color:#1a3a6b;background:#e8f0fe;}
+.ml-single.fire{border-color:#f57c00;background:#fff3e0;}
+.ml-single.ok{border-color:#43a047;background:#e8f5e9;}
+.ml-single .ml-name{font-size:10px;font-weight:700;color:#666;margin-bottom:3px;}
+.ml-single .ml-score{font-size:20px;font-weight:900;color:#1a3a6b;}
+.ml-single .ml-detail{font-size:10px;color:#888;margin-top:2px;line-height:1.3;}
+.ml-single.fire .ml-score{color:#e65100;}
+.ml-single.ok .ml-score{color:#2e7d32;}
+
+/* 채널 선택 */
+.choice-title{font-size:10px;font-weight:800;color:#1a3a6b;letter-spacing:.6px;margin-bottom:6px;}
+.choice-opts{display:flex;gap:7px;}
+.choice-opt{flex:1;background:#fff;border:1.5px solid #d8e2f0;border-radius:9px;padding:9px 7px;text-align:center;position:relative;transition:all .35s;}
+.choice-opt .co-ic{font-size:19px;line-height:1;}
+.choice-opt .co-t{font-size:11px;font-weight:800;color:#33415a;margin-top:3px;}
+.choice-opt .co-s{font-size:9px;color:#8a99ad;margin-top:1px;}
+.choice-opt.tapping{transform:scale(.93);}
+.choice-opt.selected{border-color:#1a3a6b;background:linear-gradient(135deg,#1a3a6b,#2456a4);box-shadow:0 3px 9px rgba(26,58,107,.3);}
+.choice-opt.selected .co-t,.choice-opt.selected .co-s{color:#fff;}
+.choice-opt.selected::after{content:'✓ 선택';position:absolute;top:-7px;right:-5px;background:#43a047;color:#fff;font-size:8px;font-weight:800;padding:2px 5px;border-radius:8px;}
+.choice-opt.dim{opacity:.4;filter:grayscale(.4);}
+.choice-reason{font-size:10px;color:#4a3800;background:#fffde7;border-left:3px solid #f9a825;border-radius:0 5px 5px 0;padding:6px 8px;margin-top:7px;line-height:1.5;transition:opacity .5s;}
+.choice-reason .cr-pick{font-weight:800;color:#1a3a6b;}
+
+/* 상담 요약 대시보드 */
+#rp-summary{flex:1;display:none;flex-direction:column;gap:8px;overflow-y:auto;padding-right:2px;}
+.sd-head{font-size:13px;font-weight:800;color:#15356a;letter-spacing:.3px;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sd-card{border-radius:13px;padding:10px 12px;border:1px solid rgba(26,58,107,.08);box-shadow:0 1px 4px rgba(26,58,107,.05);animation:fadeUp .5s ease both;}
+.sd-card.c-cust{background:linear-gradient(150deg,#ffffff,#eef5ff);}
+.sd-card.c-flow{background:linear-gradient(150deg,#fff6ed,#ffe9d6);}
+.sd-card.c-act{background:linear-gradient(150deg,#f1f8ef,#dcefd9);}
+.sd-card.c-key{background:linear-gradient(150deg,#f3eefc,#e7dcfb);}
+.sd-card.c-memo{background:linear-gradient(150deg,#e9f2ff,#d3e6ff);border:1.5px solid #9cc2f0;}
+.sd-ct{font-size:12px;font-weight:800;color:#15356a;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.sd-row{display:flex;justify-content:space-between;gap:6px;font-size:10px;padding:2.5px 0;border-bottom:1px dashed rgba(0,0,0,.06);}
+.sd-row:last-child{border:none;}.sd-k{color:#6a7686;flex-shrink:0;}.sd-v{font-weight:700;color:#1f2a3a;text-align:right;}
+.sd-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.sd-tag{font-size:10px;font-weight:700;padding:2.5px 7px;border-radius:9px;background:#fff;color:#15356a;border:1px solid rgba(26,58,107,.15);}
+.sd-tag.warn{background:#fff3e0;color:#e65100;border-color:#ffcc80;}
+.sd-tag.ok{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7;}
+.flow-graph{display:flex;align-items:flex-end;gap:3px;height:42px;margin:4px 0 2px;}
+.fg-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+.fg-bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;}
+.fg-bar{width:72%;border-radius:3px 3px 0 0;}
+.fg-x{font-size:7px;color:#9a8a78;margin-top:2px;font-weight:700;}
+.flow-emot{display:flex;align-items:center;gap:3px;flex-wrap:wrap;font-size:9px;color:#7a5a3a;margin-top:5px;line-height:1.5;}
+.flow-emot b{color:#1b5e20;}
+.act-item{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);}
+.act-item:last-child{border:none;}
+.act-step{flex-shrink:0;width:19px;height:19px;border-radius:50%;background:#1a3a6b;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.act-step.warn{background:#e53935;}
+.act-body{flex:1;min-width:0;}
+.act-name{font-size:11px;font-weight:800;color:#1f2a3a;}
+.act-do{font-size:10px;color:#2e4a2e;line-height:1.4;margin-top:1px;}.act-do b{color:#1b5e20;}
+.act-why{font-size:9px;color:#7a7060;line-height:1.4;margin-top:2px;}.act-why b{color:#b35a00;}
+.memo-line{font-size:10px;color:#16314f;line-height:1.6;padding:2px 0;display:flex;gap:5px;}
+.memo-line .mk{color:#3a6ab0;font-weight:800;flex-shrink:0;}
+.memo-script{margin-top:7px;background:#fff;border:1px dashed #9cc2f0;border-radius:8px;padding:8px 10px;font-size:10px;color:#15356a;line-height:1.5;}
+.memo-script .ms-l{font-size:9px;font-weight:800;color:#3a6ab0;letter-spacing:.5px;margin-bottom:2px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top-bar">
+    <div class="cav">박서</div>
+    <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;">
+      <div class="ii"><span class="il">고객명</span><span class="iv">박서준</span></div>
+      <div class="ii"><span class="il">나이/직업</span><span class="iv">38세 / 직장인</span></div>
+      <div class="ii"><span class="il">KCB</span><span class="iv">744점</span></div>
+      <div class="ii"><span class="il">추정 현재 금리</span><span class="iv">13%대 <span style="font-size:7px;color:#bbb">(저축은행+KCB+공시금리 추정)</span></span></div>
+      <div class="ii"><span class="il">HC 거래</span><span class="iv">차량 보유 / 할부 잔여</span></div>
+      <div class="ii"><span class="il">최근 탐색</span><span class="iv"><span class="ibadge ba">대출비교앱 2회 (14일내)</span></span></div>
+      <div class="ii"><span class="il">타겟 상품</span><span class="iv"><span class="ibadge bb">신용/차량담보 대환</span></span></div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="left-panel">
+      <!-- Phase A: 사전분석 + 발신 대기 통합 -->
+      <div id="phase-pre">
+        <div class="pre-avatar">👤</div>
+        <div class="pre-name">박서준 고객</div>
+        <div class="pre-phone">010-****-3821</div>
+        <div class="pre-divider"></div>
+        <div class="pre-spinner" id="pre-spinner"></div>
+        <div class="pre-connected" id="pre-connected-icon">✅</div>
+        <div class="pre-status" id="pre-status">사전 고객분석 중<span class="pre-dots"><i>.</i><i>.</i><i>.</i></span></div>
+        <div class="pre-status-sub" id="pre-status-sub">오른쪽 화면에서 분석이 진행됩니다</div>
+        <div class="wave-wrap" id="pre-waves" style="display:none;">
+          <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+        </div>
+      </div>
+
+      <!-- Phase C: 통화 중 (밝은 배경) -->
+      <div id="phase-active">
+        <div id="active-bg">
+          <div class="act-av">👤</div>
+          <div class="act-name">박서준 고객</div>
+          <div class="act-sub">통화 중</div>
+          <div class="act-timer" id="act-timer">00:00</div>
+        </div>
+        <div id="journey-ov">
+          <div class="jov-title">Customer Journey</div>
+          <div id="steps-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Phase D: 완료 요약 -->
+      <div id="phase-summary">
+        <div class="sum-title">📋 전체 상담 대화 요약</div>
+        <div class="sum-chat" id="sum-chat"></div>
+      </div>
+
+      <div id="nav-bar" style="display:none;">
+        <button id="btn-prev" onclick="prevStep()" disabled>◀ 이전</button>
+        <div id="step-ind">—</div>
+        <button id="btn-next" onclick="nextStep()" disabled>다음 ▶</button>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div id="rp-top">
+        <div id="rp-top-main" class="rp-card">
+          <div class="rp-head"><span class="rp-ic">🎙</span><span class="rp-ttl">고객 발화 분석</span></div>
+          <div id="rp-top-body">
+            <div class="empty-state"><div class="ei">🎙</div><div class="et">고객 발화를 기다리는 중...</div></div>
+          </div>
+        </div>
+        <!-- 반타원형 이탈 위험도 카드 -->
+        <div id="rp-churn">
+          <div class="rp-head"><span class="rp-ic">⚠</span><span class="rp-ttl">이탈 위험도</span></div>
+          <div id="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 200 125">
+              <path d="M 20 108 A 80 80 0 0 1 180 108" fill="none" stroke="#e8edf2" stroke-width="18" stroke-linecap="round"/>
+              <path id="gauge-arc" d="M 20 108 A 80 80 0 0 1 180 108" fill="none" stroke="#b3d4fc" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 999"/>
+            </svg>
+            <div id="gauge-val">—</div>
+            <div id="gauge-status" style="color:#bbb">대기 중</div>
+            <div id="gauge-delta"></div>
+          </div>
+        </div>
+      </div>
+      <div id="rp-bottom">
+        <div id="rp-left" class="rp-card">
+          <div class="rp-head"><span class="rp-ic">🎯</span><span class="rp-ttl">AI 발화 전략 수립</span></div>
+          <div id="rp-left-body">
+            <div class="empty-state"><div class="ei">🎯</div><div class="et">전략 수립 대기 중</div></div>
+          </div>
+        </div>
+        <div id="rp-right" class="rp-card">
+          <div class="rp-head"><span class="rp-ic">💬</span><span class="rp-ttl">AI 발화 생성</span></div>
+          <div id="rp-right-body">
+            <div class="empty-state"><div class="ei">💬</div><div class="et">발화 생성 대기 중</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 종합 리포트 -->
+      <div id="rp-summary">
+        <div class="sd-head">📋 AI 상담 종합 리포트 · 상담원 인계</div>
+        <div class="sd-grid">
+          <div class="sd-card c-cust">
+            <div class="sd-ct">👤 고객 특성</div>
+            <div class="sd-row"><span class="sd-k">고객</span><span class="sd-v">박서준 · 38세 직장인</span></div>
+            <div class="sd-row"><span class="sd-k">신용 / 차량</span><span class="sd-v">KCB 744 · 차량보유(할부잔여)</span></div>
+            <div class="sd-row"><span class="sd-k">현재 금리</span><span class="sd-v" style="color:#c62828">13%대 (추정)</span></div>
+            <div class="sd-row"><span class="sd-k">탐색 이력</span><span class="sd-v">대출비교앱 2회 (14일내)</span></div>
+            <div class="sd-row"><span class="sd-k">ML 스코어</span><span class="sd-v">반응 72→81% · 부도 4.2%</span></div>
+            <div class="sd-tags" style="margin-top:6px;"><span class="sd-tag warn">초반 강한 경계</span><span class="sd-tag">손실회피 민감</span><span class="sd-tag ok">비교·자율성에 반응</span></div>
+          </div>
+          <div class="sd-card c-flow">
+            <div class="sd-ct">📈 상담 실시간 변화</div>
+            <div style="font-size:9px;color:#7a5a3a;font-weight:700;">이탈 위험도 추이 (단계별 %)</div>
+            <div class="flow-graph" id="sd-flow-graph"></div>
+            <div class="flow-emot">감정선: 경계 → 불신 → <b>관심</b> → <b>긍정</b> → 우려 → 거부 → <b>전환수용</b></div>
+            <div class="sd-tags" style="margin-top:6px;"><span class="sd-tag warn">이탈 고비 4회</span><span class="sd-tag ok">4회 모두 방어</span><span class="sd-tag ok">상담 약 6분</span></div>
+          </div>
+        </div>
+        <div class="sd-card c-act"><div class="sd-ct">🧭 단계별 Next Action &amp; 의사결정 근거</div><div id="sd-act-list"></div></div>
+        <div class="sd-grid">
+          <div class="sd-card c-key">
+            <div class="sd-ct">🏷 주요 키워드</div>
+            <div class="sd-tags">
+              <span class="sd-tag">#고금리13%대</span><span class="sd-tag">#대환비교</span><span class="sd-tag">#유지vs대환</span>
+              <span class="sd-tag">#신뢰회복</span><span class="sd-tag">#우대금리10%대</span><span class="sd-tag">#차량담보</span>
+              <span class="sd-tag warn">#담보운행오해</span><span class="sd-tag warn">#이탈방어4회</span><span class="sd-tag ok">#자율성존중</span>
+              <span class="sd-tag ok">#상담원연결요청</span><span class="sd-tag">#비교포지셔닝</span>
+            </div>
+          </div>
+          <div class="sd-card c-memo">
+            <div class="sd-ct">📝 상담원 이관 메모</div>
+            <div class="memo-line"><span class="mk">상태</span><span>비교 의향 확인 · "신청 아닌 조건 비교" 전제로 동의</span></div>
+            <div class="memo-line"><span class="mk">검토</span><span>신용대환 12%대(우대 시 10%대) / 차량담보 8~9%대</span></div>
+            <div class="memo-line"><span class="mk">주의</span><span>초반 강한 거부 → "권유" 아닌 "비교·자율 결정" 톤 유지 필수</span></div>
+            <div class="memo-line"><span class="mk">미해소</span><span>담보 운행 가능 안내 완료, 잔여 할부·담보 조건 추가 확인 필요</span></div>
+            <div class="memo-line"><span class="mk">남은절차</span><span>조건 확정 + 심사 (AI는 설득·정리까지 완료)</span></div>
+            <div class="memo-script"><div class="ms-l">▶ 추천 오프닝 스크립트</div>"AI 상담 이어받았습니다. 비교만 원하신다고 들었어요. 부담 없이 조건만 같이 확인해 드릴게요."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const JOURNEY_LABELS=['사전분석','본인확인','신뢰구축','조건확인','심화제안','차량담보','이탈방어','전환','완료'];
+const DLY=1000; // 모든 단계 1초 딜레이
+
+const STEP_DIALOG={
+  1:{pre:[
+      {r:'ai',t:'안녕하세요 고객님, 현대캐피탈 AI 상담원입니다. 본 상담은 AI 음성으로 제공되며, 상담 내용은 녹음됨을 안내드립니다. 박서준 고객님 맞으실까요?'},
+      {r:'cu',t:'네, 맞는데요. 근데 대출 전화면 안 받아요.'}],
+    post:[{r:'ai',t:'네, 고객님. 요즘 대출 전화가 많아 피로감 있으실 수 있는데, 오늘은 바로 신청하는 게 아니라 지금 쓰시는 대출을 유지하는 게 나은지, 갈아타는 게 나은지 비교해 드리려는 겁니다. 잠시만 안내드려도 괜찮으실까요?'}]},
+  2:{pre:[{r:'cu',t:'결국 갈아타라는 거잖아요. 말로는 낮아진다는데, 막상 해보면 조건 다를 수도 있는 거 아닌가요?'}],
+    post:[{r:'ai',t:'네, 맞습니다. 조건은 실제로 확인해보셔야 합니다. 지금 바로 갈아타시라는 말씀은 아니고요. 현재 10%를 초과하는 금리를 쓰고 계시면, 대환 했을 때 월 부담이 줄 수 있는지 확인해보실 만합니다. 중도상환수수료까지 감안해서 비교하셔야 하고요.'}]},
+  3:{pre:[{r:'cu',t:'지금 제가 13%대 쓰고 있긴 해요. 그거보다 더 낮아질 수 있어요?'}],
+    post:[{r:'ai',t:'현재 그렇게 이용 중이시면 비교해보셔도 좋습니다. 신용대출 대환일 경우 고객님 신용정보와 기존 조건에 따라 예상 금리 12%대가 가능할 수 있습니다. 다만 확정 조건은 아니고, 실제 금리·한도는 심사 후 결정됩니다.'}]},
+  4:{pre:[{r:'cu',t:'낮아지긴 하는데… 생각보다 큰 차이는 아니네요.'}],
+    post:[{r:'ai',t:'맞습니다. 금리 숫자만 보면 차이가 작게 느껴질 수 있습니다. 고객님 조건상 우대 대상에 적용되시면 예상 금리가 10%대까지 낮아질 가능성도 있습니다.'}]},
+  5:{pre:[
+      {r:'cu',t:'아.. 그건 괜찮네요.'},
+      {r:'ai',t:'혹시 고객님 명의 차량이 있으시면 차량담보 상품도 함께 보실 수 있습니다. 담보가 설정되는 만큼 신용대출보다 낮은 금리가 검토될 수 있습니다.'},
+      {r:'cu',t:'차량담보요? 차 할부도 아직 남았는데. 그럼 차 못 쓰는 거 아니에요?'}],
+    post:[{r:'ai',t:'일반적으로 차량 운행은 가능하십니다. 그 부분은 걱정하지 않으셔도 됩니다.'}]},
+  6:{pre:[{r:'cu',t:'괜히 담보 잡혔다가 불편해지는 건 싫은데요.'}],
+    post:[{r:'ai',t:'걱정하시는 부분 당연합니다. 담보가 설정되는 만큼 확인하셔야 할 조건도 함께 솔직하게 안내드리겠습니다.'}]},
+  7:{pre:[{r:'cu',t:'그럼 신청 말고 조건만 비교해볼 수 있어요?'}],
+    post:[
+      {r:'ai',t:'네, 가능합니다. 최종 금리와 한도는 심사 결과에 따라 달라지고, 진행 여부는 설명을 다 들으신 뒤 고객님께서 직접 결정하시면 됩니다.'},
+      {r:'cu',t:'그럼 상담원 연결해주세요.'},
+      {r:'ai',t:'네, 잠시만 기다려주세요. 담당 상담원에게 연결해 드리겠습니다.'}]},
+};
+function stepMsgs(i){const d=STEP_DIALOG[i];return d?d.pre.concat(d.post):[];}
+
+const STEPS=[
+  // STEP 0: 사전분석
+  {label:'사전분석',warn:false,churn:0,cs:'분석 전',
+   top:{items:[]},
+   left:{items:[
+     {type:'section',sdot:'db',title:'고객 DB 로딩 완료',content:'<div class="tag-row"><span class="tag tb">KCB 744점</span><span class="tag tb">직장인 3년+</span><span class="tag tb">차량 보유</span><span class="tag ta">비교앱 2회(14일)</span></div>'},
+     {type:'section',sdot:'db',title:'현재 금리 추정 로직',content:'<div class="inf blue">저축은행 공시금리 + KCB 744 구간 매핑<br>잔액·이용기간 보정 적용<br>→ <strong>추정 이용금리 13%대</strong></div>'},
+     {type:'section',sdot:'dp',title:'ML 3모델 스코어링',content:'<div class="ml-grid"><div class="mlb act"><div class="mn">상품반응모형</div><div class="ms">72%</div><div class="md">대환 반응 상위 28%</div></div><div class="mlb fire"><div class="mn">금리최적화모형</div><div class="ms">민감</div><div class="md">가용재원 -80bp</div></div><div class="mlb ok"><div class="mn">부도민감모형</div><div class="ms">4.2%</div><div class="md">위험 낮음 ✅</div></div></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dp',title:'전략 결정 근거',content:'<div class="inf purple">고금리 13%대 → 비교 제안 어프로치<br>직접 갈아타기 권유 아닌<br><strong>"유지 vs 대환 비교" 포지셔닝</strong>으로 신뢰 선 구축</div>'},
+     {type:'next',text:'신용대환 → 차량담보 투트랙 전략 확정',sub:'고금리 고객 → 비교 제안으로 경계심 낮춤'},
+   ]}
+  },
+  // STEP 1: 본인확인
+  {label:'본인확인',warn:false,churn:35,cs:'주의',
+   top:{items:[
+     {type:'section',sdot:'dr',title:'발화 감지',content:'<div class="tag-row"><span class="tag tr">🚨 대출전화 거부 선언</span><span class="tag ta">방어적 태도</span><span class="tag tgr">본인 확인 완료</span></div>'},
+     {type:'section',sdot:'da',title:'고객 심리 분석',content:'<div class="inf danger">과거 대출 권유 전화에 대한 피로감·불쾌 경험 투영<br>→ "또 대출 권유" 선입견 강하게 작동 중<br>→ <strong>방어 본능 활성 → 경계 모드</strong></div>'},
+     {type:'section',sdot:'da',title:'음성 감정 분석',content:'<div class="tag-row"><span class="tag ta">경계심 높음</span><span class="tag tgr">음성 톤: 단호·짧은 문장</span><span class="tag tb">통화 유지 중</span></div>'},
+     {type:'section',sdot:'da',title:'숨은 의도 추론',content:'<div class="inf danger">"대출 전화면 안 받아요" → 즉각 끊을 가능성 高<br>→ <strong>하지만 아직 전화는 유지 중 → 기회 존재</strong><br>→ 잠재적 관심은 있으나 방어벽이 먼저 작동</div>'},
+   ]},
+   left:{items:[
+     {type:'loading',text:'이탈 패턴 DB 조회 중...'},
+     {type:'section',sdot:'ds',title:'동일 패턴 사례 분석',content:'<div class="inf">패턴 매칭: "대출전화 거부" 유형<br>→ "대출전화 거부" 발화 후 전화 유지 비율 <strong>61%</strong><br>→ 이 구간 포지셔닝 전환 시 설득 성공률 <strong>54%</strong></div>'},
+     {type:'section',sdot:'dg',title:'전략 방향 결정',content:'<div class="inf ok">⚡ 일단 잠재워야 하는 구간<br>→ <strong>공감으로 발화를 시작</strong>하도록 전략 수립<br>→ "비교 서비스" 포지셔닝으로 프레임 전환</div>'},
+     {type:'loading',text:'고객 DB 조회 중...'},
+     {type:'section',sdot:'db',title:'타사 대출 기관 DB 조회',content:'<div class="db-result"><div class="db-title">📂 타사 대출 현황</div><div class="db-row"><span class="db-k">대출 기관</span><span class="db-v">A저축은행</span></div><div class="db-row"><span class="db-k">대출 유형</span><span class="db-v">신용대출</span></div><div class="db-row"><span class="db-k">잔여 원금</span><span class="db-v">약 2,800만원</span></div></div>'},
+     {type:'section',sdot:'db',title:'공시금리 매핑',content:'<div class="db-result"><div class="db-title">📊 A저축은행 2024.05 공시금리표</div><div class="db-row"><span class="db-k">KCB 구간</span><span class="db-v">700~799점</span></div><div class="db-row"><span class="db-k">해당 구간 공시금리</span><span class="db-v" style="color:#c62828;font-size:13px;">12.9% ~ 15.4%</span></div><div class="db-row"><span class="db-k">고객 추정 적용금리</span><span class="db-v" style="color:#c62828;font-size:14px;font-weight:900;">≈ 13%대</span></div></div><div class="inf danger" style="margin-top:5px;">→ <strong>높은 금리 구간 확인</strong> → 대환 시 편익 제시 가능</div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'전략 전환 판단',content:'<div class="result-box"><div style="font-size:11px;color:#555;line-height:1.6;">"대출 권유" 프레임 즉시 해제<br>→ <strong style="color:#1a3a6b">"비교 서비스" 포지셔닝으로 전환</strong><br>→ 고객 자율성 강조 ("결정은 고객님이")</div></div>'},
+     {type:'next',text:'"갈아타기 권유" 아닌 "유지 vs 대환 비교" 프레임 제시',sub:'경계심 완화 → 대화 지속 유도'},
+   ]}
+  },
+  // STEP 2: 신뢰구축
+  {label:'신뢰구축',warn:true,churn:55,cs:'위험',
+   top:{items:[
+     {type:'section',sdot:'da',title:'발화 감지',content:'<div class="tag-row"><span class="tag tr">🚨 불신 표현</span><span class="tag ta">"말로는 낮아진다는데"</span><span class="tag ta">조건 불일치 우려</span></div>'},
+     {type:'section',sdot:'da',title:'고객 심리 분석',content:'<div class="inf danger">손실 회피 심리 강하게 작동 중<br>"조건 다를 수도 있다" = 과거 피해 경험 투영<br>→ <strong>부정하면 더 강한 반발 예상</strong></div>'},
+     {type:'section',sdot:'da',title:'음성 감정 분석',content:'<div class="tag-row"><span class="tag tr">불신 톤</span><span class="tag ta">반문형 발화</span><span class="tag tgr">아직 통화 유지</span></div>'},
+     {type:'section',sdot:'da',title:'숨은 의도 추론',content:'<div class="inf danger">"결국 갈아타라는 거잖아요" → 과거 기만적 상담 경험<br>→ <strong>신뢰 자체가 무너진 상태</strong><br>→ 논리보다 공감·인정이 먼저 필요</div>'},
+   ]},
+   left:{items:[
+     {type:'loading',text:'이탈 패턴 DB 조회 중...'},
+     {type:'section',sdot:'ds',title:'불신 패턴 사례 분석',content:'<div class="inf">패턴: "결국 ~하라는 거잖아요" 유형<br>→ 부정 시 반발 확률 <strong>78%</strong><br>→ 인정 후 공감 시 대화 지속 <strong>67%</strong></div>'},
+     {type:'loading',text:'고객 DB 조회 중...'},
+     {type:'section',sdot:'db',title:'고객 이력 확인',content:'<div class="db-result"><div class="db-title">📂 고객 상세 이력</div><div class="db-row"><span class="db-k">타사 대출 이력</span><span class="db-v">2건</span></div><div class="db-row"><span class="db-k">민원 이력</span><span class="db-v">없음</span></div><div class="db-row"><span class="db-k">중도상환 경험</span><span class="db-v">없음</span></div></div>'},
+     {type:'section',sdot:'db',title:'A저축은행 공시금리 재확인',content:'<div class="db-result"><div class="db-title">📊 고객 적용 금리 재검증</div><div class="db-row"><span class="db-k">기관</span><span class="db-v">A저축은행 신용대출</span></div><div class="db-row"><span class="db-k">KCB 744 매핑</span><span class="db-v" style="color:#c62828;">≈ 13%대 확정</span></div><div class="db-row"><span class="db-k">HC 대환 시 예상</span><span class="db-v" style="color:#e65100;">11.5~12.8%</span></div></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'대응 전략',content:'<div class="result-box"><div style="font-size:11px;color:#555;line-height:1.6;"><strong style="color:#2e7d32">인정 전략 채택:</strong><br>조건 불확실성을 먼저 인정<br>→ 방어막 낮추기<br>→ 10% 초과 고금리 기준 제시로 해당 여부 확인<br>→ 중도상환수수료 언급으로 신뢰도 ↑</div></div>'},
+     {type:'next',text:'불신 인정 → 객관적 비교 기준 제시 → 신뢰 구축',sub:'조건 불확실 인정 → 고객 가드 낮춤'},
+   ]}
+  },
+  // STEP 3: 조건확인
+  {label:'조건확인',warn:false,churn:28,cs:'안정',
+   top:{items:[
+     {type:'section',sdot:'dg',title:'핵심 정보 획득',content:'<div class="tag-row"><span class="tag tg">✅ 현재 금리 자진 공개</span><span class="tag tg">13%대 확인</span><span class="tag tb">비교 의향 감지</span></div>'},
+     {type:'section',sdot:'dg',title:'고객 심리 분석',content:'<div class="inf ok">경계심 → 기대감 전환 시작<br>"더 낮아질 수 있어요?" → <strong>구체적 수치 요구 = 관심 확정</strong></div>'},
+     {type:'section',sdot:'dg',title:'음성 감정 분석',content:'<div class="tag-row"><span class="tag tg">톤 변화: 부드러움</span><span class="tag tg">질문형 발화</span><span class="tag tb">관심 상승</span></div>'},
+     {type:'section',sdot:'dg',title:'숨은 의도 추론',content:'<div class="inf ok">"그거보다 더 낮아질 수 있어요?" → 관심 전환<br>→ <strong>경계심 → 기대감으로 전환 시작</strong><br>→ 구체적 수치 제시 요구 → 설득 가능 구간 진입</div>'},
+   ]},
+   left:{items:[
+     {type:'loading',text:'ML 모델 실시간 업데이트 중...'},
+     {type:'section',sdot:'dp',title:'① 상품반응모형 업데이트',content:'<div class="ml-single act"><div class="ml-name">상품반응모형</div><div class="ml-score">72% → 81% ↑</div><div class="ml-detail">13%대 금리 확인 → 대환 편익 구체화 가능<br><strong>높은 니즈 확인</strong></div></div>'},
+     {type:'section',sdot:'dp',title:'② 금리최적화모형 업데이트',content:'<div class="ml-single fire"><div class="ml-name">금리최적화모형</div><div class="ml-score">민감 고객</div><div class="ml-detail">금리 민감군 분류 확정<br>할인재원: <strong>50bp</strong> 배정<br>→ 우대 적용 시 <strong>-35bp</strong> 재원 투입 가능</div></div>'},
+     {type:'section',sdot:'dp',title:'③ 부도민감모형 확인',content:'<div class="ml-single ok"><div class="ml-name">부도민감모형</div><div class="ml-score">4.2%</div><div class="ml-detail">위험 낮음 ✅ → 재원 투입 승인</div></div>'},
+     {type:'section',sdot:'db',title:'금리 시뮬레이션',content:'<div class="bep-row"><span class="bl">현재 금리</span><div class="bt"><div class="bf" style="width:100%;background:#ef9a9a;"></div></div><span class="bv" style="color:#c62828;">13%대</span></div><div class="bep-row"><span class="bl">신용대환 예상</span><div class="bt"><div class="bf" style="width:85%;background:#ffcc80;"></div></div><span class="bv" style="color:#e65100;">12%대</span></div><div class="bep-row"><span class="bl">우대(-35bp)</span><div class="bt"><div class="bf" style="width:73%;background:#a5d6a7;"></div></div><span class="bv" style="color:#2e7d32;">11.5%대</span></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'분석 결과',content:'<div class="result-box"><div style="font-size:11px;color:#555;line-height:1.6;">13%대 → 신용대환 12%대 예상<br>→ 차이 작게 느껴질 수 있음 <span style="color:#e65100">(이탈 위험 지점)</span><br>→ 우대 적용 가능성 제시로 기대감 유지 필요</div></div>'},
+     {type:'next',text:'12%대 예상 + 우대 시 10%대 가능 → 순차 제시 전략',sub:'확정이 아님을 전제 → 심사 후 결정 강조'},
+   ]}
+  },
+  // STEP 4: 심화제안
+  {label:'심화제안',warn:false,churn:20,cs:'안정',
+   top:{items:[
+     {type:'section',sdot:'dg',title:'긍정 반응 감지',content:'<div class="tag-row"><span class="tag tg">✅ "아.. 그건 괜찮네요"</span><span class="tag tg">관심 증가</span><span class="tag tb">우대금리 수용</span></div>'},
+     {type:'section',sdot:'dg',title:'고객 심리 분석',content:'<div class="inf ok">가격 저항선 파악됨: <strong>10%대가 수용 가능 기준</strong><br>→ 더 낮은 금리 제시 가능 여부가 전환 열쇠</div>'},
+     {type:'section',sdot:'dg',title:'숨은 의도 추론',content:'<div class="inf ok">10%대 제시에 긍정 반응<br>→ <strong>가격 저항선 파악됨</strong><br>→ 다음 단계: 차량담보 제안으로 더 낮은 금리 유도</div>'},
+   ]},
+   left:{items:[
+     {type:'loading',text:'ML 모델 오케스트레이션 중...'},
+     {type:'section',sdot:'dp',title:'① 상품반응모형 재조정',content:'<div class="ml-single act"><div class="ml-name">상품반응모형</div><div class="ml-score">81% (유지)</div><div class="ml-detail">긍정 반응 확인 → 스코어 유지<br>차량담보 연계 제안 적기 판단</div></div>'},
+     {type:'section',sdot:'dp',title:'② 금리최적화 — 추가 재원 투입',content:'<div class="ml-single fire"><div class="ml-name">금리최적화모형</div><div class="ml-score">+15bp 추가</div><div class="ml-detail">기존 35bp + <strong>추가 15bp = 최종 50bp 투입</strong><br>우대 적용 시 10%대 진입 가능<br>→ 차량담보 연계 시 8~9%대</div></div>'},
+     {type:'section',sdot:'db',title:'최종 금리 시뮬레이션',content:'<div class="bep-row"><span class="bl">신용대환</span><div class="bt"><div class="bf" style="width:85%;background:#ffcc80;"></div></div><span class="bv" style="color:#e65100;">12%대</span></div><div class="bep-row"><span class="bl">우대(-50bp)</span><div class="bt"><div class="bf" style="width:70%;background:#81c784;"></div></div><span class="bv" style="color:#2e7d32;">10%대</span></div><div class="bep-row"><span class="bl">차량담보 연계</span><div class="bt"><div class="bf" style="width:55%;background:#2e7d32;"></div></div><span class="bv" style="color:#1b5e20;font-weight:700;">8~9%대</span></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dp',title:'ML 종합 판단',content:'<div class="inf purple">반응모형 81% + 금리민감 + 부도低<br>→ <strong>차량담보 카드 오픈 적기 판단</strong><br>→ 차량 보유 확인 (DB: 차량 있음) → 제안 가능</div>'},
+     {type:'next',text:'차량담보 상품 연계 제안 → 8~9%대 가능성 제시',sub:'최종 50bp 재원 투입 확정 → 다음 카드 오픈'},
+   ]}
+  },
+  // STEP 5: 차량담보
+  {label:'차량담보',warn:true,churn:48,cs:'주의',
+   top:{items:[
+     {type:'section',sdot:'dr',title:'이탈 신호 감지',content:'<div class="tag-row"><span class="tag tr">🚨 담보 우려 표현</span><span class="tag ta">차 운행 불가 걱정</span><span class="tag ta">할부 잔여 언급</span></div>'},
+     {type:'section',sdot:'da',title:'고객 심리 분석',content:'<div class="inf danger">담보 = 불이익이라는 선입견 강하게 작동<br>"차 못 쓰는 거 아니에요?" → <strong>일상 제약 공포</strong></div>'},
+     {type:'section',sdot:'da',title:'음성 감정 분석',content:'<div class="tag-row"><span class="tag ta">불안 톤</span><span class="tag tr">급한 반문</span><span class="tag tgr">관심은 유지</span></div>'},
+     {type:'section',sdot:'da',title:'숨은 의도 추론',content:'<div class="inf danger">"차 못 쓰는 거 아니에요?" → 일상 생활 제약 공포<br>→ <strong>담보 = 불이익이라는 오해 패턴</strong><br>→ 팩트 정정으로 해소 가능한 이탈 위험</div>'},
+   ]},
+   left:{items:[
+     {type:'loading',text:'베테랑 패턴 DB 조회 중...'},
+     {type:'section',sdot:'ds',title:'베테랑 패턴 매칭',content:'<div class="inf">담보 불안 패턴 #2: "차 못 쓰는 것" 우려<br>→ 성공 해소 사례 <strong>814건</strong> 분석<br>→ <strong>"운행 가능 사실 확인" 후 추가 조건 설명</strong>이 핵심</div>'},
+     {type:'section',sdot:'db',title:'DB: 차량 담보 조건',content:'<div class="tag-row"><span class="tag tg">운행 가능 ✅</span><span class="tag tgr">담보설정 후에도 이용</span><span class="tag ta">할부 잔여 확인 필요</span></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'대응 전략',content:'<div class="result-box"><div style="font-size:11px;color:#555;line-height:1.6;"><strong style="color:#2e7d32">팩트 안심 제공:</strong><br>차량 운행 가능 사실 확인<br>→ 단, 무조건 괜찮다 강조 X<br>→ <strong>"일반적으로 가능" + "확인할 조건 있음"</strong><br>→ 신뢰 유지하며 솔직하게</div></div>'},
+     {type:'next',text:'운행 가능 확인 → 단 조건 있음 솔직 안내',sub:'강압 없이 사실 기반 → 신뢰 유지'},
+   ]}
+  },
+  // STEP 6: 이탈방어
+  {label:'이탈방어',warn:true,churn:62,cs:'위험',
+   top:{items:[
+     {type:'section',sdot:'dr',title:'⚠ 이탈 위험 최고조',content:'<div class="tag-row"><span class="tag tr">🚨 "불편해지는 건 싫은데요"</span><span class="tag tr">감정적 거부</span></div>'},
+     {type:'section',sdot:'da',title:'고객 심리 분석',content:'<div class="inf danger">담보 설정에 대한 감정적 거부감 최고조<br>→ <strong>논리 무효 구간: 공감이 먼저</strong></div>'},
+     {type:'section',sdot:'da',title:'음성 감정 분석',content:'<div class="tag-row"><span class="tag tr">거부감 톤</span><span class="tag tr">감정적 발화</span><span class="tag ta">이탈 임박</span></div>'},
+     {type:'section',sdot:'da',title:'숨은 의도 추론',content:'<div class="inf danger">담보 설정에 대한 감정적 거부감<br>→ <strong>논리 무효 구간: 공감이 먼저</strong><br>→ 강요하면 100% 이탈<br>→ "확인해야 할 조건" 언급으로 솔직함 강조</div>'},
+   ]},
+   left:{items:[
+     {type:'section',sdot:'ds',title:'이탈 위험 분석',content:'<div class="inf danger">이탈 위험도 62% — 위험 구간 진입<br>감정 기반 거부 → 논리 제시 역효과<br>→ <strong>공감 + 자율성 부여</strong>가 유일한 탈출구</div>'},
+     {type:'section',sdot:'db',title:'전략 옵션 평가',content:'<div class="tag-row"><span class="tag tg">✅ 공감 + 솔직 인정</span><span class="tag tr">❌ 추가 설득 시도</span><span class="tag tr">❌ 상품 장점 재나열</span></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'대응 전략',content:'<div class="result-box"><div style="font-size:11px;color:#555;line-height:1.6;"><strong style="color:#2e7d32">공감 + 자율성 전략:</strong><br>걱정 당연하다고 인정<br>→ 담보 조건 확인 필요하다고 솔직 안내<br>→ <strong>신청 아닌 "조건 비교" 옵션 제시</strong><br>→ 고객이 선택권 갖고 있음 강조</div></div>'},
+     {type:'next',text:'"조건 비교만 해볼 수 있어요?" 유도 → 자율성 부여',sub:'감정 이탈 방어 → 결정권을 고객에게'},
+   ]}
+  },
+  // STEP 7: 전환
+  {label:'전환',warn:false,churn:8,cs:'안정',
+   top:{items:[
+     {type:'section',sdot:'dg',title:'🎉 전환 결정 신호',content:'<div class="tag-row"><span class="tag tg">✅ "조건만 비교해볼 수 있어요?"</span><span class="tag tg">자발적 요청</span></div>'},
+     {type:'section',sdot:'dg',title:'숨은 의도 추론',content:'<div class="inf ok">"신청 말고 비교만" → 부담 없이 진행 희망<br>→ <strong>전환 의사 확정: 상담원 연결 요청</strong><br>→ AI 설득 완료 → 인간 상담원 핸드오프</div>'},
+   ]},
+   left:{items:[
+     {type:'section',sdot:'dg',title:'상담 성과 분석',content:'<div class="bep-row"><span class="bl">이탈 고비 극복</span><div class="bt"><div class="bf" style="width:100%;background:#a5d6a7;"></div></div><span class="bv" style="color:#1b5e20;">4회/4회</span></div><div class="bep-row"><span class="bl">신뢰 구축 성공</span><div class="bt"><div class="bf" style="width:100%;background:#81c784;"></div></div><span class="bv" style="color:#1b5e20;">✅</span></div><div class="bep-row"><span class="bl">상담 시간</span><div class="bt"><div class="bf" style="width:60%;background:#90caf9;"></div></div><span class="bv">약 6분</span></div>'},
+     {type:'section',sdot:'db',title:'핸드오프 준비',content:'<div class="hcard"><div class="htitle">담당 상담원 인수인계</div><div class="hrow"><span class="hk">고객</span><span class="hv">박서준 (KCB 744)</span></div><div class="hrow"><span class="hk">현재금리</span><span class="hv">13%대</span></div><div class="hrow"><span class="hk">검토상품</span><span class="hv">신용대환 or 차량담보</span></div><div class="hrow"><span class="hk">고객심리</span><span class="hv" style="color:#1b5e20;">비교 의향 ✅</span></div><div class="hrow"><span class="hk">남은 절차</span><span class="hv">조건 확인 + 심사</span></div></div>'},
+   ]},
+   right:{items:[
+     {type:'section',sdot:'dg',title:'최종 분석 결과',content:'<div class="tag-row"><span class="tag tg">이탈방어 ★★★★★</span><span class="tag tg">신뢰구축 ★★★★★</span></div><div class="inf ok" style="margin-top:5px;">▸ 우수 상담 케이스 자동 분류<br>▸ 조직 스킬 확산 데이터 저장<br>▸ "비교 포지셔닝" 패턴 성공 사례 등록</div>'},
+     {type:'choice'},
+   ]}
+  },
+  // STEP 8: 완료
+  {label:'완료',warn:false,churn:2,cs:'완료',top:{items:[]},left:{items:[]},right:{items:[]}}
+];
+
+let cur=-1,timers=[],timerInt=null,elapsed=0;
+
+// ============ 사전분석 시작 ============
+setTimeout(()=>renderStep0Right(),500);
+
+function renderStep0Right(){
+  clearBodies();
+  document.getElementById('rp-top-body').innerHTML='<div class="empty-state"><div class="ei">📡</div><div class="et">사전 분석 진행 중...</div></div>';
+  const lb=document.getElementById('rp-left-body');lb.innerHTML='';
+  const rb=document.getElementById('rp-right-body');rb.innerHTML='';
+  const s=STEPS[0];
+  let t=0;
+  s.left.items.forEach(item=>{
+    const tm=setTimeout(()=>{appendItem(lb,item);lb.scrollTop=9999;},t);
+    timers.push(tm);t+=DLY;
+  });
+  t+=DLY;
+  s.right.items.forEach(item=>{
+    const tm=setTimeout(()=>{appendItem(rb,item);rb.scrollTop=9999;},t);
+    timers.push(tm);t+=DLY;
+  });
+  // 사전분석 끝 → 발신 중 → 연결됨
+  const bt=setTimeout(()=>startCalling(),t+500);
+  timers.push(bt);
+}
+
+function startCalling(){
+  const statusEl=document.getElementById('pre-status');
+  const subEl=document.getElementById('pre-status-sub');
+  const spinnerEl=document.getElementById('pre-spinner');
+  const connIcon=document.getElementById('pre-connected-icon');
+  const wavesEl=document.getElementById('pre-waves');
+
+  // 1) 발신 중... (1초)
+  statusEl.innerHTML='발신 중...';
+  subEl.textContent='';
+  wavesEl.style.display='flex';
+
+  setTimeout(()=>{
+    // 2) 연결됨 ✅
+    spinnerEl.style.display='none';
+    connIcon.style.display='block';
+    statusEl.innerHTML='연결됨 ✅';
+    statusEl.style.fontSize='24px';
+    wavesEl.style.display='none';
+
+    setTimeout(()=>{
+      // 3) 통화 화면으로 전환
+      document.getElementById('phase-pre').style.display='none';
+      document.getElementById('phase-active').style.display='flex';
+      document.getElementById('nav-bar').style.display='flex';
+      buildJourney();
+      startTimer();
+      document.getElementById('btn-next').disabled=false;
+      goTo(1);
+    },800);
+  },1000);
+}
+
+function startTimer(){
+  timerInt=setInterval(()=>{
+    elapsed++;
+    const m=String(Math.floor(elapsed/60)).padStart(2,'0');
+    const s2=String(elapsed%60).padStart(2,'0');
+    document.getElementById('act-timer').textContent=m+':'+s2;
+  },1000);
+}
+
+function buildJourney(){
+  const w=document.getElementById('steps-wrap');w.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    const item=document.createElement('div');item.className='step-item';
+    item.innerHTML='<div class="sdot-col"><div class="step-dot" id="sd'+i+'">'+(i+1)+'</div>'+(i<STEPS.length-1?'<div class="step-conn-v" id="sc'+i+'"></div>':'')+'</div><div class="step-right"><div class="step-lbl" id="sl'+i+'">'+JOURNEY_LABELS[i]+'</div><div class="mini-chats" id="sch'+i+'"></div></div>';
+    w.appendChild(item);
+  });
+}
+
+function updateJourney(step){
+  STEPS.forEach((_,i)=>{
+    const dot=document.getElementById('sd'+i);
+    const lbl=document.getElementById('sl'+i);
+    const con=document.getElementById('sc'+i);
+    if(!dot)return;
+    dot.className='step-dot';lbl.className='step-lbl';
+    if(con)con.className='step-conn-v';
+    if(i<step){dot.classList.add('done');lbl.classList.add('done');if(con)con.classList.add('done');}
+    else if(i===step){dot.classList.add(STEPS[i].warn?'warn':'active');lbl.classList.add('active');}
+    const sc=document.getElementById('sch'+i);
+    if(!sc)return;
+    const msgs=stepMsgs(i);
+    if(i<step&&msgs.length){
+      sc.innerHTML='';
+      msgs.forEach(m=>{
+        const d=document.createElement('div');
+        d.className='mc '+(m.r==='ai'?'mc-ai':'mc-cu');
+        d.textContent=(m.r==='ai'?'AI: ':'고객: ')+m.t.substring(0,34)+(m.t.length>34?'…':'');
+        sc.appendChild(d);
+      });
+    }else{sc.innerHTML='';}
+  });
+}
+
+// ========== 게이지 차트 ==========
+function updateChurn(step){
+  if(step<0)return;
+  const s=STEPS[step];
+  const val=document.getElementById('gauge-val');
+  const stat=document.getElementById('gauge-status');
+  const delta=document.getElementById('gauge-delta');
+  const arc=document.getElementById('gauge-arc');
+  const totalLen=Math.PI*80;
+
+  if(step===0){
+    val.textContent='—';val.style.color='#1a1a1a';
+    stat.textContent='분석 전';stat.style.color='#bbb';
+    delta.textContent='';arc.style.strokeDasharray='0 999';return;
+  }
+
+  const c=s.churn;
+  const dashLen=totalLen*(c/100);
+  let col;
+  if(c<=20)col='#90caf9';
+  else if(c<=35)col='#42a5f5';
+  else if(c<=50)col='#f57c00';
+  else col='#e53935';
+
+  val.textContent=c+'%';val.style.color=col;
+
+  const prev=step>1?STEPS[step-1].churn:0;
+  const diff=c-prev;
+  if(diff>0){delta.textContent='↑ +'+diff+'%';delta.style.color='#e53935';}
+  else if(diff<0){delta.textContent='↓ '+diff+'%';delta.style.color='#43a047';}
+  else{delta.textContent='';}
+
+  if(c>50){stat.textContent='⚠ '+s.cs;stat.style.color='#e53935';}
+  else if(c>25){stat.textContent='주의·'+s.cs;stat.style.color='#f57c00';}
+  else{stat.textContent=s.cs;stat.style.color='#43a047';}
+
+  arc.style.stroke=col;
+  arc.style.strokeDasharray=dashLen+' '+(totalLen-dashLen);
+}
+
+function appendItem(container,item){
+  const el=document.createElement('div');el.className='dyn';
+  if(item.type==='loading'){
+    el.innerHTML='<div class="loading-state"><div class="loading-spinner"></div><div class="loading-text">'+item.text+'</div></div>';
+    el.dataset.isLoading='true';
+  }else if(item.type==='section'){
+    removeLoading(container);
+    el.innerHTML='<div class="stitle"><span class="rsdot '+item.sdot+'"></span>'+item.title+'</div>'+item.content;
+  }else if(item.type==='next'){
+    removeLoading(container);
+    el.className='na dyn';
+    el.innerHTML='<div class="nal">▶ NEXT ACTION</div><div class="nat">'+item.text+'</div><div class="nas">'+item.sub+'</div>';
+  }else if(item.type==='choice'){
+    removeLoading(container);
+    el.innerHTML='<div class="choice-title">▶ NEXT ACTION · 전환 채널 선택</div><div class="choice-opts"><div class="choice-opt" data-opt="agent"><div class="co-ic">🧑‍💼</div><div class="co-t">상담원 연결</div><div class="co-s">실시간 인계</div></div><div class="choice-opt" data-opt="lms"><div class="co-ic">🔗</div><div class="co-t">URL · LMS 발송</div><div class="co-s">셀프 진행 링크</div></div></div><div class="choice-reason" style="opacity:0">고객 <strong>"상담원 연결해주세요"</strong> 자발 요청 → <span class="cr-pick">상담원 연결</span> 자동 선택</div>';
+    container.appendChild(el);container.scrollTop=9999;
+    const agent=el.querySelector('[data-opt="agent"]');
+    const lms=el.querySelector('[data-opt="lms"]');
+    const reason=el.querySelector('.choice-reason');
+    const t1=setTimeout(()=>{agent.classList.add('tapping');},900);
+    const t2=setTimeout(()=>{agent.classList.remove('tapping');agent.classList.add('selected');lms.classList.add('dim');reason.style.opacity='1';container.scrollTop=9999;},1350);
+    timers.push(t1,t2);return;
+  }
+  container.appendChild(el);
+}
+
+function removeLoading(c){c.querySelectorAll('[data-is-loading="true"]').forEach(l=>l.remove());}
+
+function clearBodies(){
+  timers.forEach(t=>clearTimeout(t));timers=[];
+  ['rp-top-body','rp-left-body','rp-right-body'].forEach(id=>{document.getElementById(id).innerHTML='';});
+}
+
+// 모든 아이템을 1초 간격으로 순차 등장
+function schedSeq(container,items,startMs){
+  let t=startMs;
+  items.forEach(item=>{
+    const tm=setTimeout(()=>{appendItem(container,item);container.scrollTop=9999;},t);
+    timers.push(tm);t+=DLY;
+  });
+  return t;
+}
+
+function appendChatBubble(step,m){
+  const sc=document.getElementById('sch'+step);
+  if(!sc)return;
+  const d=document.createElement('div');
+  d.className='mc full '+(m.r==='ai'?'mc-ai':'mc-cu');
+  d.textContent=(m.r==='ai'?'🤖 AI  ':'👤 고객  ')+m.t;
+  sc.appendChild(d);
+  const dot=document.getElementById('sd'+step);
+  if(dot&&dot.scrollIntoView)dot.scrollIntoView({block:'center',behavior:'smooth'});
+}
+
+function renderRight(step){
+  clearBodies();
+  const s=STEPS[step];
+  const tb=document.getElementById('rp-top-body');
+  const lb=document.getElementById('rp-left-body');
+  const rb=document.getElementById('rp-right-body');
+
+  if(step===8){
+    tb.innerHTML='<div class="dyn"><div class="stitle"><span class="rsdot dg"></span>상담 완료</div><div class="tag-row"><span class="tag tg">✅ 인간 상담원 연결 완료</span><span class="tag tg">AI 상담 종료</span></div></div>';
+    lb.innerHTML='<div class="dyn"><div class="stitle"><span class="rsdot dg"></span>상담 품질 자동 평가</div><div class="tag-row"><span class="tag tg">이탈방어 ★★★★★</span><span class="tag tg">신뢰구축 ★★★★★</span><span class="tag tb">ML활용 ★★★★★</span></div><div class="inf ok" style="margin-top:6px;">▸ 우수 케이스 자동 분류<br>▸ "비교 포지셔닝" 전략 성공률 데이터 저장<br>▸ 조직 스킬 확산 데이터로 활용</div></div>';
+    rb.innerHTML='<div class="na green dyn"><div class="nal">▶ 최종 결과</div><div class="nat">🎉 취급액 증가 · OPEX 절감 · 고객경험 혁신</div><div class="nas">인간 상담원은 심사·확정 단계만 담당</div></div>';
+    return;
+  }
+
+  const dlg=STEP_DIALOG[step]||{pre:[],post:[]};
+
+  // pre 대화 → top → left → right → post 대화  모두 1초 간격
+  let t=0;
+  dlg.pre.forEach(m=>{
+    const tm=setTimeout(()=>appendChatBubble(step,m),t);
+    timers.push(tm);t+=DLY;
+  });
+
+  if(!s.top.items.length){
+    tb.innerHTML='<div class="empty-state"><div class="ei">🎙</div><div class="et">발화 분석 중...</div></div>';
+  }else{t=schedSeq(tb,s.top.items,t);}
+
+  if(!s.left.items.length){
+    lb.innerHTML='<div class="empty-state"><div class="ei">🎯</div><div class="et">전략 수립 중</div></div>';
+  }else{t=schedSeq(lb,s.left.items,t);}
+
+  if(!s.right.items.length){
+    rb.innerHTML='<div class="empty-state"><div class="ei">💬</div><div class="et">발화 생성 중</div></div>';
+  }else{t=schedSeq(rb,s.right.items,t);}
+
+  t+=300;
+  dlg.post.forEach(m=>{
+    const tm=setTimeout(()=>appendChatBubble(step,m),t);
+    timers.push(tm);t+=DLY;
+  });
+
+  if(step===7){
+    const adv=setTimeout(()=>{if(cur===7)goTo(8);},t+1600);
+    timers.push(adv);
+  }
+}
+
+function showSummary(){
+  document.getElementById('phase-active').style.display='none';
+  document.getElementById('phase-summary').style.display='flex';
+  const sc=document.getElementById('sum-chat');sc.innerHTML='';
+  let all=[];for(let i=1;i<=7;i++){all.push(...stepMsgs(i));}
+  all.forEach((m,i)=>{
+    setTimeout(()=>{
+      const d=document.createElement('div');d.className='sc-msg '+(m.r==='ai'?'sc-ai':'sc-cu');
+      d.innerHTML='<span class="sc-sender">'+(m.r==='ai'?'🤖 AI':'👤 고객')+'</span><div class="sc-bubble">'+m.t+'</div>';
+      sc.appendChild(d);document.getElementById('phase-summary').scrollTop=9999;
+    },i*300);
+  });
+}
+
+function goTo(step){
+  cur=step;updateJourney(step);updateChurn(step);
+  const isSummary=(step===STEPS.length-1);
+  document.getElementById('rp-top').style.display=isSummary?'none':'flex';
+  document.getElementById('rp-bottom').style.display=isSummary?'none':'flex';
+  document.getElementById('rp-summary').style.display=isSummary?'flex':'none';
+  if(isSummary){clearBodies();showSummary();renderSummaryDash();}
+  else{
+    if(step>0&&document.getElementById('phase-summary').style.display==='flex'){
+      document.getElementById('phase-summary').style.display='none';
+      document.getElementById('phase-active').style.display='flex';
+    }
+    renderRight(step);
+  }
+  document.getElementById('btn-prev').disabled=step<=1;
+  document.getElementById('btn-next').disabled=step>=STEPS.length-1;
+  document.getElementById('step-ind').textContent=step+' / '+(STEPS.length-1);
+}
+function nextStep(){if(cur<STEPS.length-1)goTo(cur+1);}
+function prevStep(){if(cur>1)goTo(cur-1);}
+
+function renderSummaryDash(){
+  const g=document.getElementById('sd-flow-graph');g.innerHTML='';
+  for(let i=1;i<=7;i++){
+    const c=STEPS[i].churn;
+    const cc=c>50?'#e53935':c>30?'#f57c00':'#43a047';
+    const h=Math.max(10,Math.min(100,c/65*100));
+    const col=document.createElement('div');col.className='fg-col';
+    col.innerHTML='<div class="fg-bar-wrap"><div class="fg-bar" style="height:'+h+'%;background:'+cc+'"></div></div><div class="fg-x" style="color:'+cc+'">'+c+'</div>';
+    g.appendChild(col);
+  }
+  const list=document.getElementById('sd-act-list');list.innerHTML='';
+  ACTION_LOG.forEach(a=>{
+    const d=document.createElement('div');d.className='act-item';
+    d.innerHTML='<div class="act-step '+(a.warn?'warn':'')+'">'+a.n+'</div><div class="act-body"><div class="act-name">'+a.name+'</div><div class="act-do">▸ <b>실행:</b> '+a.act+'</div><div class="act-why">⤷ <b>근거:</b> '+a.why+'</div></div>';
+    list.appendChild(d);
+  });
+}
+
+const ACTION_LOG=[
+  {n:1,name:'본인확인 · 경계 해제',warn:true,act:'"대출 권유" 프레임 즉시 해제 → "유지 vs 대환 비교" 포지셔닝 전환',why:'"대출전화 안 받아요" 강한 거부 발화. 패턴DB: 거부 후 통화유지 61% → 포지셔닝 전환 시 설득 성공 54%'},
+  {n:2,name:'신뢰구축 · 불신 인정',warn:true,act:'조건 불확실성을 먼저 인정 → 10%초과 기준·중도상환수수료 등 객관 기준 제시',why:'"결국 갈아타라는 거잖아요" 불신. 손실회피·과거 기만 경험 투영 → 부정 시 반발, 공감·인정이 우선'},
+  {n:3,name:'조건확인 · 기대 형성',act:'12%대 예상 + 우대 시 10%대 가능성 순차 제시 (확정 아님 전제)',why:'13%대 자진 공개 → 관심 전환. 반응모형 72→81% 상향, 차이 작게 느껴질 이탈 지점 대비'},
+  {n:4,name:'심화제안 · 카드 오픈',act:'차량담보 상품 연계 제안 → 8~9%대 가능성 제시',why:'10%대에 긍정 반응으로 가격 저항선 파악. 차량보유 확인 → 제안 적기'},
+  {n:5,name:'차량담보 · 오해 해소',warn:true,act:'운행 가능 사실 안심 + "확인할 조건 있음" 솔직 안내',why:'"차 못 쓰는 거 아니에요?" 담보=불이익 오해 패턴. 해소 사례 814건 → 사실 확인이 핵심'},
+  {n:6,name:'이탈방어 · 자율성 부여',warn:true,act:'공감 + 자율성 전략 → "조건 비교만" 옵션 제시, 추가 설득 배제',why:'이탈 위험 62% 최고조, 감정적 거부. 논리 제시 역효과 구간 → 결정권을 고객에게'},
+  {n:7,name:'전환 · 채널 선택',act:'상담원 연결 / URL·LMS 발송 중 → 상담원 연결 선택, 심사·확정만 인계',why:'"상담원 연결해주세요" 자발 요청. 셀프보다 실시간 인계가 전환 확정에 유리'},
+];
+</script>
+</body></html>
