@@ -3,7 +3,7 @@
 router.classify_turn을 가짜 결과로 대체(LLM 호출 없음).
 """
 
-from orchestrator.agent import nodes, signals
+from orchestrator.agent import nodes
 from orchestrator.agent.signals import Emotion, Need, Tactic, Usability
 from orchestrator.llm.router import ClassifyResult
 
