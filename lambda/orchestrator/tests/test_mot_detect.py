@@ -79,3 +79,51 @@ def test_compliance_stop_usability_is_risk():
     """컴플라이언스 중단 신호 → RISK."""
     m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.COMPLIANCE_STOP, churn_after=45))
     assert m is not None and m["type"] == "RISK"
+
+
+# ── narrative 서술 생성 (결정적, LLM 비의존) ──────────────────────────────────
+
+
+def test_risk_narrative_includes_trigger_churn_and_tactic():
+    m = mot.detect(_state(
+        churn_before=50, churn_after=70,
+        churn_tokens=[{"text": "부담", "polarity": "CONS", "reason": "비용"}],
+        strategy={"tactic": "부담 완화 전략", "headline": "h"},
+    ))
+    n = m["narrative"]
+    assert "위험 순간" in n
+    assert "부담" in n            # 트리거
+    assert "50→70" in n           # churn 변화
+    assert "+20 급등" in n        # delta
+    assert "부담 완화 전략" in n   # 전략
+
+
+def test_conversion_narrative_mentions_success_path():
+    m = mot.detect(_state(
+        intent=Intent.QUESTION_TERMS, usability=Usability.PROCEED_NOW, churn_after=40,
+        strategy={"tactic": "한도 탐색 전략"},
+    ))
+    n = m["narrative"]
+    assert "전환 순간" in n
+    assert Usability.PROCEED_NOW.value in n
+    assert "한도 탐색 전략" in n
+
+
+def test_narrative_handles_missing_strategy_and_triggers():
+    """전략/트리거 없어도 서술이 깨지지 않는다."""
+    m = mot.detect(_state(churn_before=50, churn_after=65, churn_tokens=[], strategy={}))
+    n = m["narrative"]
+    assert "신호 키워드 없음" in n
+    assert "기본 응대" in n
+
+
+def test_narrative_dedupes_triggers():
+    """중복 트리거는 한 번만 표기."""
+    m = mot.detect(_state(
+        churn_before=50, churn_after=70,
+        churn_tokens=[
+            {"text": "부담", "polarity": "CONS", "reason": "x"},
+            {"text": "부담", "polarity": "CONS", "reason": "y"},
+        ],
+    ))
+    assert m["narrative"].count("부담") == 1
