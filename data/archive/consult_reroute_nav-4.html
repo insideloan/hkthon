@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상담 경로 재탐색 · 턴바이턴 항법</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  :root{
+    --canvas:#E7ECF2; --canvas-2:#D9E1EA; --paper:#FFFFFF;
+    --road:#C4CEDA; --road-edge:#AEBAC8;
+    --route:#2C5BD6; --route-2:#4D7CF0;
+    --hazard:#E08A2B; --hazard-ink:#945B16;
+    --danger:#E5484D; --go:#1F9D6B;
+    --ink:#18212D; --ink-dim:#566273; --ink-faint:#93A1B1; --line:#D6DDE5;
+    --disp:"Space Grotesk","Pretendard",system-ui,sans-serif;
+    --kr:"Pretendard",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --h:clamp(440px,44vw,512px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--kr);color:var(--ink);background:
+      radial-gradient(140% 100% at 88% -10%, #EDF1F6 0%, #F3F6F9 46%, #EEF1F5 100%);
+    -webkit-font-smoothing:antialiased;padding:24px 18px;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:1340px}
+
+  /* ── 헤더 ── */
+  .head{margin:0 2px 14px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .head .mark{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.22em;
+    color:var(--route);border:1.4px solid #C3D0EA;background:#fff;border-radius:7px;padding:4px 9px;text-transform:uppercase}
+  .head h1{font-family:var(--disp);font-weight:700;font-size:23px;letter-spacing:-.012em;margin:0;line-height:1.1}
+  .head p{margin:3px 0 0;font-size:13px;color:var(--ink-dim);line-height:1.5;flex-basis:100%}
+  .head p b{color:var(--route);font-weight:600}
+  .head p .hz{color:var(--hazard-ink);font-weight:600}
+
+  .cockpit{display:grid;grid-template-columns:.54fr 1.46fr;gap:15px;align-items:stretch}
+
+  /* ════════ 좌: STT + 다음 수 ════════ */
+  .stt{height:var(--h);display:flex;flex-direction:column;background:#fff;border:1px solid #D5DDE6;
+    border-radius:16px;overflow:hidden;box-shadow:0 26px 60px -32px rgba(28,44,70,.4)}
+  .stt__head{padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+  .live{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--danger)}
+  .live .d{width:8px;height:8px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 0 rgba(229,72,77,.4);animation:beatR 1.6s ease-out infinite}
+  .stt__sub{font-size:11px;color:var(--ink-faint)}
+  .stt__timer{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--ink-dim)}
+
+  .stt__body{flex:1;overflow-y:auto;padding:14px 14px 4px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+  .stt__body::-webkit-scrollbar{width:7px}
+  .stt__body::-webkit-scrollbar-thumb{background:#D2DAE3;border-radius:8px}
+
+  .msg{display:flex;flex-direction:column;gap:4px;max-width:90%;animation:rise .26s ease both}
+  .msg--cust{align-self:flex-start;align-items:flex-start}
+  .msg--ai{align-self:flex-end;align-items:flex-end}
+  .who{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:0 3px;display:flex;align-items:center;gap:5px}
+  .msg--ai .who{color:var(--route)}
+  .who .t{font-weight:600;color:var(--ink-faint);letter-spacing:.04em}
+  .bubble{font-size:14px;line-height:1.62;padding:9px 13px;border-radius:13px;font-weight:430}
+  .msg--cust .bubble{background:#EEF1F5;color:#3a4859;border-top-left-radius:4px}
+  .msg--ai .bubble{background:#EAF1FF;color:#21406e;border-top-right-radius:4px}
+  /* 위험 발화여도 버블 음영은 회색 유지 — 색은 키워드 텍스트로만 표현 */
+  /* 키워드 강조: 어절만 크게/굵게 */
+  .bubble .w{opacity:0;transition:opacity .18s ease}
+  .bubble .w.on{opacity:1}
+  .bubble .kw{font-weight:700;font-size:1.16em;letter-spacing:-.01em}
+  .msg--cust .bubble .kw{color:#1d2733}
+  .msg--ai .bubble .kw{color:var(--route)}
+  .bubble .kw.k-risk{color:var(--danger)}
+  .bubble .kw.k-go{color:var(--go)}
+  .bubble .kw.pop{animation:kwpop .34s cubic-bezier(.2,1.5,.4,1)}
+
+  .flag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.02em;padding:3px 9px;border-radius:999px;margin-top:1px}
+  .flag--risk{color:var(--danger);background:#FCE9E9;border:1px solid #F3C7C6}
+  .flag--def{color:var(--go);background:#E7F6EE;border:1px solid #BFE7D2}
+  .flag .tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid var(--danger);position:relative}
+  .flag .tri::after{content:"!";position:absolute;left:-1.5px;top:2.5px;font-size:6px;font-weight:800;color:#fff}
+
+  .typing .bubble{display:inline-flex;align-items:center;gap:8px;color:var(--ink-faint);font-style:normal}
+  .dots{display:inline-flex;gap:3px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5;animation:td 1s infinite}
+  .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+  .hint{font-size:11px}
+
+  /* ── 다음 수 3채널 ── */
+  .moves{border-top:1px solid var(--line);background:linear-gradient(180deg,#FAFBFD,#F4F7FA);padding:11px 13px 12px}
+  .moves__top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .moves__lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.14em;color:var(--ink-dim);text-transform:uppercase}
+  .risk-meter{margin-left:auto;display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--ink-dim)}
+  .risk-meter .bar{width:74px;height:6px;border-radius:999px;background:#E2E8EF;overflow:hidden;position:relative}
+  .risk-meter .fill{position:absolute;inset:0;width:0%;border-radius:999px;background:linear-gradient(90deg,#E0A93A,var(--danger));transition:width .5s cubic-bezier(.4,0,.2,1)}
+  .risk-meter .pct{min-width:34px;text-align:right;color:var(--danger);transition:color .3s}
+  .risk-meter .pct.low{color:var(--go)}
+
+  .chan{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .ch{border:1.3px solid var(--line);border-radius:11px;background:#fff;padding:8px 8px 9px;min-height:64px;display:flex;flex-direction:column;gap:5px;
+    transition:border-color .25s, box-shadow .25s, background .25s;position:relative;overflow:hidden}
+  .ch .ch__h{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.06em;color:var(--ink-faint);text-transform:uppercase}
+  .ch .ch__h .ic{width:13px;height:13px;flex:none}
+  .ch .ch__kw{font-size:11.5px;font-weight:600;line-height:1.28;color:var(--ink-dim);font-family:var(--kr)}
+  .ch.empty .ch__kw{color:var(--ink-faint);font-weight:430}
+  .ch.pick{border-color:var(--route);background:#F3F7FF;box-shadow:0 0 0 3px rgba(44,91,214,.1)}
+  .ch.pick .ch__h{color:var(--route)}
+  .ch.pick .ch__kw{color:#1a3a6e;font-weight:700}
+  .ch.pick::after{content:"채택";position:absolute;top:6px;right:7px;font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.08em;color:var(--route);background:#E3ECFE;border-radius:5px;padding:1px 5px}
+  .ch.block{border-color:#E6CDB0;background:#FCF6EE}
+  .ch.block .ch__kw{color:#9a7233;text-decoration:line-through;text-decoration-color:#D9B98C;font-weight:430}
+  .ch.block .ch__h{color:var(--hazard-ink)}
+  .ch.block::after{content:"막힘";position:absolute;top:6px;right:7px;font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.08em;color:var(--hazard-ink);background:#F6E6CF;border-radius:5px;padding:1px 5px}
+
+  .stt__foot{padding:10px 13px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px;min-height:46px;background:#fff}
+  .stage{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--route);display:flex;align-items:center;gap:6px}
+  .stage.r{color:var(--danger)}
+  .stage.w{color:var(--go)}
+  .next-btn{margin-left:auto;font-family:var(--disp);font-size:13px;font-weight:600;color:#fff;background:var(--route);
+    border:none;border-radius:9px;padding:9px 16px;cursor:pointer;display:flex;align-items:center;gap:7px;
+    box-shadow:0 4px 12px -3px rgba(44,91,214,.5);transition:transform .12s, background .2s, box-shadow .2s}
+  .next-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 7px 16px -4px rgba(44,91,214,.55)}
+  .next-btn:active:not(:disabled){transform:translateY(0)}
+  .next-btn:disabled{background:#AEB9C8;box-shadow:none;cursor:default}
+  .next-btn:focus-visible{outline:2px solid var(--route);outline-offset:3px}
+  .next-btn.done{background:var(--go);box-shadow:none}
+  .next-btn .kbd{font-family:var(--mono);font-size:9px;font-weight:700;opacity:.7;border:1px solid rgba(255,255,255,.5);border-radius:4px;padding:0 4px}
+  .ghost-btn{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-faint);background:none;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer}
+  .ghost-btn:hover{border-color:var(--route);color:var(--route)}
+  .ghost-btn:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+
+  /* ════════ 우: 맵 ════════ */
+  .map{position:relative;height:var(--h);border-radius:16px;overflow:hidden;border:1px solid #D2DAE4;
+    background:radial-gradient(125% 120% at 18% -8%, var(--canvas) 0%, var(--canvas-2) 100%);
+    box-shadow:0 26px 60px -32px rgba(28,44,70,.4), inset 0 1px 0 rgba(255,255,255,.55)}
+  .map svg{display:block;width:100%;height:100%}
+
+  /* 턴바이턴 안내 배너 */
+  .nav-banner{position:absolute;top:13px;left:13px;right:13px;display:flex;align-items:center;gap:11px;
+    padding:10px 13px;border-radius:12px;background:rgba(255,255,255,.94);backdrop-filter:blur(7px);
+    border:1.4px solid #DAE1EA;box-shadow:0 10px 26px -14px rgba(28,44,70,.42);z-index:5;transition:border-color .3s, background .3s}
+  .nav-banner .turn{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;background:#EAF1FF;transition:background .3s}
+  .nav-banner .turn svg{width:20px;height:20px}
+  .nav-banner .txt{min-width:0;flex:1}
+  .nav-banner .eyebrow{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .nav-banner .lead{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.2;margin-top:2px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nav-banner .lead b{font-weight:700}
+  .nav-banner .dist{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink-dim);flex:none;text-align:right}
+  .nav-banner.risk{border-color:#F4C6C4;background:rgba(255,246,245,.95)}
+  .nav-banner.risk .turn{background:#FBE3E2}
+  .nav-banner.risk .lead b{color:var(--danger)}
+  .nav-banner.def{border-color:#C9D7F6;background:rgba(244,248,255,.95)}
+  .nav-banner.def .turn{background:#E2ECFE}
+  .nav-banner.done{border-color:#BCE5CF;background:rgba(238,250,243,.95)}
+  .nav-banner.done .turn{background:#DBF1E5}
+  .nav-banner.done .lead b{color:var(--go)}
+
+  .legend{margin:10px 2px 0;display:flex;flex-flow:row wrap;align-items:center;justify-content:center;
+    gap:5px 24px;padding:8px 16px;background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 18px -13px rgba(28,44,70,.32)}
+  .legend .li{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--ink-dim);white-space:nowrap}
+  .legend .li svg{flex:none}
+
+  /* ════════ AI 응답 준비 파이프라인 카드 ════════ */
+  .pipe{margin:11px 0 0;background:#fff;border:1px solid #D5DDE6;border-radius:16px;
+    box-shadow:0 22px 54px -34px rgba(28,44,70,.42);overflow:hidden}
+  .pipe__head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#FAFBFD,#F4F7FA)}
+  .pipe__head .mk{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.16em;color:var(--route);
+    border:1.4px solid #C3D0EA;background:#fff;border-radius:6px;padding:3px 8px;text-transform:uppercase}
+  .pipe__head h2{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
+  .pipe__head .sub{font-size:11.5px;color:var(--ink-faint)}
+  .pipe__head .src{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-dim);
+    max-width:46%;min-width:0}
+  .pipe__head .src .q{font-weight:600;color:#3a4859;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    background:#EEF1F5;border-radius:8px;padding:3px 9px}
+  .pipe__head .src .lbl{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase;flex:none}
+
+  .pipe__body{display:grid;grid-template-columns:1fr 34px 1fr;align-items:stretch;gap:0;padding:12px 16px 13px}
+  .arrow{display:grid;place-items:center;color:#C2CCD8;transition:color .3s}
+  .arrow svg{width:22px;height:22px}
+
+  /* 한 블록 안의 부드러운 구역 라벨 (신호 / 전략, 근거 / 발화) */
+  .seg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:8.5px;font-weight:700;
+    letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;margin:2px 0 1px}
+  .seg::after{content:"";flex:1;height:1px;background:var(--line)}
+  .seg.lit{color:var(--route)}
+  .seg.lit::after{background:#CFE0FF}
+  .seg .eb{flex:none;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.02em;border-radius:6px;padding:1px 7px;
+    background:#FCE9E9;color:var(--danger)}
+  .seg .eb.low{background:#E7F6EE;color:var(--go)}
+  .arrow.lit{color:var(--route)}
+  .arrow.lit svg{animation:arrflow .9s ease-in-out infinite}
+
+  .step{position:relative;border:1.4px solid var(--line);border-radius:13px;background:#FBFCFE;padding:11px 13px 12px;
+    min-height:188px;display:flex;flex-direction:column;gap:7px;transition:border-color .3s, box-shadow .3s, background .3s;overflow:hidden}
+  .step.run{border-color:var(--route);background:#F5F8FF;box-shadow:0 0 0 3px rgba(44,91,214,.1)}
+  .step.ok{border-color:#BFE7D2;background:#F4FBF7}
+  .step__n{position:absolute;top:10px;right:11px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;
+    color:var(--ink-faint);transition:color .3s}
+  .step.run .step__n{color:var(--route)}
+  .step.ok .step__n{color:var(--go)}
+  .step__h{display:flex;align-items:center;gap:8px}
+  .step__ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;background:#EEF2F7;color:var(--ink-dim);transition:background .3s,color .3s}
+  .step.run .step__ic{background:#E3ECFE;color:var(--route)}
+  .step.ok .step__ic{background:#DBF1E5;color:var(--go)}
+  .step__ic svg{width:18px;height:18px}
+  .step__t{font-family:var(--disp);font-size:14px;font-weight:600;color:var(--ink);line-height:1.1}
+  .step__t .en{display:block;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;margin-top:2px}
+  .step__stage{margin-top:auto;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-faint);
+    display:flex;align-items:center;gap:6px;min-height:14px;transition:color .3s}
+  .step.run .step__stage{color:var(--route)}
+  .step.ok .step__stage{color:var(--go)}
+  .step__stage .sp{width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  .step.run .step__stage .sp{display:inline-block}
+
+  /* ── 고객 신호: 음성·감정·숨은의도 (아이콘 행) ── */
+  .anrows{display:flex;flex-direction:column;gap:6px}
+  .anrow{display:flex;align-items:center;gap:7px;opacity:0;transform:translateX(-5px);transition:opacity .26s, transform .26s}
+  .anrow.on{opacity:1;transform:none}
+  .anrow .ai{width:20px;height:20px;flex:none;border-radius:6px;display:grid;place-items:center;background:#EEF2F7;color:var(--ink-dim)}
+  .anrow .ai svg{width:13px;height:13px}
+  .anrow .av{font-size:11px;font-weight:600;line-height:1.25;color:#3a4859;min-width:0}
+  .anrow.r .ai{background:#FCE9E9;color:var(--danger)} .anrow.r .av{color:var(--danger)}
+  .anrow.g .ai{background:#E7F6EE;color:var(--go)} .anrow.g .av{color:#1c6b47}
+
+  /* ── 음파(분석 진행 표시) ── */
+  .wave{display:flex;align-items:flex-end;gap:3px;height:26px}
+  .wave i{width:4px;border-radius:2px;background:#C2CCD8;height:6px;transition:background .3s}
+  .step.run .wave i,.step.ok .wave i{background:var(--route)}
+  .step.run .wave i{animation:eq .9s ease-in-out infinite}
+  .wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}.wave i:nth-child(4){animation-delay:.05s}
+  .wave i:nth-child(5){animation-delay:.25s}.wave i:nth-child(6){animation-delay:.15s}.wave i:nth-child(7){animation-delay:.3s}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;background:#EEF1F5;color:#3a4859;
+    opacity:0;transform:translateY(4px);transition:opacity .25s, transform .25s}
+  .chip.on{opacity:1;transform:none}
+  .chip.r{background:#FCE9E9;color:var(--danger)}
+  .chip.g{background:#E7F6EE;color:var(--go)}
+  .chip.risk-tag{background:var(--danger);color:#fff;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
+
+  /* ── 근거 조회·조합: DB 테이블 (스키마 → 분석 → 결과 3단) ── */
+  .tables{display:flex;flex-direction:column;gap:6px}
+  /* 미니 단계 표시: 스키마 / 분석 / 결과 */
+  .dbphase{display:flex;align-items:center;gap:4px;margin:1px 0 2px}
+  .dbphase b{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--ink-faint);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:#fff;transition:all .25s}
+  .dbphase b.on{color:var(--route);border-color:#C3D4F2;background:#F3F7FF}
+  .dbphase b.done{color:var(--go);border-color:#BFE7D2;background:#F4FBF7}
+  .dbphase .ln{flex:1;height:1px;background:var(--line)}
+
+  .tbl{border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden;
+    opacity:0;transform:translateX(-6px);transition:opacity .25s, transform .25s, border-color .25s, box-shadow .25s}
+  .tbl.on{opacity:1;transform:none}
+  .tbl.scan{border-color:var(--route);box-shadow:0 0 0 2px rgba(44,91,214,.1)}
+  .tbl.hit{border-color:#BFE7D2}
+  /* 헤더: 테이블명 + 상태 */
+  .tbl__h{display:flex;align-items:center;gap:7px;padding:4px 8px;background:#FAFBFD;border-bottom:1px solid var(--line)}
+  .tbl__h .ti{width:13px;height:13px;flex:none;color:var(--ink-faint)}
+  .tbl.scan .tbl__h .ti{color:var(--route)} .tbl.hit .tbl__h .ti{color:var(--go)}
+  .tbl__h .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--kr);font-weight:700;font-size:10.5px;color:#3a4859}
+  .tbl__h .st{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;flex:none;color:var(--ink-faint)}
+  .tbl.scan .tbl__h{background:#F3F7FF} .tbl.scan .tbl__h .st{color:var(--route)}
+  .tbl.hit .tbl__h{background:#F4FBF7} .tbl.hit .tbl__h .st{color:var(--go)}
+  /* 스키마(컬럼 헤더 행) */
+  .tbl__cols{display:flex;gap:0;font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.02em;color:var(--ink-faint);
+    background:#fff;border-bottom:1px dashed var(--line)}
+  .tbl__cols span{flex:1;padding:3px 8px;border-right:1px dashed var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tbl__cols span:last-child{border-right:none}
+  /* 결과 행 (분석 후 채워짐) */
+  .tbl__row{display:flex;gap:0;height:0;overflow:hidden;transition:height .3s ease;opacity:0}
+  .tbl__row.show{height:auto;opacity:1;padding:0}
+  .tbl__row span{flex:1;padding:3px 8px;font-size:10px;font-weight:600;color:#1c6b47;border-right:1px solid #E4F2EA;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    opacity:0;transform:translateY(3px);transition:opacity .26s, transform .26s}
+  .tbl__row span:last-child{border-right:none}
+  .tbl__row span.on{opacity:1;transform:none}
+  /* 스캔 중 행 자리에 도는 인디케이터 */
+  .tbl__scan{display:flex;align-items:center;gap:6px;padding:3px 8px;font-family:var(--mono);font-size:8.5px;font-weight:700;color:var(--route);
+    height:0;overflow:hidden;opacity:0;transition:height .2s, opacity .2s}
+  .tbl.scan .tbl__scan{height:auto;opacity:1}
+  .tbl__scan .sp{width:9px;height:9px;border:2px solid var(--route);border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex:none}
+
+  /* ── 고른 전략: 후보 → 채택 ── */
+  .cands{display:flex;flex-direction:column;gap:5px}
+  .cand{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--ink-dim);
+    background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;
+    opacity:0;transform:translateY(4px);transition:all .28s}
+  .cand.on{opacity:1;transform:none}
+  .cand .dot{width:7px;height:7px;border-radius:50%;background:#C2CCD8;flex:none}
+  .cand.pick{border-color:var(--route);background:#F3F7FF;color:#1a3a6e;font-weight:700;box-shadow:0 0 0 2px rgba(44,91,214,.12)}
+  .cand.pick .dot{background:var(--route)}
+  .cand.drop{opacity:.5;text-decoration:line-through;text-decoration-color:#C2CCD8}
+  .cand .badge{margin-left:auto;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;flex:none;
+    color:var(--route);background:#E3ECFE;border-radius:5px;padding:1px 5px;opacity:0;transition:opacity .25s}
+  .cand.pick .badge{opacity:1}
+  .conf{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--ink-faint);margin-top:1px}
+  .conf .bar{flex:1;height:5px;border-radius:999px;background:#E2E8EF;overflow:hidden}
+  .conf .fill{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--route-2),var(--route));transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+  /* ── 완성 발화: 미리보기 → STT 송출 ── */
+  .verdict{display:flex;flex-direction:column;gap:7px;flex:1}
+  .vline{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-faint);
+    opacity:0;transform:translateY(4px);transition:opacity .26s, transform .26s}
+  .vline.on{opacity:1;transform:none}
+  .vline .vk{flex:none;width:34px;color:var(--ink-faint)}
+  .vline .vv{color:var(--ink-dim);font-family:var(--kr);font-weight:600;font-size:11px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vline.go .vv{color:var(--go)}
+  .vspeech{margin-top:auto;border:1px dashed var(--line);border-radius:9px;background:#F7FAFF;padding:8px 9px;
+    font-size:11px;line-height:1.5;color:#21406e;font-weight:500;
+    opacity:0;transform:translateY(5px);transition:opacity .3s, transform .3s, border-color .3s, background .3s;position:relative;min-height:30px}
+  .vspeech.on{opacity:1;transform:none}
+  .vspeech.ready{border:1px solid #BFE7D2;background:#F4FBF7}
+  .vspeech .vlbl{display:block;font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;margin-bottom:3px}
+  .step.ok .vspeech.ready .vlbl{color:var(--go)}
+  .vspeech .vcur{display:inline-block;width:1.5px;height:1em;background:var(--route);vertical-align:-2px;margin-left:1px;animation:cur .8s step-end infinite}
+  .vspeech.ready .vcur{display:none}
+
+  @keyframes cur{50%{opacity:0}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes eq{0%,100%{height:7px}50%{height:24px}}
+  @keyframes arrflow{0%,100%{transform:translateX(-2px);opacity:.6}50%{transform:translateX(2px);opacity:1}}
+
+  @media (max-width:760px){
+    .pipe__body{grid-template-columns:1fr;gap:10px}
+    .arrow{transform:rotate(90deg);height:22px}
+    .pipe__head .src{display:none}
+  }
+
+  /* 노드 ↔ 경로 연결 스템 (차량과 겹치지 않게 노드를 경로 밖으로 뺌) */
+  .stem{stroke:#B7C2D0;stroke-width:2.4;stroke-dasharray:2 4;stroke-linecap:round}
+  .cp.done .stem{stroke:var(--route)}
+  .rz.show .stem{stroke:var(--hazard)}
+  .rz.alert .stem{stroke:var(--danger)}
+
+  /* 노드 상태 */
+  .cp-ring{opacity:0}
+  .cp.done .cp-core{stroke:var(--route)}
+  .cp.done .cp-label{fill:var(--ink)}
+  .cp.done .cp-check{opacity:1}
+  .cp .cp-check{opacity:0;transition:opacity .3s}
+  .cp.now .cp-core{fill:var(--route);stroke:#fff}
+  .cp.now .cp-label{fill:#fff}
+  .cp.now .cp-ring{opacity:1;animation:nowring 2s ease-out infinite}
+
+  /* 위험 노드: 기본 숨김 → 발화 시 실시간 생성 */
+  .rz{opacity:0;transition:opacity .4s ease}
+  .rz.show{opacity:1}
+  .rz-core{transform-box:fill-box;transform-origin:center}
+  .rz-done{opacity:0;transition:opacity .3s}
+  .rz.show .rz-core{animation:rzspawn .5s cubic-bezier(.2,1.4,.4,1) both}
+  .rz.show .rz-label{font-size:15.5px;font-weight:700}
+  .rz.alert .rz-core{stroke:var(--danger);stroke-width:3;animation:rzspawn .5s cubic-bezier(.2,1.4,.4,1) both, rzalert 1s ease-in-out .5s infinite}
+  .rz.alert .rz-label{fill:var(--danger);font-weight:800}
+  .rz.blocked .rz-core{stroke:var(--hazard);animation:none;opacity:.92;filter:none}
+  .rz.blocked .rz-label{fill:var(--hazard-ink)}
+  .rz.blocked .rz-done{opacity:1}
+
+  #cautionPop{opacity:0;transition:opacity .2s}
+  #cautionPop.show{opacity:1;animation:cbob .6s ease-in-out infinite alternate}
+
+  .route-flow{stroke-dasharray:2 13;stroke-linecap:round;animation:flow 1.1s linear infinite}
+  /* 예상(고스트) 경로 */
+  #ghost{stroke-dasharray:6 9;opacity:0;transition:opacity .35s}
+  #ghost.show{opacity:.85}
+  #ghost.kill{opacity:0}
+
+  @keyframes beatR{0%{box-shadow:0 0 0 0 rgba(229,72,77,.45)}70%{box-shadow:0 0 0 8px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+  @keyframes flow{to{stroke-dashoffset:-30}}
+  @keyframes nowring{0%{r:50;opacity:.5}80%{r:64;opacity:0}100%{opacity:0}}
+  @keyframes rzspawn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+  @keyframes rzalert{0%,100%{filter:drop-shadow(0 0 2px rgba(229,72,77,.35))}50%{filter:drop-shadow(0 0 14px rgba(229,72,77,.95))}}
+  @keyframes cbob{from{transform:translateY(0)}to{transform:translateY(-4px)}}
+  @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-1.6px,.6px)}60%{transform:translate(1.6px,-.4px)}}
+  @keyframes rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes td{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  @keyframes kwpop{0%{transform:scale(.7)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+  @media (max-width:980px){
+    .cockpit{grid-template-columns:1fr}
+    .map{height:clamp(320px,72vw,440px);order:-1}
+    .stt{height:auto;min-height:560px}
+    .nav-banner .lead{white-space:normal}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .route-flow,.rz.alert .rz-core,.live .d,#cautionPop.show,.dots i,.bubble .kw.pop,#carBody,
+    .wave i,.step__stage .sp,.arrow.lit svg{animation:none!important}
+    .rz.show{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <span class="mark">REROUTE · LIVE</span>
+    <h1>상담 경로 재탐색 · 턴바이턴 항법</h1>
+    <p>왼쪽은 통화 STT, 오른쪽은 그 발화를 해석한 항법 화면. 차량은 <b>파란 재탐색 경로</b>를 따라 목적지(전환)로 향하다, <span class="hz">주황 위험 구간</span>에 들어설 때마다 감속·우회합니다. <b>이탈 위험 5회</b>를 매번 막아 끝까지 끌고 가는 시나리오예요.</p>
+  </div>
+
+  <div class="cockpit">
+
+    <!-- ═══════════ 좌: STT + 다음 수 ═══════════ -->
+    <div class="stt">
+      <div class="stt__head">
+        <span class="live"><span class="d"></span>REC · 실시간 STT</span>
+        <span class="stt__sub">통화 녹취 · 키워드 자동 추출</span>
+        <span class="stt__timer" id="timer">00:00</span>
+      </div>
+
+      <div class="stt__body" id="chat"></div>
+
+      <!-- AI 다음 수 3채널 -->
+      <div class="moves">
+        <div class="moves__top">
+          <span class="moves__lbl">AI 다음 수 · 예상 루트</span>
+          <span class="risk-meter">
+            이탈 확률
+            <span class="bar"><span class="fill" id="riskFill"></span></span>
+            <span class="pct low" id="riskPct">8%</span>
+          </span>
+        </div>
+        <div class="chan">
+          <div class="ch empty" id="ch-talk">
+            <span class="ch__h"><svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M3 8h7M3 11.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>발화 전략</span>
+            <span class="ch__kw">대기 중</span>
+          </div>
+          <div class="ch empty" id="ch-db">
+            <span class="ch__h"><svg class="ic" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="4" rx="5" ry="2.2" stroke="currentColor" stroke-width="1.5"/><path d="M3 4v8c0 1.2 2.2 2.2 5 2.2s5-1 5-2.2V4" stroke="currentColor" stroke-width="1.5"/><path d="M3 8.2c0 1.2 2.2 2.2 5 2.2s5-1 5-2.2" stroke="currentColor" stroke-width="1.5"/></svg>DB 조회</span>
+            <span class="ch__kw">대기 중</span>
+          </div>
+          <div class="ch empty" id="ch-an">
+            <span class="ch__h"><svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M2.5 13.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 11l3-3 2.5 2 3.5-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>분석 결과</span>
+            <span class="ch__kw">대기 중</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stt__foot">
+        <span class="stage" id="stage">통화 연결됨 · 시작 대기</span>
+        <button class="ghost-btn" id="restart" title="처음부터 다시 재생">↻ 처음부터</button>
+        <button class="next-btn" id="next">다음 발화 <span class="kbd">↵</span></button>
+      </div>
+    </div>
+
+    <!-- ═══════════ 우: 맵 ═══════════ -->
+    <div class="map">
+      <div class="nav-banner" id="banner">
+        <span class="turn" id="turnIc">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 20V8M12 8l-5 5M12 8l5 5" stroke="#2C5BD6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="txt">
+          <span class="eyebrow" id="bannerEye">NEXT · 다음 안내</span>
+          <span class="lead" id="bannerLead">출발지 — <b>초기 관심</b> 구간 진입 대기</span>
+        </span>
+        <span class="dist" id="bannerDist">0%</span>
+      </div>
+
+      <svg id="svg" viewBox="0 0 1400 640" role="img" aria-label="상담 경로 재탐색 항법 맵">
+        <defs>
+          <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="#C2CCD8" opacity=".5"/></pattern>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#26374e" flood-opacity=".2"/></filter>
+          <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <linearGradient id="routegrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2C5BD6"/><stop offset="1" stop-color="#4D7CF0"/></linearGradient>
+        </defs>
+
+        <rect x="0" y="0" width="1400" height="640" fill="url(#dots)"/>
+
+        <!-- 구간: 가로축 = 상담 진행(시간), 라벨 = 해당 시점의 위험 밀도 -->
+        <g text-anchor="middle">
+          <rect x="70"   y="150" width="470" height="410" rx="20" fill="#fff" opacity=".28" stroke="#C8D2DD" stroke-dasharray="3 6"/>
+          <rect x="560"  y="150" width="580" height="410" rx="20" fill="#fff" opacity=".28" stroke="#C8D2DD" stroke-dasharray="3 6"/>
+          <rect x="1150" y="150" width="210" height="410" rx="20" fill="#fff" opacity=".28" stroke="#C8D2DD" stroke-dasharray="3 6"/>
+          <g font-family="Pretendard,sans-serif" font-size="14.5" font-weight="700" fill="#7C8A9A">
+            <text x="305"  y="180">초반 · 경계 저항</text>
+            <text x="850"  y="180">중반 · 저항 고조 우회</text>
+            <text x="1255" y="180">종반 · 전환</text>
+          </g>
+          <g font-family="JetBrains Mono,monospace" font-size="10.5" font-weight="700" letter-spacing="1" fill="#B0381F">
+            <text x="305"  y="200">이탈위험 2 · max 41%</text>
+            <text x="850"  y="200">이탈위험 3 · max 62%</text>
+            <text x="1255" y="200" fill="#1F9D6B">방어 완료 · 전환</text>
+          </g>
+        </g>
+
+        <!-- 가로축: 상담 진행(시간) -->
+        <g font-family="JetBrains Mono,monospace" font-size="10" font-weight="700" letter-spacing="2" fill="#9CAAB9">
+          <line x1="80" y1="600" x2="1320" y2="600" stroke="#C8D2DD" stroke-width="1.5" stroke-dasharray="2 5"/>
+          <path d="M1320,600 l-9,-4 v8 z" fill="#C8D2DD"/>
+          <text x="80" y="592" text-anchor="start">상담 진행 (시간)</text>
+        </g>
+
+        <!-- 능선 직행로(회색 점선): 원래 가려던 길 -->
+        <path fill="none" stroke="var(--road)" stroke-width="14" stroke-linecap="round" stroke-dasharray="2 17" opacity=".75" d="M160,360 C233.3,355.3 494.2,332.7 600.0,332.0 C705.8,331.3 726.3,349.3 795.0,356.0 C863.7,362.7 947.0,375.5 1012.0,372.0 C1077.0,368.5 1135.3,361.7 1185.0,335.0 C1234.7,308.3 1289.2,232.5 1310.0,212.0"/>
+
+        <!-- 저항 골짜기 언더글로 -->
+        <g fill="var(--hazard)" opacity=".1"><ellipse cx="285" cy="486" rx="46" ry="19"/><ellipse cx="475" cy="490" rx="46" ry="19"/><ellipse cx="888" cy="492" rx="46" ry="19"/><ellipse cx="1058" cy="496" rx="46" ry="19"/><ellipse cx="1120" cy="478" rx="46" ry="19"/></g>
+
+        <!-- 예상(고스트) 경로 -->
+        <path id="ghost" fill="none" stroke="var(--route-2)" stroke-width="7" stroke-linecap="round" d="M160,360 C180.8,379.7 248.3,470.5 285.0,478.0 C321.7,485.5 348.3,404.3 380.0,405.0 C411.7,405.7 438.3,494.2 475.0,482.0 C511.7,469.8 562.5,353.7 600.0,332.0 C637.5,310.3 667.5,348.0 700.0,352.0 C732.5,356.0 763.7,334.0 795.0,356.0 C826.3,378.0 860.8,474.7 888.0,484.0 C915.2,493.3 937.3,430.7 958.0,412.0 C978.7,393.3 995.3,359.3 1012.0,372.0 C1028.7,384.7 1045.0,480.3 1058.0,488.0 C1071.0,495.7 1079.7,421.0 1090.0,418.0 C1100.3,415.0 1104.2,483.8 1120.0,470.0 C1135.8,456.2 1165.8,363.7 1185.0,335.0 C1204.2,306.3 1221.2,310.2 1235.0,298.0 C1248.8,285.8 1258.8,272.5 1268.0,262.0 C1277.2,251.5 1283.0,243.3 1290.0,235.0 C1297.0,226.7 1306.7,215.8 1310.0,212.0"/>
+
+        <!-- 재탐색(확정) 경로: 저항 골짜기로 빠졌다가 능선으로 우회 -->
+        <path id="route" fill="none" d="M160,360 C180.8,379.7 248.3,470.5 285.0,478.0 C321.7,485.5 348.3,404.3 380.0,405.0 C411.7,405.7 438.3,494.2 475.0,482.0 C511.7,469.8 562.5,353.7 600.0,332.0 C637.5,310.3 667.5,348.0 700.0,352.0 C732.5,356.0 763.7,334.0 795.0,356.0 C826.3,378.0 860.8,474.7 888.0,484.0 C915.2,493.3 937.3,430.7 958.0,412.0 C978.7,393.3 995.3,359.3 1012.0,372.0 C1028.7,384.7 1045.0,480.3 1058.0,488.0 C1071.0,495.7 1079.7,421.0 1090.0,418.0 C1100.3,415.0 1104.2,483.8 1120.0,470.0 C1135.8,456.2 1165.8,363.7 1185.0,335.0 C1204.2,306.3 1221.2,310.2 1235.0,298.0 C1248.8,285.8 1258.8,272.5 1268.0,262.0 C1277.2,251.5 1283.0,243.3 1290.0,235.0 C1297.0,226.7 1306.7,215.8 1310.0,212.0"/>
+        <!-- 미리보기(아직 미주행) 경로: 옅은 파랑 -->
+        <use href="#route" stroke="#C3D4F2" stroke-width="9" fill="none" stroke-linecap="round" opacity=".5"/>
+        <!-- 주행 완료 구간: 발화마다 채워짐 -->
+        <use id="routeInk" href="#route" stroke="url(#routegrad)" stroke-width="13" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+        <use id="routeCore" href="#route" stroke="#EAF1FF" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+        <!-- 저항·이탈 노드 (골짜기) -->
+        <g font-family="Pretendard,sans-serif" font-size="14" font-weight="600">
+          <g class="rz" id="rz-rate" transform="translate(285,478)"><circle class="rz-core" r="33" fill="#fff" stroke="var(--hazard)" stroke-width="2.4" stroke-dasharray="4 5" style="animation-delay:0s"/><text class="rz-label" y="5" text-anchor="middle" fill="var(--hazard)">경계</text><g class="rz-done" transform="translate(24,-22)"><circle r="9" fill="var(--hazard)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="rz" id="rz-compare" transform="translate(475,482)"><circle class="rz-core" r="33" fill="#fff" stroke="var(--hazard)" stroke-width="2.4" stroke-dasharray="4 5" style="animation-delay:0.6s"/><text class="rz-label" y="5" text-anchor="middle" fill="var(--hazard)">조건의심</text><g class="rz-done" transform="translate(24,-22)"><circle r="9" fill="var(--hazard)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="rz" id="rz-pay" transform="translate(888,484)"><circle class="rz-core" r="33" fill="#fff" stroke="var(--hazard)" stroke-width="2.4" stroke-dasharray="4 5" style="animation-delay:1.1s"/><text class="rz-label" y="5" text-anchor="middle" fill="var(--hazard)">월납입</text><g class="rz-done" transform="translate(24,-22)"><circle r="9" fill="var(--hazard)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="rz" id="rz-security" transform="translate(1058,488)"><circle class="rz-core" r="33" fill="#fff" stroke="var(--hazard)" stroke-width="2.4" stroke-dasharray="4 5" style="animation-delay:1.6s"/><text class="rz-label" y="5" text-anchor="middle" fill="var(--hazard)">담보오해</text><g class="rz-done" transform="translate(24,-22)"><circle r="9" fill="var(--hazard)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="rz" id="rz-avoid" transform="translate(1120,470)"><circle class="rz-core" r="33" fill="#fff" stroke="var(--hazard)" stroke-width="2.4" stroke-dasharray="4 5" style="animation-delay:2.1s"/><text class="rz-label" y="5" text-anchor="middle" fill="var(--hazard)">신청회피</text><g class="rz-done" transform="translate(24,-22)"><circle r="9" fill="var(--hazard)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+        </g>
+
+        <!-- 체크포인트 (능선) -->
+        <g font-family="Pretendard,sans-serif" font-size="15" font-weight="600">
+          <g class="cp" id="cp-interest" transform="translate(160,360)"><circle class="cp-ring" r="50" fill="none" stroke="var(--route)" stroke-width="3"/><circle class="cp-core" r="42" fill="#fff" stroke="#9FB0C4" stroke-width="3" filter="url(#soft)"/><text class="cp-label" y="5" text-anchor="middle" fill="var(--ink-dim)">관심</text><g class="cp-check" transform="translate(30,-30)"><circle r="9" fill="var(--route)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="cp" id="cp-trust" transform="translate(600,332)"><circle class="cp-ring" r="50" fill="none" stroke="var(--route)" stroke-width="3"/><circle class="cp-core" r="42" fill="#fff" stroke="#9FB0C4" stroke-width="3" filter="url(#soft)"/><text class="cp-label" y="5" text-anchor="middle" fill="var(--ink-dim)">신뢰확보</text><g class="cp-check" transform="translate(30,-30)"><circle r="9" fill="var(--route)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="cp" id="cp-cond" transform="translate(795,356)"><circle class="cp-ring" r="50" fill="none" stroke="var(--route)" stroke-width="3"/><circle class="cp-core" r="42" fill="#fff" stroke="#9FB0C4" stroke-width="3" filter="url(#soft)"/><text class="cp-label" y="5" text-anchor="middle" fill="var(--ink-dim)">조건이해</text><g class="cp-check" transform="translate(30,-30)"><circle r="9" fill="var(--route)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="cp" id="cp-limit" transform="translate(1012,372)"><circle class="cp-ring" r="50" fill="none" stroke="var(--route)" stroke-width="3"/><circle class="cp-core" r="42" fill="#fff" stroke="#9FB0C4" stroke-width="3" filter="url(#soft)"/><text class="cp-label" y="5" text-anchor="middle" fill="var(--ink-dim)">한도조회</text><g class="cp-check" transform="translate(30,-30)"><circle r="9" fill="var(--route)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+          <g class="cp" id="cp-review" transform="translate(1185,335)"><circle class="cp-ring" r="50" fill="none" stroke="var(--route)" stroke-width="3"/><circle class="cp-core" r="42" fill="#fff" stroke="#9FB0C4" stroke-width="3" filter="url(#soft)"/><text class="cp-label" y="5" text-anchor="middle" fill="var(--ink-dim)">신청검토</text><g class="cp-check" transform="translate(30,-30)"><circle r="9" fill="var(--route)"/><path d="M-4.5,0 l3,3 5,-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+        </g>
+
+        <!-- 목적지 -->
+        <g class="cp" id="cp-goal" transform="translate(1310,212)">
+          <circle class="cp-ring" r="46" fill="none" stroke="var(--go)" stroke-width="3"/>
+          <circle class="cp-core" r="36" fill="#fff" stroke="var(--route)" stroke-width="4" filter="url(#soft)"/>
+          <path d="M-11,-16 v32 M-11,-16 h17 l-4,6 4,6 h-17" fill="var(--route)" stroke="var(--route)" stroke-width="2" stroke-linejoin="round"/>
+          <text y="66" font-family="JetBrains Mono,monospace" font-size="12" font-weight="700" fill="var(--route)" letter-spacing="2" text-anchor="middle">전환 GOAL</text>
+        </g>
+
+        
+        <!-- 전방 위험 팝 -->
+        <g id="cautionPop"><path d="M0,-18 L17,13 H-17 Z" fill="var(--danger)" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/><text x="0" y="9" text-anchor="middle" font-size="18" font-weight="700" fill="#fff" font-family="Space Grotesk,sans-serif">!</text></g>
+
+        <!-- 차량(탑뷰, 진행방향 회전) -->
+        <g id="carPos">
+          <g id="carBody">
+            <circle r="22" fill="#fff" stroke="var(--route)" stroke-width="2.5" filter="url(#soft)"/>
+            <!-- 전방 = +x -->
+            <rect x="-11" y="-8" width="22" height="16" rx="5" fill="var(--route)"/>
+            <path d="M4,-6 L10,-3.5 L10,3.5 L4,6 Z" fill="#BFD4FF"/>
+            <rect x="-7" y="-5" width="7" height="10" rx="2" fill="#cfe0ff" opacity=".55"/>
+          </g>
+        </g>
+      </svg>
+
+    </div>
+
+  </div>
+  <div class="legend">
+    <span class="li"><svg width="30" height="8"><line x1="2" y1="4" x2="28" y2="4" stroke="#2C5BD6" stroke-width="5" stroke-linecap="round"/></svg><span>재탐색 경로 (우회)</span></span>
+    <span class="li"><svg width="30" height="8"><line x1="2" y1="4" x2="28" y2="4" stroke="#AEBAC8" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 5"/></svg><span>능선 직행로 (원래 경로)</span></span>
+    <span class="li"><svg width="18" height="16"><circle cx="9" cy="8" r="6.5" fill="#fff" stroke="#2C5BD6" stroke-width="2.4"/></svg><span>상담 체크포인트 · 능선</span></span>
+    <span class="li"><svg width="18" height="16"><circle cx="9" cy="8" r="6.5" fill="#fff" stroke="#E08A2B" stroke-width="2.4" stroke-dasharray="3 3"/></svg><span>이탈(저항) 지점 · 골짜기</span></span>
+  </div>
+
+  <!-- ═══════════ AI 응답 준비 파이프라인 ═══════════ -->
+  <div class="pipe" id="pipe">
+    <div class="pipe__head">
+      <span class="mk">Copilot</span>
+      <h2>AI 응답 준비</h2>
+      <span class="sub">고객 발화를 듣고 다음 발화를 만들기까지</span>
+      <span class="src"><span class="lbl">In</span><span class="q" id="pipeSrc">상담 시작 대기</span></span>
+    </div>
+    <div class="pipe__body">
+
+      <!-- 블록 A · 읽고 판단: 발화 분석(신호) + 발화 전략 -->
+      <div class="step" id="st-read">
+        <div class="step__h">
+          <span class="step__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h2l2-6 4 14 3-9 2 3h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="step__t">고객을 읽고 · 대응을 고른다<span class="en">Read &amp; decide</span></span>
+        </div>
+
+        <div class="seg" id="segSignal">고객 신호</div>
+        <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="anrows" id="anRows"></div>
+        <div class="chips" id="detChips"></div>
+
+        <div class="seg" id="segPlan">고른 전략</div>
+        <div class="cands" id="pCands"></div>
+        <div class="conf"><span>확신</span><span class="bar"><span class="fill" id="pConf"></span></span><span id="pConfPct">0%</span></div>
+
+        <div class="step__stage"><span class="sp"></span><span class="tx">대기</span></div>
+      </div>
+
+      <div class="arrow" id="ar1"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h13M13 7l5 5-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+      <!-- 블록 B · 근거로 발화 완성: DB 조회·조합 + 분석 결과(확정 발화) -->
+      <div class="step" id="st-make">
+        <div class="step__h">
+          <span class="step__ic"><svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="7" ry="3" stroke="currentColor" stroke-width="2"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" stroke="currentColor" stroke-width="2"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="currentColor" stroke-width="2"/></svg></span>
+          <span class="step__t">근거로 발화를 완성한다<span class="en">Ground &amp; speak</span></span>
+        </div>
+
+        <div class="seg" id="segDb">근거 조회·조합</div>
+        <div class="dbphase" id="dbPhase">
+          <b data-p="schema">① 스키마</b><span class="ln"></span>
+          <b data-p="analyze">② 분석</b><span class="ln"></span>
+          <b data-p="result">③ 결과</b>
+        </div>
+        <div class="tables" id="qTables"></div>
+
+        <div class="seg" id="segSpeak">완성 발화 → STT</div>
+        <div class="verdict" id="vList"></div>
+
+        <div class="step__stage"><span class="sp"></span><span class="tx">대기</span></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const route=document.getElementById('route'), ghost=document.getElementById('ghost');
+  const carPos=document.getElementById('carPos'), carBody=document.getElementById('carBody');
+  const L=route.getTotalLength();
+
+  /* ── 노드를 경로에서 수직으로 띄워 차량과 겹치지 않게 + 스템으로 연결 ── */
+  const SVGNS='http://www.w3.org/2000/svg';
+  function nearestLen(x,y){
+    let best=0,bd=Infinity;
+    for(let l=0;l<=L;l+=4){const p=route.getPointAtLength(l);const d=(p.x-x)*(p.x-x)+(p.y-y)*(p.y-y);if(d<bd){bd=d;best=l;}}
+    return best;
+  }
+  function offsetNode(id, dist, prefUp){
+    const g=document.getElementById(id); if(!g)return;
+    const m=/translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec(g.getAttribute('transform')||'');
+    if(!m)return;
+    const x=+m[1], y=+m[2], l=nearestLen(x,y);
+    const a=route.getPointAtLength(Math.max(0,l-6)), b=route.getPointAtLength(Math.min(L,l+6));
+    let nx=-(b.y-a.y), ny=(b.x-a.x); const n=Math.hypot(nx,ny)||1; nx/=n; ny/=n;
+    if((ny<0)!==!!prefUp){nx=-nx;ny=-ny;}          // prefUp이면 위(ny<0)로
+    const px=+(x+nx*dist).toFixed(1), py=+(y+ny*dist).toFixed(1);
+    g.setAttribute('transform','translate('+px+','+py+')');
+    const stem=document.createElementNS(SVGNS,'line');
+    stem.setAttribute('x1',x);stem.setAttribute('y1',y);stem.setAttribute('x2',px);stem.setAttribute('y2',py);
+    g.insertBefore(stem,g.firstChild);            // 그룹 좌표계 기준이라 역변환 필요
+    stem.setAttribute('x1',(x-px).toFixed(1));stem.setAttribute('y1',(y-py).toFixed(1));
+    stem.setAttribute('x2',0);stem.setAttribute('y2',0);
+    stem.setAttribute('class','stem');
+  }
+  ['interest','trust','cond','limit','review'].forEach(id=>offsetNode('cp-'+id,82,true));
+  offsetNode('cp-goal',66,false);
+  ['rate','compare','pay','security','avoid'].forEach(id=>offsetNode('rz-'+id,74,false));
+
+  /* ── 주행 완료 구간만 밝게 채워지는 경로 리빌 ── */
+  const routeInk=document.getElementById('routeInk'), routeCore=document.getElementById('routeCore');
+  [routeInk,routeCore].forEach(u=>{u.style.strokeDasharray=L+' '+L;u.style.strokeDashoffset=L;});
+  function revealRoute(prog){
+    const off=L*(1-Math.max(0,Math.min(1,prog)));
+    routeInk.style.strokeDashoffset=off; routeCore.style.strokeDashoffset=off;
+  }
+
+  const chat=document.getElementById('chat'), stageEl=document.getElementById('stage');
+  const pop=document.getElementById('cautionPop'), timerEl=document.getElementById('timer');
+  const nextBtn=document.getElementById('next'), restartBtn=document.getElementById('restart');
+  const banner=document.getElementById('banner'), bEye=document.getElementById('bannerEye'),
+        bLead=document.getElementById('bannerLead'), bDist=document.getElementById('bannerDist'), turnIc=document.getElementById('turnIc');
+  const riskFill=document.getElementById('riskFill'), riskPct=document.getElementById('riskPct');
+  const chTalk=document.getElementById('ch-talk'), chDb=document.getElementById('ch-db'), chAn=document.getElementById('ch-an');
+  const pipeSrc=document.getElementById('pipeSrc');
+  const stRead=document.getElementById('st-read'), stMake=document.getElementById('st-make');
+  const ar1=document.getElementById('ar1');
+  const segSignal=document.getElementById('segSignal'), segPlan=document.getElementById('segPlan'),
+        segDb=document.getElementById('segDb'), segSpeak=document.getElementById('segSpeak');
+  const anRows=document.getElementById('anRows'), detChips=document.getElementById('detChips');
+  const qTables=document.getElementById('qTables'), pCands=document.getElementById('pCands'), dbPhase=document.getElementById('dbPhase');
+  const pConf=document.getElementById('pConf'), pConfPct=document.getElementById('pConfPct'), vList=document.getElementById('vList');
+
+  /* ── 차량: 위치 + 진행방향 회전 ── */
+  function setCar(prog){
+    prog=Math.max(0,Math.min(1,prog));
+    const p=route.getPointAtLength(L*prog);
+    const q=route.getPointAtLength(L*Math.min(1,prog+0.004));
+    const ang=Math.atan2(q.y-p.y,q.x-p.x)*180/Math.PI;
+    carPos.setAttribute('transform','translate('+p.x.toFixed(1)+','+p.y.toFixed(1)+') rotate('+ang.toFixed(1)+')');
+    revealRoute(prog);
+    return p;
+  }
+  let curProg=0; setCar(0);
+  function moveCar(to,ms,cb){
+    to=Math.max(0,Math.min(1,to));
+    if(RM){curProg=to;setCar(to);cb&&cb();return;}
+    const from=curProg, t0=performance.now();
+    (function step(now){
+      const k=Math.min(1,(now-t0)/ms);
+      const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+      curProg=from+(to-from)*e;setCar(curProg);
+      if(k<1)requestAnimationFrame(step); else cb&&cb();
+    })(performance.now());
+  }
+
+  /* ── 체크포인트 ── */
+  const ORDER=['interest','trust','cond','limit','review','goal'];
+  function reach(id){
+    const idx=ORDER.indexOf(id);
+    ORDER.forEach((n,j)=>{
+      const el=document.getElementById('cp-'+n); if(!el)return;
+      el.classList.remove('now','done');
+      if(j<idx) el.classList.add('done');
+      else if(j===idx) el.classList.add('now');
+    });
+  }
+
+  /* ════════ 시나리오: 이탈 위험 5회 → 매번 방어 → 전환 ════════
+     kw: 강조할 어절(정확히 txt에 등장하는 토큰). r=위험키워드, g=긍정키워드
+     nx: 다음 수 3채널 {t:발화전략, d:DB조회, a:분석}, pick: 채택 채널, block:막힌 채널
+     prob: 이탈 확률(%) */
+  const S=[
+   {who:'ai', txt:'안녕하세요, 현대캐피탈 AI 상담원입니다. 통화는 녹음되고요, 박서준 고객님 맞으실까요?',
+    kw:['현대캐피탈','맞으실까요?'], prog:0, cp:'interest', prob:8,
+    nx:{t:'본인 확인 · 용건 진입',d:'고객 프로필 로드',a:'이탈 확률 8% · 정상',pick:'a'},
+    bann:{type:'def',eye:'NEXT · 다음 안내',lead:'<b>초반</b> 구간 진입 — 본인 확인'}},
+
+   {who:'cust', txt:'네 맞는데요. 근데 대출 전화면 안 받아요.',
+    kw:[{w:'대출',r:1},{w:'전화면',r:1},{w:'안',r:1},{w:'받아요.',r:1}], prog:0.0982,
+    an:{voice:'단호 · 짧은 문장', emo:'경계심 · 방어 본능', tone:'r', intent:'끊을 가능성 ↑ · 잠재 관심'},
+    db:[
+      {nm:'이탈 패턴 DB', cols:['유형','통화유지','전환성공'],
+       q:"유형 = '대출전화 거부'", r:['통화유지 61%','설득성공 54%']},
+      {nm:'타사 대출 DB', cols:['기관','상품','잔액'],
+       q:'고객 보유 대출 매칭', r:['A저축은행','신용대출','잔여 2,800만']},
+      {nm:'공시금리 테이블', cols:['KCB 구간','금리 범위'],
+       q:'KCB 744 → 700~799', r:['12.9~15.4%','추정 13%대']}
+    ],
+    risk:{n:1,label:'대출 거부 · 경계', rz:'rate', prob:34},
+    nx:{t:'프레임 해제 · 비교 포지셔닝',d:'현재 대출 금리 조회',a:'이탈 확률 34% ↑ · 경계',pick:'t',block:'?'},
+    bann:{type:'risk',eye:'⚠ 전방 위험 구간',lead:'<b>경계</b> 구간 진입 — 대출 거부'}},
+
+   {who:'ai', txt:'요즘 대출 전화 피로감 크시죠. 오늘은 신청이 아니라 유지가 나은지 비교만 도와드리려는 거예요. 잠깐 괜찮으실까요?',
+    kw:[{w:'신청이',g:1},{w:'아니라',g:1},{w:'비교만',g:1}], prog:0.1689, def:{tac:'프레임 해제 · 비교 포지셔닝', rz:'rate', prob:21},
+    nx:{t:'비교 제안 수락 유도',d:'대환 가능 금리대 산출',a:'이탈 확률 21% ↓ · 회복',pick:'t'},
+    bann:{type:'def',eye:'↩ 경로 재탐색',lead:'<b>비교 포지셔닝</b>으로 금리부담 우회'}},
+
+   {who:'cust', txt:'결국 갈아타라는 거잖아요. 막상 해보면 조건 다를 수도 있고요.',
+    kw:[{w:'갈아타라는',r:1},{w:'조건',r:1},{w:'다를',r:1}], prog:0.2416,
+    an:{voice:'불신 톤 · 반문형', emo:'손실 회피 · 불신', tone:'r', intent:'신뢰 붕괴 → 공감·인정 먼저'},
+    risk:{n:2,label:'불신 · 조건 의심', rz:'compare', prob:41},
+    nx:{t:'불신 인정 · 공감',d:'중도상환수수료 조회',a:'이탈 확률 41% ↑ · 불신',pick:'t',block:'?'},
+    bann:{type:'risk',eye:'⚠ 전방 위험 구간',lead:'<b>조건의심</b> 구간 — 조건 의심'}},
+
+   {who:'ai', txt:'맞습니다. 조건은 실제로 확인하셔야 해요. 10% 넘는 금리면 비교해볼 만하고, 중도상환수수료까지 같이 봐드릴게요.',
+    kw:[{w:'확인하셔야',g:1},{w:'중도상환수수료까지'}], prog:0.3532, cp:'trust', def:{tac:'불신 인정 · 공감', rz:'compare', prob:26},
+    nx:{t:'현재 금리 청취',d:'중도상환수수료 0원 확인',a:'이탈 확률 26% ↓ · 신뢰',pick:'d'},
+    bann:{type:'def',eye:'✓ 체크포인트 통과',lead:'<b>신뢰확보</b> — 불신 우회 완료'}},
+
+   {who:'cust', txt:'지금 13%대 쓰고 있긴 한데, 그거보다 더 낮아질 수 있어요?',
+    kw:[{w:'13%대'},{w:'낮아질',g:1}], prog:0.4134,
+    an:{voice:'부드러움 · 질문형', emo:'경계→기대 전환', tone:'g', intent:'구체 수치 요구 = 관심 확정'},
+    nx:{t:'대환 금리 제시',d:'신용대환 12%대 매칭',a:'이탈 확률 22% · 관심 전환',pick:'d'},
+    bann:{type:'def',eye:'NEXT · 다음 안내',lead:'<b>조건이해</b> 구간 — 금리 비교 청취'}},
+
+   {who:'ai', txt:'신용대환이면 12%대도 가능하실 수 있어요. 다만 확정은 아니고 심사 후 결정됩니다.',
+    kw:[{w:'12%대도',g:1},{w:'심사'}], prog:0.4686, cp:'cond',
+    nx:{t:'우대 조건 탐색',d:'우대 금리 조건 조회',a:'이탈 확률 19% ↓',pick:'d'},
+    bann:{type:'def',eye:'✓ 체크포인트 통과',lead:'<b>조건이해</b> 완료 — 금리 차이 제시'}},
+
+   {who:'cust', txt:'낮아지긴 하는데… 생각보다 큰 차이는 아니네요.',
+    kw:[{w:'큰',r:1},{w:'차이는',r:1},{w:'아니네요.',r:1}], prog:0.5591,
+    an:{voice:'미온적 · 평이한 반응', emo:'가격 저항 · 차이 작음', tone:'r', intent:'10%대가 수용 기준 → 담보 유도'},
+    risk:{n:3,label:'가격 저항 · 차이 작음', rz:'pay', prob:44},
+    nx:{t:'우대 금리 제시',d:'우대 적용 10%대 산출',a:'이탈 확률 44% ↑ · 가격 저항',pick:'t',block:'?'},
+    bann:{type:'risk',eye:'⚠ 전방 위험 구간',lead:'<b>월납입</b> 구간 — 가격 저항'}},
+
+   {who:'ai', txt:'숫자만 보면 작게 느껴지실 수 있어요. 우대 적용되면 10%대까지 내려갈 가능성도 있습니다.',
+    kw:[{w:'우대'},{w:'10%대까지',g:1}], prog:0.6188, def:{tac:'우대 금리 제시', rz:'pay', prob:29},
+    nx:{t:'담보 옵션 안내',d:'명의 차량 보유 조회',a:'이탈 확률 29% ↓ · 재관심',pick:'d'},
+    bann:{type:'def',eye:'↩ 경로 재탐색',lead:'<b>우대 금리</b>로 월납입 우회'}},
+
+   {who:'ai', txt:'혹시 명의 차량 있으시면 차량담보도 함께 보실 수 있어요. 담보가 잡히는 만큼 더 낮은 금리가 검토됩니다.',
+    kw:[{w:'차량담보도'},{w:'낮은',g:1},{w:'금리가',g:1}], prog:0.6598, cp:'limit',
+    nx:{t:'담보 오해 사전 차단',d:'차량 시세·한도 조회',a:'이탈 확률 31% · 담보 경계 예상',pick:'d'},
+    bann:{type:'def',eye:'✓ 체크포인트 통과',lead:'<b>한도조회</b> — 차량담보 옵션 제시'}},
+
+   {who:'cust', txt:'차량담보요? 차 할부도 남았는데, 그럼 차 못 쓰는 거 아니에요?',
+    kw:[{w:'할부도',r:1},{w:'못',r:1},{w:'쓰는',r:1}], prog:0.731,
+    an:{voice:'불안 톤 · 급한 반문', emo:'담보=불이익 선입견', tone:'r', intent:'팩트 정정으로 해소 가능'},
+    risk:{n:4,label:'담보 오해 · 차량 사용', rz:'security', prob:48},
+    nx:{t:'팩트 기반 안심',d:'담보 운행 가능 약관 확인',a:'이탈 확률 48% ↑ · 오해',pick:'t',block:'?'},
+    bann:{type:'risk',eye:'⚠ 전방 위험 구간',lead:'<b>담보오해</b> 구간 — 차량 사용 우려'}},
+
+   {who:'ai', txt:'일반적으로 운행은 그대로 가능하세요. 그 부분은 걱정 안 하셔도 됩니다.',
+    kw:[{w:'운행은',g:1},{w:'그대로',g:1},{w:'가능하세요.',g:1}], prog:0.7766, def:{tac:'팩트 기반 안심', rz:'security', prob:38},
+    nx:{t:'자율성 부여 화법 준비',d:'비교 전용 플로우 로드',a:'이탈 확률 38% ↓',pick:'t'},
+    bann:{type:'def',eye:'↩ 경로 재탐색',lead:'<b>운행 가능</b> 안내로 오해 우회'}},
+
+   {who:'cust', txt:'괜히 담보 잡혔다가 불편해지는 건 싫은데요.',
+    kw:[{w:'담보',r:1},{w:'불편해지는',r:1},{w:'싫은데요.',r:1}], prog:0.8145,
+    an:{voice:'거부감 톤 · 감정적', emo:'담보 거부감 최고조', tone:'r', intent:'강요 시 100% 이탈 → 자율성 부여'},
+    risk:{n:5,label:'담보 거부 · 이탈 임박', rz:'avoid', prob:62},
+    nx:{t:'공감 + 자율성 부여',d:'신청 없는 비교 모드',a:'이탈 확률 62% ↑↑ · 임박',pick:'t',block:'?'},
+    bann:{type:'risk',eye:'⚠ 이탈 임박 62%',lead:'<b>신청회피</b> 구간 — 담보 거부'}},
+
+   {who:'ai', txt:'그 마음 당연하세요. 강요 안 드려요. 신청 말고 조건만 비교해보는 것도 가능합니다. 결정은 고객님이 하시면 돼요.',
+    kw:[{w:'강요',g:1},{w:'안',g:1},{w:'조건만',g:1},{w:'결정은',g:1}], prog:0.8996, cp:'review', def:{tac:'공감 + 자율성 부여', rz:'avoid', prob:33},
+    nx:{t:'비교 진행 확정 유도',d:'상담원 연결 큐 준비',a:'이탈 확률 33% ↓↓ · 방어',pick:'t'},
+    bann:{type:'def',eye:'✓ 마지막 위험 우회',lead:'<b>자율성 부여</b>로 신청회피 우회'}},
+
+   {who:'cust', txt:'그럼 신청 말고 조건만 비교해볼 수 있어요?',
+    kw:[{w:'조건만',g:1},{w:'비교해볼',g:1}], prog:0.9354,
+    an:{voice:'누그러짐 · 자발적 질문', emo:'부담 해소 · 진행 의향', tone:'g', intent:'전환 의사 확정 → 핸드오프'},
+    nx:{t:'비교 가능 확정',d:'심사 기반 한도 안내',a:'이탈 확률 18% ↓ · 수락',pick:'t'},
+    bann:{type:'def',eye:'NEXT · 다음 안내',lead:'<b>신청검토</b> 구간 — 비교 수락'}},
+
+   {who:'ai', txt:'네, 가능합니다. 최종 금리·한도는 심사로 정해지고, 진행은 다 들어보신 뒤 직접 결정하시면 돼요.',
+    kw:[{w:'가능합니다.',g:1},{w:'직접',g:1},{w:'결정하시면',g:1}], prog:0.963,
+    nx:{t:'상담원 연결 안내',d:'담당 상담원 배정',a:'이탈 확률 12% · 전환 근접',pick:'d'},
+    bann:{type:'def',eye:'NEXT · 다음 안내',lead:'목적지 <b>전환</b>까지 직진'}},
+
+   {who:'cust', txt:'그럼 상담원 연결해주세요.',
+    kw:[{w:'상담원',g:1},{w:'연결해주세요.',g:1}], prog:0.9827,
+    nx:{t:'연결 멘트 · 마무리',d:'상담원 핸드오프',a:'이탈 확률 6% ↓ · 전환',pick:'d'},
+    bann:{type:'def',eye:'곧 목적지',lead:'<b>전환 GOAL</b> 도착 직전'}},
+
+   {who:'ai', txt:'네, 잠시만요. 담당 상담원에게 바로 연결해 드릴게요.',
+    kw:[{w:'바로',g:1},{w:'연결해',g:1}], prog:1, cp:'goal', last:true, prob:4,
+    nx:{t:'핸드오프 완료',d:'세션 요약 저장',a:'이탈 위험 5회 전부 방어',pick:'a'},
+    bann:{type:'done',eye:'✓ 도착',lead:'<b>전환 성공</b> — 상담원 연결'}}
+  ];
+
+  /* ── 키워드 강조 어절 빌더 ── */
+  function buildWords(txt, kwList){
+    // kwList: ['토큰'] 또는 [{w:'토큰',r:1|g:1}]
+    const map={};
+    (kwList||[]).forEach(k=>{const key=(typeof k==='string')?k:k.w; map[key]=(typeof k==='string')?{}:k;});
+    const tokens=txt.split(/(\s+)/); // 공백 보존
+    const frag=document.createDocumentFragment();
+    tokens.forEach(tok=>{
+      if(/^\s+$/.test(tok)){frag.appendChild(document.createTextNode(tok));return;}
+      const sp=document.createElement('span'); sp.className='w'; sp.textContent=tok;
+      if(map[tok]!==undefined){
+        sp.classList.add('kw');
+        if(map[tok].r) sp.classList.add('k-risk');
+        if(map[tok].g) sp.classList.add('k-go');
+      }
+      frag.appendChild(sp);
+    });
+    return frag;
+  }
+  function revealWords(bubble, cb){
+    const ws=[...bubble.querySelectorAll('.w')];
+    if(RM){ws.forEach(w=>w.classList.add('on'));cb&&cb();return;}
+    let k=0;
+    (function tick(){
+      if(k>=ws.length){cb&&cb();return;}
+      const w=ws[k]; w.classList.add('on');
+      if(w.classList.contains('kw')) w.classList.add('pop');
+      k++; chat.scrollTop=chat.scrollHeight;
+      setTimeout(tick, w.classList.contains('kw')?120:52);
+    })();
+  }
+
+  /* ── 채팅 버블 ── */
+  function bubble(s, defNum){
+    const m=document.createElement('div');
+    m.className='msg '+(s.who==='cust'?'msg--cust':'msg--ai')+(s.risk?' risk':'');
+    const who=document.createElement('div');who.className='who';
+    who.innerHTML=(s.who==='cust'?'고객 <span class="t">CUSTOMER</span>':'AI 상담원 <span class="t">COPILOT</span>');
+    const b=document.createElement('div');b.className='bubble';
+    b.appendChild(buildWords(s.txt,s.kw));
+    m.appendChild(who);m.appendChild(b);
+    if(s.risk){const f=document.createElement('div');f.className='flag flag--risk';f.innerHTML='<span class="tri"></span> 이탈 위험 #'+s.risk.n+' · '+s.risk.label;m.appendChild(f);}
+    if(s.def){const f=document.createElement('div');f.className='flag flag--def';f.textContent='✓ 방어 #'+(defNum!=null?defNum:blocked+1)+' · '+s.def.tac;m.appendChild(f);}
+    chat.appendChild(m);chat.scrollTop=chat.scrollHeight;
+    return b;
+  }
+  function typing(who,cb){
+    const m=document.createElement('div');m.className='msg typing '+(who==='cust'?'msg--cust':'msg--ai');
+    m.innerHTML='<div class="who">'+(who==='cust'?'고객 <span class="t">CUSTOMER</span>':'AI 상담원 <span class="t">COPILOT</span>')+'</div><div class="bubble"><span class="dots"><i></i><i></i><i></i></span>'+(who==='cust'?'<span class="hint">음성 인식 중…</span>':'<span class="hint">다음 수 계산 중…</span>')+'</div>';
+    chat.appendChild(m);chat.scrollTop=chat.scrollHeight;
+    setTimeout(()=>{m.remove();cb();}, RM?80:(who==='cust'?560:480));
+  }
+  // AI 발화용 지속 로딩 말풍선 — 파이프라인이 발화를 만드는 동안 STT에 표시, 완료 시 제거
+  function aiLoading(){
+    const m=document.createElement('div');m.className='msg typing msg--ai';
+    m.innerHTML='<div class="who">AI 상담원 <span class="t">COPILOT</span></div><div class="bubble"><span class="dots"><i></i><i></i><i></i></span><span class="hint">발화 준비 중…</span></div>';
+    chat.appendChild(m);chat.scrollTop=chat.scrollHeight;
+    return m;
+  }
+
+  /* ── 다음 수 3채널 ── */
+  function setMoves(nx){
+    if(!nx)return;
+    const set=(el,txt,key)=>{
+      el.classList.remove('empty','pick','block');
+      el.querySelector('.ch__kw').textContent=txt;
+      if(nx.pick===key) el.classList.add('pick');
+      if(nx.block===key) el.classList.add('block');
+    };
+    // '?'블록은 발화전략이 채택될 때 'DB조회'가 잠정 보류됨을 표현
+    const blkT = nx.block==='?';
+    set(chTalk, nx.t, 't');
+    set(chDb, nx.d, 'd');
+    set(chAn, nx.a, 'a');
+    if(blkT){ chDb.classList.remove('pick'); chDb.classList.add('block'); }
+  }
+
+  /* ── 이탈확률 게이지 ── */
+  let curProb=8;
+  function setProb(p){
+    if(p==null)return; curProb=p;
+    riskFill.style.width=p+'%';
+    riskPct.textContent=p+'%';
+    riskPct.classList.toggle('low', p<25);
+  }
+
+  /* ── 턴바이턴 배너 ── */
+  const TURN={
+    def:'<path d="M12 20V8M12 8l-5 5M12 8l5 5" stroke="#2C5BD6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+    risk:'<path d="M12 3l9 16H3L12 3z" fill="none" stroke="#E5484D" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="#E5484D"/>',
+    done:'<path d="M5 12.5l4.5 4.5L19 7" stroke="#1F9D6B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+  };
+  function setBanner(b, prog){
+    if(!b)return;
+    banner.className='nav-banner '+(b.type||'def');
+    bEye.textContent=b.eye;
+    bLead.innerHTML=b.lead;
+    bDist.textContent=Math.round((prog||curProg)*100)+'%';
+    turnIc.querySelector('svg').innerHTML = TURN[b.type==='risk'?'risk':(b.type==='done'?'done':'def')];
+  }
+
+  /* ════════ AI 응답 준비 파이프라인 (감지 → 조회 → 전략) ════════
+     별도 데이터 없이 각 발화의 kw / nx / risk 에서 3단계를 파생한다. */
+  function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+  function clip(t,n){t=(t||'').replace(/\s+/g,' ').trim();return t.length>n?t.slice(0,n-1)+'…':t;}
+  function stripPunc(t){return t.replace(/[.,!?…·]+$/,'');}
+
+  // 조회 대상 DB 테이블 마스터 (nx.d 텍스트에서 매칭)
+  const DBT=[
+    {nm:'금리 테이블',keys:['금리','대환']},
+    {nm:'중도상환수수료',keys:['수수료','중도상환']},
+    {nm:'약관 · 운행',keys:['약관','운행','담보']},
+    {nm:'한도 · 차량시세',keys:['한도','시세','차량']},
+    {nm:'우대조건',keys:['우대']},
+    {nm:'고객 프로필',keys:['프로필','본인','고객']},
+    {nm:'상담원 큐',keys:['상담원','연결','배정','핸드오프','세션','요약']}
+  ];
+  const TBL_IC='<svg class="ti" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2 6h12M2 9.5h12M6.5 6v7.5" stroke="currentColor" stroke-width="1.1"/></svg>';
+
+  let pipeTimers=[];
+  function pT(fn,ms){const id=setTimeout(fn,RM?0:ms);pipeTimers.push(id);return id;}
+  function clearPipeTimers(){pipeTimers.forEach(clearTimeout);pipeTimers=[];}
+  function stepStage(st,txt){st.querySelector('.step__stage .tx').textContent=txt;}
+
+  // ① 발화분석: 음성·감정·숨은의도 (고객 발화) 또는 키워드 칩 (AI 발화)
+  const AN_IC={
+    voice:'<svg viewBox="0 0 16 16" fill="none"><path d="M2 8h1.5l1.5-4 2.5 9 2-6 1 3h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    emo:'<svg viewBox="0 0 16 16" fill="none"><path d="M8 13.5S2.5 9.8 2.5 6.2A2.7 2.7 0 0 1 8 4.8a2.7 2.7 0 0 1 5.5 1.4C13.5 9.8 8 13.5 8 13.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+    intent:'<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4"/></svg>'
+  };
+  function buildAnRows(s){
+    const a=s.an; if(!a)return[];
+    const t=a.tone||'';
+    return [
+      {k:'voice', v:a.voice, c:''},
+      {k:'emo', v:a.emo, c:t},
+      {k:'intent', v:a.intent, c:''}
+    ].filter(r=>r.v).map(r=>{
+      const row=el('div','anrow'+(r.c?' '+r.c:''));
+      row.innerHTML='<span class="ai">'+AN_IC[r.k]+'</span><span class="av">'+r.v+'</span>';
+      return row;
+    });
+  }
+  function buildDetectChips(s){
+    if(s.an) return []; // 고객 발화는 음성·감정·의도 행으로 표현
+    const out=[];
+    if(s.def)  out.push(el('span','chip g','✓ 방어 가능'));
+    (s.kw||[]).forEach(k=>{
+      const w=(typeof k==='string')?k:k.w, o=(typeof k==='string')?{}:k;
+      out.push(el('span','chip'+(o.r?' r':o.g?' g':''),stripPunc(w)));
+    });
+    if(!out.length) out.push(el('span','chip','정상 신호'));
+    return out;
+  }
+  // 완성 발화 판정 라인 (근거 → 발화 직전 한 줄 결론)
+  // inS=분석 대상(고객 발화), outS=만들어낼 AI 응답
+  function buildVerdict(inS, outS){
+    const rows=[], o=outS||inS;
+    if(o.def)        rows.push({k:'대응', v:'✓ '+o.def.tac, go:true});
+    else if(inS.risk)rows.push({k:'대응', v:'⚠ '+inS.risk.label+' 방어', go:false});
+    else             rows.push({k:'대응', v:'정상 진행 · 관심 유지', go:true});
+    return rows;
+  }
+  // 구조화 DB: 발화의 db[] 스펙(스키마·쿼리·결과)이 있으면 그걸 쓰고,
+  // 없으면 nx.d 키워드로 마스터에서 골라 간이 스펙을 만든다.
+  function dbSpecs(s){
+    if(s.db && s.db.length) return s.db;
+    const d=(s.nx&&s.nx.d)||'';
+    let pick=DBT.filter(t=>t.keys.some(k=>d.indexOf(k)>=0)).slice(0,2);
+    if(!pick.length) pick=[DBT[5]];
+    return pick.map(t=>({nm:t.nm, cols:['항목','값'], q:d?clip(d,18):'프로필 매칭', r:['조회','확보']}));
+  }
+  // 스키마(컬럼 헤더 + 쿼리) + 스캔 인디케이터 + 숨겨진 결과 행을 가진 테이블 카드
+  function buildDbCard(spec){
+    const card=el('div','tbl');
+    const cols=(spec.cols||['항목','값']);
+    const colsHtml=cols.map(c=>'<span>'+c+'</span>').join('');
+    const rvals=(spec.r||[]);
+    // 결과 행은 컬럼 수에 맞춰 채움(부족분은 빈칸)
+    const rowHtml=cols.map((c,k)=>'<span>'+(rvals[k]!=null?rvals[k]:'·')+'</span>').join('');
+    card.innerHTML=
+      '<div class="tbl__h">'+TBL_IC+'<span class="nm">'+spec.nm+'</span><span class="st">대기</span></div>'+
+      '<div class="tbl__cols">'+colsHtml+'</div>'+
+      '<div class="tbl__scan"><span class="sp"></span><span class="qx">WHERE '+(spec.q||'…')+'</span></div>'+
+      '<div class="tbl__row">'+rowHtml+'</div>';
+    return card;
+  }
+  function buildCandRows(s){
+    const nx=s.nx||{}, blkD=nx.block==='?';
+    return [['t',nx.t],['d',nx.d],['a',nx.a]].filter(d=>d[1]).map(([key,txt])=>{
+      const r=el('div','cand');
+      r.innerHTML='<span class="dot"></span><span class="cx">'+clip(txt,22)+'</span><span class="badge">채택</span>';
+      return {el:r, pick:nx.pick===key, drop:(blkD&&key==='d')};
+    });
+  }
+
+  function resetPipe(){
+    clearPipeTimers();
+    [stRead,stMake].forEach(st=>{st.classList.remove('run','ok');stepStage(st,'대기');});
+    [segSignal,segPlan,segDb,segSpeak].forEach(s=>{s.classList.remove('lit');s.querySelector('.eb')&&s.querySelector('.eb').remove();});
+    dbPhase.querySelectorAll('b').forEach(b=>b.classList.remove('on','done'));
+    ar1.classList.remove('lit');
+    anRows.innerHTML='';detChips.innerHTML='';qTables.innerHTML='';pCands.innerHTML='';vList.innerHTML='';
+    pConf.style.width='0';pConfPct.textContent='0%';
+    pipeSrc.textContent='상담 시작 대기';
+  }
+  function segBadge(seg,txt,low){
+    const b=el('span','eb'+(low?' low':''),txt); seg.appendChild(b);
+  }
+  // DB 3단계 표시(① 스키마 → ② 분석 → ③ 결과)
+  function dbPhaseOn(p){const b=dbPhase.querySelector('[data-p="'+p+'"]');b&&(b.classList.remove('done'),b.classList.add('on'));}
+  function dbPhaseDone(p){const b=dbPhase.querySelector('[data-p="'+p+'"]');b&&(b.classList.remove('on'),b.classList.add('done'));}
+
+  /* 2블록 파이프라인 — 한 사이클: [고객 발화] 입력 → 카드 채움 → [AI 응답] 출력
+     ◆ 블록A(읽고 판단): 고객 신호(감정·의도·위험) → 고른 전략
+     ◆ 블록B(근거로 완성): 근거 조회·조합 → 완성 발화 → STT
+     inS: 분석 대상(고객 발화. 오프닝은 null)  outS: 만들어낼 AI 응답
+     onReveal: 완성 발화가 STT로 나갈 시점에 호출(AI 말풍선 로딩 해제용). */
+  function runPipe(inS, outS, onReveal){
+    resetPipe();
+    const srcS=inS||outS;   // 분석 입력 (오프닝은 AI 자기 맥락)
+    pipeSrc.textContent= inS ? ('고객 “'+clip(inS.txt,34)+'”') : '상담 시작 · 사전분석';
+    let prob = srcS.prob!=null ? srcS.prob : (srcS.risk?srcS.risk.prob:null);
+    if(prob==null) prob=curProb;
+
+    /* ── 블록 A · 읽고 판단 ── */
+    stRead.classList.add('run'); stepStage(stRead, inS?'고객 발화 읽는 중':'사전 맥락 읽는 중');
+
+    // 신호: 음성·감정·의도(고객) 또는 키워드 + 이탈% 배지
+    segSignal.classList.add('lit');
+    pT(()=>segBadge(segSignal,'이탈 '+prob+'%',prob<25),120);
+    const anr=buildAnRows(srcS), chips=buildDetectChips(srcS);
+    anr.forEach((r,k)=>pT(()=>{anRows.appendChild(r);requestAnimationFrame(()=>r.classList.add('on'));},150+k*130));
+    const aBase=150+anr.length*130;
+    chips.forEach((c,k)=>pT(()=>{detChips.appendChild(c);requestAnimationFrame(()=>c.classList.add('on'));},aBase+k*85));
+    const tSig=aBase+chips.length*85+170;
+
+    // 전략: 후보 → 채택 + 확신 게이지
+    const cands=buildCandRows(srcS);
+    pT(()=>{segPlan.classList.add('lit');stepStage(stRead,'전략 고르는 중');},tSig);
+    cands.forEach((c,k)=>pT(()=>{pCands.appendChild(c.el);requestAnimationFrame(()=>c.el.classList.add('on'));},tSig+90+k*130));
+    const tPickAt=tSig+90+cands.length*130+150;
+    pT(()=>{cands.forEach(c=>{if(c.pick)c.el.classList.add('pick');if(c.drop)c.el.classList.add('drop');});},tPickAt);
+    const conf=Math.max(35,Math.min(96,Math.round(96-prob*0.85)));
+    pT(()=>{pConf.style.width=conf+'%';pConfPct.textContent=conf+'%';},tPickAt+140);
+    const t1=tPickAt+420;
+    pT(()=>{stRead.classList.replace('run','ok');stepStage(stRead,'대응 결정');ar1.classList.add('lit');},t1);
+
+    /* ── 블록 B · 근거로 발화 완성 ──
+       DB조회를 3단계로 구조화: ① 스키마(어떤 DB·컬럼·쿼리) → ② 분석(스캔) → ③ 결과(행 채움) */
+    const specs=dbSpecs(srcS);
+    const cards=specs.map(buildDbCard);
+    pT(()=>{stMake.classList.add('run');segDb.classList.add('lit');},t1+110);
+
+    // ① 스키마: 어떤 DB를 어떤 컬럼/조건으로 찾을지 먼저 구조로 제시
+    pT(()=>{dbPhaseOn('schema');stepStage(stMake,'① 조회 대상 스키마');},t1+150);
+    cards.forEach((c,k)=>{
+      pT(()=>{qTables.appendChild(c);requestAnimationFrame(()=>c.classList.add('on'));},t1+220+k*150);
+    });
+    const tSchema=t1+220+cards.length*150+220;
+
+    // ② 분석: 카드마다 쿼리 실행(스캔) — WHERE 조건으로 데이터 훑는 과정
+    pT(()=>{dbPhaseDone('schema');dbPhaseOn('analyze');stepStage(stMake,'② 데이터 분석');},tSchema);
+    const SCAN=420;
+    cards.forEach((c,k)=>{
+      pT(()=>{c.classList.add('scan');c.querySelector('.st').textContent='SCAN';},tSchema+120+k*(SCAN+120));
+      pT(()=>{c.classList.remove('scan');},tSchema+120+k*(SCAN+120)+SCAN);
+    });
+    const tAnalyze=tSchema+120+cards.length*(SCAN+120)+120;
+
+    // ③ 결과: 분석 결과 행이 채워지고 카드가 HIT 확정
+    pT(()=>{dbPhaseDone('analyze');dbPhaseOn('result');stepStage(stMake,'③ 근거 확보');},tAnalyze);
+    cards.forEach((c,k)=>{
+      pT(()=>{
+        c.classList.add('hit');c.querySelector('.st').textContent='✓ HIT';
+        const row=c.querySelector('.tbl__row');row.classList.add('show');
+        [...row.querySelectorAll('span')].forEach((sp,j)=>pT(()=>sp.classList.add('on'),60+j*70));
+      },tAnalyze+100+k*180);
+    });
+    const tDb=tAnalyze+100+cards.length*180+260;
+    pT(()=>{dbPhaseDone('result');},tDb-80);
+
+    // 완성 발화: 판정 라인 + AI 발화 박스 (커서 깜빡임 → ready 시 STT 송출)
+    pT(()=>{segSpeak.classList.add('lit');stepStage(stMake,'발화 만드는 중');},tDb);
+    const vrows=buildVerdict(srcS, outS);
+    vrows.forEach((r,k)=>pT(()=>{
+      const v=el('div','vline'+(r.go?' go':''));
+      v.innerHTML='<span class="vk">'+r.k+'</span><span class="vv">'+r.v+'</span>';
+      vList.appendChild(v);requestAnimationFrame(()=>v.classList.add('on'));
+    },tDb+100+k*140));
+    const sp=el('div','vspeech');
+    sp.innerHTML='<span class="vlbl">완성 발화 · to STT</span><span class="vtx">'+clip(outS.txt,46)+'</span><span class="vcur"></span>';
+    const t4=tDb+100+vrows.length*140+120;
+    pT(()=>{vList.appendChild(sp);requestAnimationFrame(()=>sp.classList.add('on'));},t4);
+    const t5=t4+460;
+    pT(()=>{
+      sp.classList.add('ready');
+      stMake.classList.replace('run','ok');stepStage(stMake,'STT 송출 완료');
+      onReveal&&onReveal();   // ← AI 말풍선 로딩 해제 + 발화 노출
+    },t5);
+  }
+
+  /* ── 맵 효과 (카드와 분리: 차량·배너·위험노드·체크포인트·이탈게이지) ── */
+  function mapEffects(s){
+    moveCar(s.prog, RM?0:780);
+    if(s.cp) reach(s.cp);
+    let p=s.prob;
+    if(p==null && s.risk) p=s.risk.prob;
+    if(p==null && s.def)  p=s.def.prob;
+    setProb(p);
+    setMoves(s.nx);
+    setBanner(s.bann, s.prog);
+    if(s.risk){
+      const rz=document.getElementById('rz-'+s.risk.rz);
+      rz.classList.remove('blocked');rz.classList.add('show','alert');
+      const p=route.getPointAtLength(L*s.prog);
+      pop.setAttribute('transform','translate('+p.x.toFixed(1)+','+(p.y-48).toFixed(1)+')');
+      pop.classList.add('show');
+      if(!RM){carBody.style.animation='none';void carBody.offsetWidth;carBody.style.animation='shake .5s ease-in-out 2';}
+      // 예상 경로(고스트) → 위험이면 곧 막힘 연출
+      ghost.classList.remove('kill'); ghost.classList.add('show');
+      setTimeout(()=>{ghost.classList.remove('show');ghost.classList.add('kill');}, RM?200:900);
+      stageEl.className='stage r';
+      stageEl.textContent='⚠ 이탈 위험 #'+s.risk.n+' · '+s.risk.label;
+    }
+    if(s.def){
+      pop.classList.remove('show');
+      const rz=document.getElementById('rz-'+s.def.rz);
+      setTimeout(()=>{rz.classList.remove('alert');rz.classList.add('blocked');blocked++;},RM?0:520);
+      stageEl.className='stage';
+      stageEl.textContent='↩ 방어 #'+(blocked+1)+' · '+s.def.tac;
+    }
+    if(s.last){
+      setTimeout(()=>{
+        stageEl.className='stage w';
+        stageEl.textContent='✓ 전환 성공 · 이탈 위험 5회 모두 방어';
+      },RM?60:760);
+    }
+  }
+
+  /* ── 진행 제어 ──
+     한 사이클(클릭 1회): [고객 발화] STT 등장 → 카드가 그 발화를 분석해 AI 응답 준비
+                          → 카드가 다 차면 [AI 응답]이 STT에 노출.
+     오프닝 인사·연속 AI 발화도 같은 카드 흐름으로 처리. */
+  let i=0, blocked=0, secs=0, busy=false, secH=null, ended=false, lastCust=null;
+
+  // AI 발화를 STT에 노출.
+  //  · 직전 고객 발화에 '응답'하는 첫 AI → 카드가 그 고객 발화를 분석해 발화를 준비(채워짐)
+  //  · 응답할 고객 발화가 없는 AI(오프닝 인사·연속 AI 발화) → 카드 없이 바로 발화
+  function produceAI(){
+    if(i>=S.length || S[i].who!=='ai'){ busy=false; setBtn(); return; }
+    const aiS=S[i];
+    const defNum=blocked+1;                // mapEffects가 blocked 올리기 전 방어 번호 고정
+    const speak=(b)=>{
+      try{ mapEffects(aiS); }catch(err){ console.error('map error',err); }
+      revealWords(b, ()=>{
+        if(aiS.last) ended=true;
+        i++;
+        produceAI();                       // 연속 AI 발화가 더 있으면 이어서(카드 없이)
+      });
+    };
+    // 응답 대상 고객 발화가 있으면(아직 응답 전이면) → 카드를 채워 발화 준비
+    const inS = (lastCust && !lastCust._used) ? lastCust : null;
+    if(inS){
+      lastCust._used=true;                 // 이 고객 발화는 응답 소비됨
+      const loader=aiLoading();            // 카드 채우는 동안 STT엔 'AI 발화 준비 중…'
+      let done=false;
+      const reveal=()=>{ if(done)return; done=true; loader.remove(); speak(bubble(aiS,defNum)); };
+      try{ runPipe(inS, aiS, reveal); }catch(err){ console.error('pipe error',err); reveal(); }
+    } else {
+      // 카드 비움(직전 고객 분석 흔적은 유지). 짧은 타이핑 후 바로 발화.
+      typing('ai', ()=>{ speak(bubble(aiS,defNum)); });
+    }
+  }
+
+  function advance(){
+    if(busy||ended) return;
+    if(i>=S.length) return;
+    busy=true; setBtn();
+    const s=S[i];
+
+    if(s.who==='cust'){
+      // 고객 발화: STT에 먼저 들리고(음성 인식) → 카드가 채워지며 AI 응답 준비
+      typing('cust', ()=>{
+        const b=bubble(s);
+        try{ mapEffects(s); }catch(err){ console.error('map error',err); }  // 차량·위험노드
+        revealWords(b, ()=>{
+          lastCust=s; lastCust._used=false; i++;
+          produceAI();                     // 이 고객 발화에 대한 AI 응답을 카드로 준비
+        });
+      });
+    } else {
+      // 고객 발화 없이 시작하는 AI(오프닝 인사 등) — 바로 카드 흐름
+      produceAI();
+    }
+  }
+  function setBtn(){
+    if(ended){ nextBtn.disabled=true; nextBtn.classList.add('done'); nextBtn.innerHTML='✓ 상담 종료'; return; }
+    nextBtn.classList.remove('done');
+    nextBtn.disabled=busy;
+    const s=S[i];
+    if(busy){ nextBtn.innerHTML='재생 중…'; return; }
+    nextBtn.innerHTML = (i===0?'상담 시작':'다음 발화')+' <span class="kbd">↵</span>';
+  }
+
+  function startTimer(){ if(secH)clearInterval(secH);
+    secH=setInterval(()=>{ if(ended)return; secs++;
+      timerEl.textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');
+    },1000);
+  }
+
+  function reset(){
+    i=0;blocked=0;secs=0;curProg=0;busy=false;ended=false;lastCust=null;
+    setCar(0); revealRoute(0); curProb=8; setProb(8);
+    chat.innerHTML=''; timerEl.textContent='00:00';
+    pop.classList.remove('show'); ghost.className='';
+    document.querySelectorAll('.rz').forEach(e=>e.classList.remove('show','alert','blocked'));
+    ORDER.forEach(n=>{const el=document.getElementById('cp-'+n);el&&el.classList.remove('now','done');});
+    [chTalk,chDb,chAn].forEach(c=>{c.className='ch empty';c.querySelector('.ch__kw').textContent='대기 중';});
+    resetPipe();
+    stageEl.className='stage'; stageEl.textContent='통화 연결됨 · 시작 대기';
+    setBanner({type:'def',eye:'NEXT · 다음 안내',lead:'출발지 — <b>초반</b> 구간 진입 대기'},0);
+    setBtn(); startTimer();
+  }
+
+  nextBtn.addEventListener('click', advance);
+  restartBtn.addEventListener('click', ()=>{ reset(); });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && !busy && !ended){ e.preventDefault(); advance(); }
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
