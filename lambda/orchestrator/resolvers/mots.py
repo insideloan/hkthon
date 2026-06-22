@@ -21,13 +21,15 @@ def mot_out(item: dict) -> dict:
     """DynamoDB MOT 아이템 → GraphQL MOT (신규 형상)."""
     stage = item.get("stage")
     if stage is None and item.get("stageIndex") is not None:
-        idx = item["stageIndex"]
+        # DynamoDB 숫자는 Decimal일 수 있음 → 리스트 인덱싱 전에 int 캐스팅.
+        idx = int(item["stageIndex"])
         stage = _STAGE_BY_INDEX[idx] if 0 <= idx < len(_STAGE_BY_INDEX) else None
+    turn_seq = item.get("turn_seq")
     return {
         "markerId": item.get("markerId") or item.get("motId"),
         "state": item.get("state"),
         "stage": stage,
-        "turnSeq": item.get("turn_seq"),
+        "turnSeq": int(turn_seq) if turn_seq is not None else None,
     }
 
 
