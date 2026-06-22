@@ -75,14 +75,17 @@ def handler(event: dict, context: Any = None) -> Any:
     fn = resolvers.get(field)
     if fn is None:
         logger.warning("unknown fieldName: %s", field)
-        return {"error": True, "errorType": "INTERNAL",
-                "message": f"unknown field: {field}"}
+        raise OrchestratorError("INTERNAL", f"unknown field: {field}")
 
+    # AppSync(direct Lambda resolver)는 raise된 예외를 GraphQL error로 매핑한다
+    # (data:null + errors[]). errorType은 "Lambda:Unhandled"로 고정되므로, 도메인
+    # 코드를 message 앞에 "<CODE>: ..." 로 실어 클라이언트가 파싱하게 한다.
+    # (errorType별 분기가 꼭 필요하면 resolver에 VTL $util.error 추가 — 별도 작업.)
     try:
         return fn(event, args)
     except OrchestratorError as e:
         logger.info("resolver error %s: %s", e.error_type, e.message)
-        return {"error": True, "errorType": e.error_type, "message": e.message}
+        raise OrchestratorError(e.error_type, f"{e.error_type}: {e.message}") from e
     except Exception as e:  # noqa: BLE001 — 데모 안정성: 예외가 통화를 끊지 않게
         logger.exception("resolver crashed for field=%s", field)
-        return {"error": True, "errorType": "INTERNAL", "message": str(e)}
+        raise OrchestratorError("INTERNAL", f"INTERNAL: {e}") from e
