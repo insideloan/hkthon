@@ -71,16 +71,18 @@ def review_loop(draft: str, state: CallState) -> tuple[list[ComplianceStep], str
         (compliance_log, approved_text)
     """
     log: list[ComplianceStep] = []
+    original = draft  # FRONTEND diff(cmpFinal)용 원문 — 재작성돼도 보존
     current = draft
 
     log.append(_step("drafting", current, None, [], 0))
 
     for attempt in range(_MAX_RETRIES + 1):
-        verdict = _apply_guardrails(current)  # TODO: Bedrock Guardrails.apply()
+        verdict = _apply_guardrails(current)
         log.append(_step("reviewing", current, verdict.get("action"), verdict.get("violated", []), attempt))
 
         if not verdict.get("blocked"):
-            log.append(_step("approved", current, "approved", [], attempt))
+            # approved 단계는 원문(draft)과 최종문(final_text)을 함께 실어 FRONTEND diff 지원
+            log.append(_step("approved", original, "approved", [], attempt, final_text=current))
             return log, current
 
         if attempt >= _MAX_RETRIES:
@@ -88,12 +90,12 @@ def review_loop(draft: str, state: CallState) -> tuple[list[ComplianceStep], str
 
         # 위반 → 텍스트 삭제 연출 후 회피 지시로 재생성
         log.append(_step("redacting", current, "blocked", verdict.get("violated", []), attempt))
-        current = _redraft(state, current, verdict)  # TODO: router.converse(prompt + 회피지시)
+        current = _redraft(state, current, verdict)
         log.append(_step("redrafting", current, None, [], attempt + 1))
 
     # 재시도 소진 → 안전한 fallback 멘트로 승인 (통화 흐름 유지, API.md §0.3)
     fallback = "정확한 내용은 상담원이 다시 안내해 드리겠습니다."
-    log.append(_step("approved", fallback, "approved_fallback", [], _MAX_RETRIES))
+    log.append(_step("approved", original, "approved_fallback", [], _MAX_RETRIES, final_text=fallback))
     return log, fallback
 
 
@@ -182,11 +184,12 @@ def _redraft(state: CallState, blocked_text: str, verdict: dict) -> str:
     return router.converse(system, user, stream=False)
 
 
-def _step(state_name, draft, verdict, violated, try_no) -> ComplianceStep:
+def _step(state_name, draft, verdict, violated, try_no, *, final_text=None) -> ComplianceStep:
     return ComplianceStep(
         state=state_name,
         draft=draft,
         verdict=verdict,
         violated_policies=violated,
         try_no=try_no,
+        final_text=final_text,
     )

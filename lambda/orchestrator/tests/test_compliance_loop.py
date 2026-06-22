@@ -148,3 +148,70 @@ def test_loop_exhausts_retries_then_fallback(monkeypatch):
     log, final = c.review_loop("무조건 됩니다", {"stage": Stage.PROPOSE})
     assert log[-1]["state"] == "approved"  # fallback도 approved 상태로 종료
     assert final  # 안전 문구 비어있지 않음
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 이벤트 shape (SSOT-3) — reviewing.violatedPolicies + approved.draft/final_text
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_reviewing_step_carries_violated_policies(monkeypatch):
+    """reviewing 단계 이벤트에 위반 정책 목록(violatedPolicies)이 실린다 (Acceptance #4).
+
+    SSOT-3: CompliancePanel이 cmpChecks에 복수 규제 check를 표시.
+    """
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    fake = _FakeBedrock({
+        "action": "GUARDRAIL_INTERVENED",
+        "assessments": [{
+            "contentPolicy": {"filters": [{"type": "MISCONDUCT", "action": "BLOCKED"}]},
+            "topicPolicy": {"topics": [{"name": "GUARANTEE", "action": "BLOCKED"}]},
+        }],
+    })
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c.router, "converse", lambda *a, **k: "정정된 안내입니다")
+
+    log, _ = c.review_loop("무조건 됩니다", {"stage": Stage.PROPOSE})
+    reviewing = next(s for s in log if s["state"] == "reviewing")
+    assert reviewing["violated_policies"], "reviewing 단계에 위반 목록이 비어있으면 안 됨"
+    assert "MISCONDUCT" in reviewing["violated_policies"]
+    assert "GUARANTEE" in reviewing["violated_policies"]
+
+
+def test_approved_step_carries_original_and_final_after_redraft(monkeypatch):
+    """재작성 후 approved 단계가 원문(draft)+최종문(final_text)을 함께 싣는다 (Acceptance #3, FRONTEND diff)."""
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    seq = [
+        {"action": "GUARDRAIL_INTERVENED", "assessments": [
+            {"contentPolicy": {"filters": [{"type": "MISCONDUCT", "action": "BLOCKED"}]}}]},
+        {"action": "NONE", "assessments": []},
+    ]
+
+    class _Seq(_FakeBedrock):
+        def apply_guardrail(self, **kwargs):
+            self.calls.append(kwargs)
+            return seq[len(self.calls) - 1]
+
+    fake = _Seq()
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c.router, "converse", lambda *a, **k: "정정된 안내입니다")
+
+    log, final = c.review_loop("무조건 됩니다", {"stage": Stage.PROPOSE})
+    approved = log[-1]
+    assert approved["state"] == "approved"
+    assert approved["draft"] == "무조건 됩니다"      # 원문 보존
+    assert approved["final_text"] == "정정된 안내입니다"  # 최종 확정문
+    assert final == approved["final_text"]
+
+
+def test_approved_final_text_present_on_clean_first_pass(monkeypatch):
+    """첫 검수에 통과해도 approved 단계엔 final_text가 채워진다(원문==최종)."""
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    fake = _FakeBedrock({"action": "NONE", "assessments": []})
+    _use_fake(monkeypatch, fake)
+
+    log, final = c.review_loop("상담원 연결해 드리겠습니다", {"stage": Stage.PROPOSE})
+    approved = log[-1]
+    assert approved["state"] == "approved"
+    assert approved["draft"] == "상담원 연결해 드리겠습니다"
+    assert approved["final_text"] == final

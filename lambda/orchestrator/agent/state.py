@@ -113,14 +113,21 @@ class Token(TypedDict):
     reason: str
 
 
-class ComplianceStep(TypedDict):
-    """Guardrails 루프 단계 로그 (onComplianceState)."""
+class ComplianceStep(TypedDict, total=False):
+    """Guardrails 루프 단계 로그 (onComplianceState).
+
+    draft         = 해당 단계의 현재 텍스트(원문/차단본/재작성본).
+    final_text    = approved 단계에서만 채워지는 최종 확정 발화. FRONTEND가
+                    draft(원문)와 final_text(최종)를 diff로 렌더(SSOT-3 cmpFinal).
+                    그 외 단계에서는 None.
+    """
 
     state: Literal["drafting", "reviewing", "redacting", "redrafting", "approved"]
     draft: str
     verdict: Optional[str]
     violated_policies: list[str]
     try_no: int
+    final_text: Optional[str]
 
 
 class Strategy(TypedDict, total=False):
