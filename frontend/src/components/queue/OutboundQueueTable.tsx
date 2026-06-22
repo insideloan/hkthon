@@ -12,26 +12,20 @@ import { fetchQueue, subscribeQueueUpdates } from '@/lib/appsync';
 import { useQueueStore } from '@/stores/queueStore';
 import type { CallState, QueueRow } from '@/types/queue';
 
-// Call state → human label (Korean) + badge tone. reference/API.md state machine.
+// Call state → human label (Korean) + badge tone. Mirrors SDL `enum CallState`.
 const STATE_LABEL: Record<CallState, string> = {
+  CREATED: '대기',
   DIALING: '발신중',
-  RINGING: '연결중',
-  ACCEPTED: '수락',
-  REJECTED: '거절',
   IN_CALL: '통화중',
   TRANSFER_PENDING: '상담원 연결 대기',
-  AGENT_JOINED: '상담원 연결됨',
   ENDED: '종료',
 };
 
 const STATE_TONE: Record<CallState, BadgeTone> = {
+  CREATED: 'noanswer',
   DIALING: 'noanswer',
-  RINGING: 'noanswer',
-  ACCEPTED: 'active',
-  REJECTED: 'rejected',
   IN_CALL: 'active',
   TRANSFER_PENDING: 'escalate',
-  AGENT_JOINED: 'signup',
   ENDED: 'neutral',
 };
 
@@ -49,8 +43,8 @@ function formatElapsed(sec: number): string {
 }
 
 /** First character of customer name, used as avatar initial. */
-function nameInitial(name: string): string {
-  return name.charAt(0) || '?';
+function nameInitial(name: string | null | undefined): string {
+  return name?.charAt(0) || '?';
 }
 
 type OutboundQueueTableProps = {
@@ -182,22 +176,26 @@ export function OutboundQueueTable({
                   className="text-[13.5px] font-[800] truncate"
                   style={{ color: 'var(--ink)' }}
                 >
-                  {row.customerName}
+                  {row.customerName || '—'}
                 </span>
                 <span className="text-[10.5px] truncate" style={{ color: 'var(--ink-dim)' }}>
-                  {row.targetProduct || row.customerId}
+                  {row.callId}
                 </span>
               </div>
             </div>
 
             {/* 상태 badge */}
             <div>
-              <Badge tone={STATE_TONE[row.state]}>{STATE_LABEL[row.state]}</Badge>
+              {row.state ? (
+                <Badge tone={STATE_TONE[row.state]}>{STATE_LABEL[row.state]}</Badge>
+              ) : (
+                <span className="text-xs text-gray-400">—</span>
+              )}
             </div>
 
             {/* 현 단계 */}
             <span className="text-[12.5px] font-bold truncate" style={{ color: 'var(--ink)' }}>
-              {row.scenario}
+              {row.stage || '—'}
             </span>
 
             {/* 이탈위험 */}
@@ -211,7 +209,7 @@ export function OutboundQueueTable({
 
             {/* 담당 */}
             <span className="text-[12.5px]" style={{ color: 'var(--ink-dim)' }}>
-              {row.highlight === 'needs_agent' ? '상담원' : 'AI'}
+              {row.assignee || (row.highlight === 'needs_agent' ? '상담원' : 'AI')}
             </span>
 
             {/* 통화시간 */}
@@ -219,12 +217,12 @@ export function OutboundQueueTable({
               className="text-[12.5px] tabular-nums font-mono"
               style={{ color: 'var(--ink-dim)' }}
             >
-              {formatElapsed(row.elapsedSec)}
+              {formatElapsed(row.elapsedSec ?? 0)}
             </span>
 
             {/* 채널 */}
             <span className="text-[12.5px]" style={{ color: 'var(--ink-dim)' }}>
-              전화
+              {row.channel || '전화'}
             </span>
           </div>
         ))

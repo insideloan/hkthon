@@ -20,10 +20,10 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'miss', label: '이탈' },
 ];
 
-/** States considered "live" (IN_CALL / TRANSFER_PENDING / AGENT_JOINED / ACCEPTED). */
-const LIVE_STATES = new Set<CallState>(['IN_CALL', 'ACCEPTED', 'TRANSFER_PENDING', 'AGENT_JOINED']);
-/** States considered "waiting" (DIALING / RINGING). */
-const WAIT_STATES = new Set<CallState>(['DIALING', 'RINGING']);
+/** States considered "live" (IN_CALL / TRANSFER_PENDING). */
+const LIVE_STATES = new Set<CallState>(['IN_CALL', 'TRANSFER_PENDING']);
+/** States considered "waiting" (CREATED / DIALING). */
+const WAIT_STATES = new Set<CallState>(['CREATED', 'DIALING']);
 
 // ─── Stat card ───────────────────────────────────────────────────────────────
 
@@ -77,21 +77,20 @@ export default function Home() {
   const summary = useQueueStore((s) => s.summary);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
 
-  // Compute completion rate for the 4th stat card (SSOT .adm-stat.cmp — '완료율')
-  const totalCalls =
-    (summary?.waiting ?? 0) +
-    (summary?.inProgress ?? 0) +
-    (summary?.needsAgent ?? 0) +
-    (summary?.ended ?? 0);
-  const completionRate =
-    totalCalls > 0 ? ((summary?.ended ?? 0) / totalCalls) * 100 : 0;
+  // Derived counts from rows (SDL summary = total/needsAgent/fraudSuspected/inCall;
+  // ended/waiting are display-only, computed client-side from row states).
+  const totalCalls = summary?.total ?? rows.length;
+  const endedCount = rows.filter((r) => r.state === 'ENDED').length;
+  const liveCount =
+    summary?.inCall ?? rows.filter((r) => LIVE_STATES.has(r.state as CallState)).length;
+  const completionRate = totalCalls > 0 ? (endedCount / totalCalls) * 100 : 0;
   const completionRateDisplay = completionRate.toFixed(1);
 
   // Compute filtered rows for the count badge and table
   const filteredRows = rows.filter((row) => {
     if (activeFilter === 'all') return true;
-    if (activeFilter === 'live') return LIVE_STATES.has(row.state);
-    if (activeFilter === 'wait') return WAIT_STATES.has(row.state);
+    if (activeFilter === 'live') return row.state ? LIVE_STATES.has(row.state) : false;
+    if (activeFilter === 'wait') return row.state ? WAIT_STATES.has(row.state) : false;
     if (activeFilter === 'done') return row.state === 'ENDED';
     if (activeFilter === 'miss') return row.highlight === 'needs_agent' || row.highlight === 'fraud_suspected';
     return true;
@@ -121,9 +120,9 @@ export default function Home() {
 
       {/* ── adm-stats ── */}
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
-        <StatCard label="현재 진행 중인 콜" value={(summary?.inProgress ?? 0) + (summary?.waiting ?? 0)} accent="live" />
+        <StatCard label="현재 진행 중인 콜" value={liveCount} accent="live" />
         <StatCard label="대기 중 상담원" value={2} />
-        <StatCard label="오늘 상담사 연결" value={summary?.ended ?? 0} unit="건" accent="done" />
+        <StatCard label="오늘 상담사 연결" value={endedCount} unit="건" accent="done" />
         <StatCard label="컴플라이언스 준수율" value={completionRateDisplay} unit="%" accent="done" />
       </div>
 

@@ -8,6 +8,7 @@ import type { V6Client } from '@aws-amplify/api-graphql';
 import type { ZodTypeAny, TypeOf } from 'zod';
 import {
   QueueResultSchema,
+  QueueUpdatePayloadSchema,
   type QueueResult,
   type QueueRow,
   type QueueSummary,
@@ -150,28 +151,22 @@ function subscribeWithReconnect<TSchema extends ZodTypeAny>(
 // shows the highlight states (needs_agent / fraud_suspected) and churn bar.
 function mockQueue(): QueueResult {
   const rows: QueueRow[] = [
-    { callId: 'm1', customerId: 'cust-3010', customerName: '김영수', targetProduct: '대환대출',
-      state: 'IN_CALL', scenario: '금리인하 문의', highlight: null, highlightSince: null,
-      elapsedSec: 95, churnRisk: 38 },
-    { callId: 'm2', customerId: 'cust-3027', customerName: '이민정', targetProduct: '신용대출',
-      state: 'TRANSFER_PENDING', scenario: '한도 상향', highlight: 'needs_agent',
-      highlightSince: null, elapsedSec: 212, churnRisk: 81 },
-    { callId: 'm3', customerId: 'cust-3044', customerName: '박철수', targetProduct: '전세자금',
-      state: 'IN_CALL', scenario: '명의도용 의심', highlight: 'fraud_suspected',
-      highlightSince: null, elapsedSec: 47, churnRisk: 64 },
-    { callId: 'm4', customerId: 'cust-3051', customerName: '최유진', targetProduct: '카드론',
-      state: 'RINGING', scenario: '신규 상담', highlight: null, highlightSince: null,
-      elapsedSec: 8, churnRisk: null },
-    { callId: 'm5', customerId: 'cust-2998', customerName: '한지민', targetProduct: '대환대출',
-      state: 'ENDED', scenario: '상담 완료', highlight: null, highlightSince: null,
-      elapsedSec: 363, churnRisk: 22 },
+    { callId: 'm1', customerName: '김영수', state: 'IN_CALL', stage: '금리인하 문의',
+      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 95, churnRisk: 38 },
+    { callId: 'm2', customerName: '이민정', state: 'TRANSFER_PENDING', stage: '한도 상향',
+      assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 212, churnRisk: 81 },
+    { callId: 'm3', customerName: '박철수', state: 'IN_CALL', stage: '명의도용 의심',
+      assignee: 'AI 코파일럿', channel: '전세자금', highlight: 'fraud_suspected', elapsedSec: 47, churnRisk: 64 },
+    { callId: 'm4', customerName: '최유진', state: 'DIALING', stage: '신규 상담',
+      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 8, churnRisk: null },
+    { callId: 'm5', customerName: '한지민', state: 'ENDED', stage: '상담 완료',
+      assignee: '김도현', channel: '인바운드', highlight: null, elapsedSec: 363, churnRisk: 22 },
   ];
   const summary: QueueSummary = {
-    waiting: 1,
-    inProgress: rows.filter((r) => r.state === 'IN_CALL').length,
+    total: rows.length,
     needsAgent: rows.filter((r) => r.highlight === 'needs_agent').length,
     fraudSuspected: rows.filter((r) => r.highlight === 'fraud_suspected').length,
-    ended: rows.filter((r) => r.state === 'ENDED').length,
+    inCall: rows.filter((r) => r.state === 'IN_CALL').length,
   };
   return { summary, rows };
 }
@@ -180,10 +175,10 @@ function mockQueue(): QueueResult {
 const QUEUE_QUERY = /* GraphQL */ `
   query Queue($highlightOnly: Boolean) {
     queue(highlightOnly: $highlightOnly) {
-      summary { waiting inProgress needsAgent fraudSuspected ended }
+      summary { total needsAgent fraudSuspected inCall }
       rows {
-        callId customerId customerName targetProduct
-        state scenario highlight highlightSince elapsedSec
+        callId customerName state stage churnRisk
+        assignee channel elapsedSec highlight
       }
     }
   }
@@ -208,23 +203,22 @@ export async function fetchQueue(highlightOnly = false): Promise<QueueResult> {
 }
 
 // ── onQueueUpdate (realtime) ─────────────────────────────────────────────────
+// SDL: onQueueUpdate returns QueueUpdatePayload { callId, state } — a per-call
+// delta, NOT a full snapshot. dialCall / state changes fan out via Streams →
+// _emitQueueUpdate. On each delta we refetch the full queue (demo scale: a
+// handful of rows, single query) and hand the fresh snapshot to onData.
 const ON_QUEUE_UPDATE_SUB = /* GraphQL */ `
   subscription OnQueueUpdate {
-    onQueueUpdate {
-      summary { waiting inProgress needsAgent fraudSuspected ended }
-      rows {
-        callId customerId customerName targetProduct
-        state scenario highlight highlightSince elapsedSec
-      }
-    }
+    onQueueUpdate { callId state }
   }
 `;
 
-type OnQueueUpdate = { onQueueUpdate: QueueResult };
+type OnQueueUpdate = { onQueueUpdate: { callId: string; state?: string | null } };
 
 /**
  * Subscribe to live queue updates. Returns an unsubscribe function.
- * Parse failures are routed to onError instead of throwing in the stream.
+ * Each `onQueueUpdate` delta triggers a full queue refetch; the resulting
+ * snapshot is delivered via onData. Refetch/parse failures route to onError.
  */
 export function subscribeQueueUpdates(
   onData: (result: QueueResult) => void,
@@ -232,7 +226,7 @@ export function subscribeQueueUpdates(
 ): () => void {
   if (USE_MOCK) {
     // Tick elapsed time every second so the demo feels live; no real socket
-    // (so no reconnect loop against the undeployed schema).
+    // (so no reconnect loop against the real endpoint).
     const base = mockQueue();
     let tick = 0;
     const timer = setInterval(() => {
@@ -240,7 +234,7 @@ export function subscribeQueueUpdates(
       onData({
         ...base,
         rows: base.rows.map((r) =>
-          r.state === 'ENDED' ? r : { ...r, elapsedSec: r.elapsedSec + tick },
+          r.state === 'ENDED' ? r : { ...r, elapsedSec: (r.elapsedSec ?? 0) + tick },
         ),
       });
     }, 1000);
@@ -249,8 +243,11 @@ export function subscribeQueueUpdates(
   return subscribeWithReconnect(
     { query: ON_QUEUE_UPDATE_SUB },
     (d) => (d as OnQueueUpdate | undefined)?.onQueueUpdate,
-    QueueResultSchema,
-    onData,
+    QueueUpdatePayloadSchema,
+    () => {
+      // Delta only tells us *something* changed — refetch the authoritative snapshot.
+      fetchQueue().then(onData).catch((err) => onError?.(err));
+    },
     onError,
   );
 }

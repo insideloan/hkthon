@@ -12,7 +12,7 @@ import type { QueueResult, QueueRow } from '@/types/queue';
 
 // Mock the AppSync layer so we can drive the onQueueUpdate stream by hand.
 const emptyResult: QueueResult = {
-  summary: { waiting: 0, inProgress: 0, needsAgent: 0, fraudSuspected: 0, ended: 0 },
+  summary: { total: 0, needsAgent: 0, fraudSuspected: 0, inCall: 0 },
   rows: [],
 };
 const fetchQueue = vi.fn().mockResolvedValue(emptyResult);
@@ -30,19 +30,18 @@ vi.mock('@/lib/appsync', () => ({
 function makeRow(over: Partial<QueueRow> = {}): QueueRow {
   return {
     callId: 'c1',
-    customerId: 'cust1',
     customerName: '김영수',
-    targetProduct: '대환대출',
     state: 'IN_CALL',
-    scenario: 'S1',
+    stage: 'S1',
+    assignee: 'AI 코파일럿',
+    channel: '아웃바운드',
     highlight: null,
-    highlightSince: null,
     elapsedSec: 95,
     ...over,
   };
 }
 
-const summary = { waiting: 0, inProgress: 1, needsAgent: 0, fraudSuspected: 0, ended: 0 };
+const summary = { total: 1, needsAgent: 0, fraudSuspected: 0, inCall: 1 };
 
 function seed(rows: QueueRow[]) {
   act(() => {
