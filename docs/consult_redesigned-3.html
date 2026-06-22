@@ -621,10 +621,15 @@
   #view-segment .flow-ar{font-size:18px;color:var(--ink-faint)}
   #view-segment .flow-sub{font-size:12.5px;color:var(--ink-dim);margin-top:12px;line-height:1.55}
   #view-segment .flow-sub b{color:var(--ink);font-weight:700}#view-segment .flow-sub b.hi{color:var(--route)}
-  #view-segment .sg-btnwrap{display:flex;justify-content:center}
-  #view-segment .sg-btn{display:inline-flex;align-items:center;gap:6px;margin:14px auto 0;font-family:var(--disp);font-size:12px;font-weight:700;
+  #view-segment .sg-btnwrap{display:flex;justify-content:center;gap:10px}
+  #view-segment .sg-btn{display:inline-flex;align-items:center;gap:6px;margin:14px 0 0;font-family:var(--disp);font-size:12px;font-weight:700;
     color:var(--ink-dim);background:var(--card-soft);border:1px solid var(--card-bd);border-radius:10px;padding:8px 16px;cursor:pointer;transition:all .18s}
   #view-segment .sg-btn:hover{color:var(--route);border-color:var(--route)}
+  /* 발신하기 — 분석 완료(활성) 시 route 컬러 강조 */
+  #view-segment .sg-btn--call{color:#fff;background:var(--route);border-color:var(--route);font-size:13px;padding:9px 20px}
+  #view-segment .sg-btn--call:hover:not(:disabled){color:#fff;transform:translateY(-1px);box-shadow:0 6px 16px -6px rgba(53,81,214,.6)}
+  #view-segment .sg-btn--call:disabled{color:#A9B4C2;background:#EEF1F5;border-color:#DCE2EA;cursor:default}
+  #view-segment .sg-btn--call.ready{animation:cbtn 1.2s ease-in-out infinite}
   /* 발신/연결 오버레이 */
   #view-segment{position:relative}
   .dial-overlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
@@ -1296,7 +1301,7 @@
        </div>
      </div>
    </div>
-   <div class="sg-btnwrap"><button class="sg-btn" id="sgReplay"><i class="ti ti-refresh" aria-hidden="true"></i>다시 재생</button></div>
+   <div class="sg-btnwrap"><button class="sg-btn" id="sgReplay"><i class="ti ti-refresh" aria-hidden="true"></i>다시 재생</button><button class="sg-btn sg-btn--call" id="sgCall" disabled><i class="ti ti-phone-call" aria-hidden="true"></i>발신하기</button></div>
 
    </div>
 
@@ -2418,7 +2423,8 @@
   function sgReset(){sgClear();cancelAnimationFrame(sgRaf);combo.textContent='16,777,216';combo.classList.remove('done');
     sgRoot.querySelectorAll('.cat,.clu,.ln,.seg').forEach(e=>e.classList.remove('show','dim','lock'));
     document.getElementById('sgFinal').classList.remove('show');
-    document.getElementById('dialOverlay').classList.remove('show');}
+    document.getElementById('dialOverlay').classList.remove('show');
+    const cb=document.getElementById('sgCall'); if(cb){ cb.disabled=true; cb.classList.remove('ready'); }}
   function sgPlay(){
     sgReset();
     if(RM){
@@ -2426,7 +2432,9 @@
       sgRoot.querySelector('.seg[data-s="top"]').classList.add('dim');
       sgRoot.querySelector('.seg[data-s="bottom"]').classList.add('dim');
       combo.textContent='1';combo.classList.add('done');
-      document.getElementById('sgFinal').classList.add('show');return;
+      document.getElementById('sgFinal').classList.add('show');
+      const cb=document.getElementById('sgCall'); if(cb){ cb.disabled=false; cb.classList.add('ready'); }
+      return;
     }
     for(let i=0;i<9;i++){sgAt(120+i*65,()=>{const n=sgRoot.querySelector('.cat[data-i="'+i+'"]');if(n)n.classList.add('show');});}
     sgAt(900,()=>{sgLn('ln-A');sgClu('A');sgCount(262144,1000);});
@@ -2436,8 +2444,11 @@
     sgAt(5500,()=>{sgLn('ln-cv');sgClu('cv');});
     sgAt(6100,()=>{sgRoot.querySelectorAll('.seg').forEach(e=>e.classList.add('show'));sgLn('ln-sg');sgCount(3,800);});
     sgAt(7050,()=>{sgRoot.querySelector('.seg[data-s="top"]').classList.add('dim');sgRoot.querySelector('.seg[data-s="bottom"]').classList.add('dim');sgRoot.querySelector('.seg[data-s="sel"]').classList.add('lock');sgCount(1,800);combo.classList.add('done');});
-    sgAt(8050,()=>document.getElementById('sgFinal').classList.add('show'));
-    sgAt(10200,()=>runDial());     // 분석 결과 노출 후 → 발신 시퀀스
+    sgAt(8050,()=>{
+      document.getElementById('sgFinal').classList.add('show');
+      // 분석 완료 → '발신하기' 버튼 활성화 (자동 발신 대신 사용자 클릭 대기)
+      const cb=document.getElementById('sgCall'); if(cb){ cb.disabled=false; cb.classList.add('ready'); }
+    });
   }
   /* ── 사전분석 완료 → 3·2·1 카운트다운 → 발신 → 연결됨 → 통화화면 자동 전환 ── */
   const dialOv=document.getElementById('dialOverlay'), dialCount=document.getElementById('dialCount'),
@@ -2445,6 +2456,7 @@
   function hideDial(){ dialOv.classList.remove('show'); }
   function runDial(){
     if(curView!=='segment') return;      // 세그먼트 화면일 때만
+    sgClear();                           // 분석 단계 잔여 타이머 정리 후 발신 시퀀스 시작
     dialCount.className='dial-count'; dialCount.textContent='3';
     dialStatus.className='dial-status'; dialStatus.textContent='사전 분석 완료 · 발신 준비';
     dialWaves.classList.remove('on');
@@ -2462,6 +2474,12 @@
     sgAt(5400,()=>{ toConsult(); });   // 통화 화면으로 자동 전환
   }
   document.getElementById('sgReplay').addEventListener('click', ()=>{ hideDial(); sgPlay(); });
+  // '발신하기' 클릭 → 발신 시퀀스 시작 (분석 완료 후 활성화됨)
+  document.getElementById('sgCall').addEventListener('click', function(){
+    if(this.disabled) return;
+    this.classList.remove('ready');
+    runDial();
+  });
 
   reset();           // 상담화면 내부 초기화(백그라운드)
   renderAdmin();     // 첫 화면 = 관리자 화면
