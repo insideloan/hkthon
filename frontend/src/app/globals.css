@@ -81,3 +81,16 @@
     box-shadow: var(--shadow);
   }
 }
+
+/* 사이드바 LIVE dot 펄스 (SSOT .sb-foot .d) */
+@keyframes beatG {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 158, 110, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(46, 158, 110, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 158, 110, 0);
+  }
+}
