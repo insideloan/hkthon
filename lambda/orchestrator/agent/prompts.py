@@ -158,7 +158,8 @@ def classify_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
                 "- emotion / need / usability: 위 카탈로그 라벨 중 정확히 하나(가장 잘 맞는 것)\n"
                 "- fraud_suspected: 보이스피싱/사기 의심 발화 여부 (true여도 통화는 종료하지 않음)\n"
                 "- churn_adjust: 사전 점수 대비 의미 기반 보정 제안 (-10~+10)\n"
-                "- strategy: {tactic, headline} — tactic은 전략 카탈로그 라벨, headline은 관리자 화면용 한 줄\n"
+                "- strategy: {tactic, headline} — tactic은 전략 카탈로그 라벨, headline은 카드 제목(.stx) 한 줄"
+                " (카드 부연 lead(.slead)는 tactic으로부터 자동 매핑되므로 생성 불필요)\n"
                 "- rationale: 판단 근거 한국어 1~2문장"
             ),
         ]

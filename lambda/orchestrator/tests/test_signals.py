@@ -36,6 +36,24 @@ def test_every_member_has_catalog_meta():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 전략 카드 lead(.slead) — SSOT-3 STRAT20 정본 (Drift 3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_every_tactic_has_lead():
+    """20종 Tactic 모두 카드 lead(.slead) 문구를 가진다(누락 방지)."""
+    assert set(signals.TACTIC_LEAD) == set(Tactic)
+    assert all(lead for lead in signals.TACTIC_LEAD.values())
+
+
+def test_tactic_lead_helper_maps_and_falls_back():
+    """tactic_lead(): 정규 Tactic→SSOT-3 문구, None→빈 문자열."""
+    assert signals.tactic_lead(Tactic.PROPOSE_REFINANCE) == "갈아타기 가능성과 절감 효과를 확인시킨다"
+    assert signals.tactic_lead(Tactic.BUILD_TRUST) == "통화 출처·연락 사유·공식 절차를 먼저 설명해 경계를 낮춘다"
+    assert signals.tactic_lead(None) == ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 안전 파서 — 한국어 라벨 / 영문 멤버명 / 폴백
 # ─────────────────────────────────────────────────────────────────────────────
 

@@ -18,6 +18,7 @@ from .state import (
     Intent,
     Route,
     Stage,
+    Strategy,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ def classify(state: CallState) -> CallState:
         "need": signals.to_need(result.need),
         "usability": signals.to_usability(result.usability),
         "fraud_suspected": result.fraud_suspected,
-        "strategy": {"tactic": _canon_tactic(result.strategy_tactic), "headline": result.strategy_headline},
+        "strategy": _build_strategy(result.strategy_tactic, result.strategy_headline),
         "rationale": result.rationale,
         "classified_by": "llm",
         # churn_adjust는 churn_score 노드가 ±10 한도로만 반영 (사전 점수 우선)
@@ -241,7 +242,11 @@ def transfer_node(state: CallState) -> CallState:
         "route": Route.TRANSFER,
         "call_status": CallStatus.TRANSFER_PENDING,
         "bot_text": "네, 바로 상담원에게 연결해 드리겠습니다. 잠시만 기다려 주세요.",
-        "strategy": {"tactic": "즉시 이관", "headline": "상담원 연결 요청 — 단계 무시 즉시 이관"},
+        "strategy": {
+            "tactic": "즉시 이관",
+            "headline": "상담원 연결 요청 — 단계 무시 즉시 이관",
+            "lead": signals.tactic_lead(signals.Tactic.HANDOFF_PROTECT),
+        },
     }
 
 
@@ -305,6 +310,23 @@ def _canon_tactic(value: str) -> str:
     """LLM 전략 문자열을 signals.Tactic 정규 라벨로. 카탈로그 밖이면 원문 보존(화면 표시용)."""
     tac = signals.to_tactic(value)
     return tac.value if tac else (value or "")
+
+
+def _build_strategy(tactic_value: str, headline: str) -> Strategy:
+    """classify 결과 → Strategy(tactic/headline/lead).
+
+    lead(.slead)는 정규 Tactic일 때 signals.TACTIC_LEAD에서 결정적으로 채운다
+    (SSOT-3 STRAT20 정본). 카탈로그 밖 전략이면 lead 생략(키 없음 — 하위호환).
+    """
+    tac = signals.to_tactic(tactic_value)
+    strategy: Strategy = {
+        "tactic": tac.value if tac else (tactic_value or ""),
+        "headline": headline,
+    }
+    lead = signals.tactic_lead(tac)
+    if lead:
+        strategy["lead"] = lead
+    return strategy
 
 
 def _to_intent(value: str) -> Intent:
