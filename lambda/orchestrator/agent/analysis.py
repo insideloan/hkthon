@@ -1,12 +1,15 @@
-"""발화 분석 / Speech analysis — 토큰 + 턴 레벨 flag 산출.
+"""발화 분석 / Speech analysis — 어절 토큰화 + 턴 레벨 flag 산출.
 
 AGENT 모듈. SSOT: docs/consult_redesigned-3.html (SSOT-3 재정렬).
+렉시콘 SSOT: hk-skills/reference/CHURN-RISK-LEXICON.md.
 
 역할:
-  - 고객 발화 텍스트에서 토큰 [{text, polarity, reason}] 생산.
-  - churn_risk 렉시콘 매칭 결과를 바탕으로 토큰 polarity 결정:
-      CONS (위험/이탈 신호, weight > 0) / PRO (성공경로 신호, weight < 0) / null (비매칭).
-  - 턴 레벨 flag ("risk" | "def" | null) 별도 산출 → Turn.flag으로 기록.
+  - 고객 발화를 어절 단위로 전체 토큰화:
+      매칭 키워드 → polarity=PRO/CONS + reason=카테고리 desc.
+      비키워드 어절 → polarity=None + reason="" (발화 시각화).
+  - churn_risk 내부 함수(사전 로드·매칭·부정 규칙)를 재사용해 렉시콘 SSOT 일원화.
+  - churn_score()로 이탈위험도(EMA) 갱신.
+  - 턴 레벨 flag ("risk" | "def" | null) 산출 → Turn.flag으로 기록.
       ※ BACKEND #28 계약: null → NEUTRAL 으로 매핑해 방출.
 
 SSOT-3 재정렬 (2026-06-22):
@@ -29,6 +32,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
+from . import churn_risk
 from .churn_risk import score as churn_score
 from .state import Token
 
@@ -62,6 +66,9 @@ def analyze(
 ) -> tuple[int, list[Token], TurnFlag]:
     """고객 발화를 분석해 churn 갱신값·토큰 목록·턴 flag를 반환.
 
+    토큰 목록은 어절 전체를 포함한다(비키워드 어절도 polarity=None으로 반환).
+    churn 점수 계산은 churn_score()를 재사용하고, 토큰화는 어절 전체를 처리한다.
+
     Args:
         customer_text: STT 고객 발화 (ko-KR).
         churn_before: 직전 턴 churn_risk (EMA용).
@@ -72,14 +79,17 @@ def analyze(
         (churn_after, tokens, turn_flag)
         - churn_after: 이번 턴 이탈위험도 (0~100).
         - tokens: [{text, polarity, reason}] — DynamoDB Turn.tokens.
+          매칭 키워드는 PRO/CONS + reason, 비키워드는 polarity=None + reason="".
         - turn_flag: "risk" | "def" | None — DynamoDB Turn.flag.
     """
-    churn_after, tokens = churn_score(
+    churn_after, _score_tokens = churn_score(
         customer_text,
         churn_before,
         adjust=adjust,
         silence_streak=silence_streak,
     )
+    # 어절 전체 토큰화 (비키워드 어절도 포함, 발화 시각화 목적)
+    tokens = _tokenize_all_eojeol(customer_text)
     flag = derive_turn_flag(tokens)
     return churn_after, tokens, flag
 
@@ -102,3 +112,71 @@ def derive_turn_flag(tokens: list[Token]) -> TurnFlag:
     if pro_count > 0 and pro_count >= cons_count:
         return "def"
     return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 내부 헬퍼 — 어절 전체 토큰화 (발화 시각화 로직)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _tokenize_all_eojeol(customer_text: str) -> list[Token]:
+    """고객 발화 → 어절 단위 전체 토큰 목록.
+
+    각 어절(공백 분리)에 대해:
+      - 렉시콘 stem을 포함하면 polarity=PRO/CONS + reason=카테고리 desc
+      - 아니면 polarity=None + reason="" (비키워드)
+
+    PRO/CONS는 churn_risk와 동일 규칙(카테고리 weight 부호 + 바로 앞 어절 부정어 반전)으로
+    결정한다. 같은 어절이 여러 카테고리에 걸리면 먼저 매칭된 카테고리를 따른다.
+    """
+    norm = churn_risk._normalize(customer_text)
+    if not norm:
+        return []
+
+    # 1) 렉시콘 매칭: 문장 내 매칭 구간 [start,end) → (polarity, reason). churn_risk 규칙 재사용.
+    #    stem이 다중 어절(공백 포함)일 수 있으므로 문자 인덱스 구간으로 다룬다.
+    spans = _matched_spans(norm)
+
+    # 2) 어절 단위로 토큰화하며, 어절이 매칭 구간과 겹치면 polarity를 입힌다(발화 순서 보존).
+    tokens: list[Token] = []
+    cursor = 0
+    for eojeol in norm.split(" "):
+        if not eojeol:
+            cursor += 1  # 연속 공백 보정
+            continue
+        start = norm.index(eojeol, cursor)
+        end = start + len(eojeol)
+        cursor = end
+        polarity, reason = _classify_span(start, end, spans)
+        tokens.append(Token(text=eojeol, polarity=polarity, reason=reason))
+    return tokens
+
+
+def _matched_spans(norm_text: str) -> list[tuple[int, int, str, str]]:
+    """정규화된 발화에서 매칭된 구간 목록 [(start, end, polarity, reason), ...].
+
+    churn_risk._match_category(부정 반전·카테고리당 max_matches 규칙 포함)로 매칭 stem을 얻고,
+    각 stem의 문장 내 위치를 구간으로 환산한다. 같은 구간 중복은 먼저 매칭된 카테고리 우선.
+    """
+    lex = churn_risk._lexicon()
+    model = lex["model"]
+    spans: list[tuple[int, int, str, str]] = []
+    for cat in lex["categories"]:
+        reason = cat.get("desc", cat["key"])
+        for stem, signed_w in churn_risk._match_category(norm_text, cat, lex, model):
+            norm_stem = churn_risk._normalize(stem)
+            idx = norm_text.find(norm_stem)
+            if idx == -1:
+                continue
+            # 부호 반전(부정어)까지 반영된 signed_w로 polarity 결정. cons>0 → CONS.
+            polarity = "CONS" if signed_w > 0 else "PRO"
+            spans.append((idx, idx + len(norm_stem), polarity, reason))
+    return spans
+
+
+def _classify_span(start: int, end: int, spans: list[tuple[int, int, str, str]]):
+    """어절 구간 [start,end)이 매칭 구간과 겹치면 (polarity, reason), 아니면 (None, "")."""
+    for s_start, s_end, polarity, reason in spans:
+        if start < s_end and s_start < end:  # 구간 겹침
+            return polarity, reason
+    return None, ""
