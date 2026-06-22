@@ -45,7 +45,7 @@ afterEach(() => {
 async function renderAndAwaitInit(customerId = 'cust-001') {
   let view: ReturnType<typeof render>;
   await act(async () => {
-    view = render(<SegmentPage params={{ customerId }} />);
+    view = render(<SegmentPage params={Promise.resolve({ customerId })} />);
     // Flush microtasks so the useEffect async init runs
     await Promise.resolve();
     await Promise.resolve();

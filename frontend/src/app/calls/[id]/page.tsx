@@ -13,23 +13,25 @@
 // next-action 독립 카드 없음 (SSOT 재정렬 2026-06-22).
 'use client';
 
+import { use } from 'react';
 import { SpeechAnalysis } from '@/components/consult/SpeechAnalysis';
 import { CompliancePanel } from '@/components/consult/CompliancePanel';
 import { JourneyMap } from '@/components/consult/JourneyMap';
 
+// Next.js 15: 동적 라우트 params는 Promise — client component에서 use()로 언래핑.
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default function ConsultCockpitPage({ params }: PageProps) {
-  const { id: callId } = params;
+  const { id: callId } = use(params);
 
   return (
     <div className="cockpit grid grid-cols-[0.40fr_1.60fr] gap-[11px] items-stretch">
 
       {/* ═══ 좌: STT (콜봇 통화중) ═══ */}
-      <div className="stt flex flex-col rounded-2xl border border-white/70 bg-white/60">
-        <div className="stt__head p-3 border-b border-gray-100">
+      <div className="stt glass-card flex flex-col">
+        <div className="stt__head p-3 border-b border-[var(--hair)]">
           <div className="act-bg flex items-center justify-between">
             <span className="act-ai flex items-center gap-1.5 text-sm font-semibold text-ink">
               <span className="ai-ic">🤖</span>
@@ -47,11 +49,11 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         <div className="stt__body flex-1 overflow-y-auto p-3" id="chat">
           <p className="text-xs text-ink-faint">STT 화면</p>
         </div>
-        <div className="stt__foot flex items-center justify-end gap-2 border-t border-gray-100 p-2">
-          <button className="ghost-btn rounded px-2 py-1 text-xs text-ink-faint hover:bg-gray-100" id="restart">
+        <div className="stt__foot flex items-center justify-end gap-2 border-t border-[var(--hair)] p-2">
+          <button className="ghost-btn rounded px-2 py-1 text-xs text-ink-faint hover:bg-[var(--card-soft)]" id="restart">
             ↻ 처음부터
           </button>
-          <button className="next-btn rounded bg-[var(--brand,#2C5BD6)] px-3 py-1 text-xs font-semibold text-white" id="next">
+          <button className="next-btn rounded bg-route px-3 py-1 text-xs font-semibold text-white" id="next">
             다음 발화 <span className="kbd">↵</span>
           </button>
         </div>
@@ -61,8 +63,8 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       <div className="rightcol grid grid-rows-[36fr_64fr] gap-[13px] min-h-0">
 
         {/* ── 우-상단: 여정 맵 ── */}
-        <div className="map rounded-[18px] overflow-hidden border border-[var(--card-bd,#E2E2E0)]">
-          <div className="map__title flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink border-b border-gray-100">
+        <div className="map glass-card overflow-hidden">
+          <div className="map__title flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink border-b border-[var(--hair)]">
             <span className="hicon">
               <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
                 <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
@@ -92,18 +94,18 @@ export default function ConsultCockpitPage({ params }: PageProps) {
 
             {/* 카드② DB 분석 — placeholder (전용 FE issue 없음) */}
             <div
-              className="card idle flex flex-col min-h-0 overflow-hidden rounded-2xl border border-white/70 bg-white/60 p-3"
+              className="card idle glass-card flex flex-col min-h-0 overflow-hidden p-3"
               id="card-db"
               data-testid="cc-card"
             >
               <div className="card__h flex items-center gap-2 mb-2">
                 <span className="card__no font-mono text-[10px] font-bold text-ink-faint">2</span>
-                <span className="card__t text-sm font-semibold text-ink">DB 분석</span>
+                <span className="card__t font-disp text-sm font-semibold text-ink">DB 분석</span>
               </div>
               <div className="card-scroll flex-1 overflow-y-auto flex flex-col gap-2">
-                <div className="cseclbl flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                <div className="cseclbl flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-ink-faint">
                   <span>사용 데이터</span>
-                  <span className="ln flex-1 border-t border-gray-200" />
+                  <span className="ln flex-1 border-t border-[var(--hair)]" />
                 </div>
                 <div className="usebox" id="dbUse">
                   <p className="text-xs text-ink-faint">데이터 로딩 대기 중</p>
@@ -111,9 +113,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <div className="usedivider flex items-center justify-center py-1 text-[11px] text-ink-faint" id="dbBridge">
                   <span>▼</span>
                 </div>
-                <div className="cseclbl flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                <div className="cseclbl flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-ink-faint">
                   <span>데이터 분석 결과</span>
-                  <span className="ln flex-1 border-t border-gray-200" />
+                  <span className="ln flex-1 border-t border-[var(--hair)]" />
                 </div>
                 <div className="resbox" id="dbRes">
                   <p className="text-xs text-ink-faint">분석 결과 대기 중</p>

@@ -58,7 +58,7 @@ function deriveTurnSignal(tokens: SpeechToken[]): TurnSignal {
   return signal;
 }
 
-// ── Token renderer: .kw = font emphasis only (no color, no background) ──────
+// ── Token renderer: keyword = font emphasis only (no color, no background) ──
 function TokenBubble({ tokens }: { tokens: SpeechToken[] }) {
   return (
     <span className="text-[11px] leading-relaxed">
@@ -67,8 +67,8 @@ function TokenBubble({ tokens }: { tokens: SpeechToken[] }) {
           key={i}
           className={clsx(
             // All tokens are plain ink color — polarity NOT mapped to color.
-            'text-[#333]',
-            // Keywords get font emphasis only (.kw style from SSOT).
+            'text-ink',
+            // Keywords get font emphasis only (kw style from SSOT).
             tok.polarity !== 'NEUTRAL' && 'kw font-extrabold text-[1.18em] tracking-tight',
           )}
           data-testid={tok.polarity !== 'NEUTRAL' ? 'sa-kw' : undefined}
@@ -90,12 +90,12 @@ function TurnRow({ analysis }: { analysis: SpeechAnalysisData }) {
       data-testid="sa-turn"
       data-turn-seq={analysis.turnSeq}
     >
-      <div className="max-w-[88%] self-start rounded-[9px] border border-[#E0E0E0] bg-white px-[9px] py-[6px]">
+      <div className="max-w-[88%] self-start rounded-[9px] border border-[var(--hair)] bg-[var(--paper)] px-[9px] py-[6px]">
         <TokenBubble tokens={analysis.tokens} />
       </div>
       {signal === 'risk' && (
         <span
-          className="flag flag--risk inline-flex items-center gap-1.5 self-start rounded-full border border-[#F3C7C6] bg-[#FCE9E9] px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-[var(--danger,#D6322E)]"
+          className="flag flag--risk inline-flex items-center gap-1.5 self-start rounded-full border border-danger/30 bg-danger/10 px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-danger"
           data-testid="sa-flag-risk"
         >
           위험 신호
@@ -103,7 +103,7 @@ function TurnRow({ analysis }: { analysis: SpeechAnalysisData }) {
       )}
       {signal === 'def' && (
         <span
-          className="flag flag--def inline-flex items-center gap-1.5 self-start rounded-full border border-[#E0CFB8] bg-[#F4ECE0] px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-[var(--go,#2E9E6E)]"
+          className="flag flag--def inline-flex items-center gap-1.5 self-start rounded-full border border-go/30 bg-go/10 px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-go"
           data-testid="sa-flag-def"
         >
           방어 신호
@@ -113,8 +113,8 @@ function TurnRow({ analysis }: { analysis: SpeechAnalysisData }) {
   );
 }
 
-// ── STRAT20 grid: 20 cards, selected one enlarged (.scard.sel) ───────────────
-// reason from onSpeechAnalysis is surfaced as the selected card's .slead text
+// ── STRAT20 grid: 20 cards, selected one enlarged (scard sel) ────────────────
+// reason from onSpeechAnalysis is surfaced as the selected card's lead text
 // (SSOT: .stratg.resolved .scard.sel .slead)
 function StratGrid({
   selectedIndex,
@@ -126,7 +126,9 @@ function StratGrid({
   const resolved = selectedIndex !== null;
   return (
     <div
-      className={clsx('stratg', resolved && 'resolved')}
+      className={clsx(
+        resolved ? 'resolved flex flex-col gap-2' : 'grid grid-cols-4 gap-[5px]',
+      )}
       data-testid="sa-stratg"
       data-resolved={resolved ? 'true' : 'false'}
     >
@@ -137,10 +139,10 @@ function StratGrid({
             key={idx}
             className={clsx(
               'scard',
-              'relative flex flex-col gap-[2px] rounded-[9px] border border-[var(--hair,#E8E8E8)] bg-white/60 p-[6px]',
+              'relative flex flex-col gap-[2px] rounded-2xl border border-[var(--hair)] bg-[var(--card)] p-[6px]',
               // When resolved, hide all non-selected cards; show selected enlarged
               resolved && !isSel && 'hidden',
-              resolved && isSel && 'flex-1 overflow-hidden',
+              resolved && isSel && 'flex-1 overflow-hidden glass-card p-4',
               isSel && 'sel',
             )}
             data-testid={isSel ? 'sa-scard-sel' : 'sa-scard'}
@@ -149,8 +151,8 @@ function StratGrid({
             <span
               className={clsx(
                 'sno font-mono font-bold',
-                !isSel && 'text-[7px] text-[var(--ink-faint,#999)]',
-                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-black',
+                !isSel && 'text-[7px] text-ink-faint',
+                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-ink',
               )}
             >
               {String(idx + 1).padStart(2, '0')}
@@ -158,8 +160,8 @@ function StratGrid({
             <span
               className={clsx(
                 'stx font-extrabold leading-tight tracking-[-0.02em]',
-                !isSel && 'text-[11.5px] text-[var(--ink,#23293A)]',
-                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-black',
+                !isSel && 'text-[11.5px] text-ink',
+                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-ink',
               )}
               data-testid={isSel ? 'sa-stx' : undefined}
             >
@@ -168,9 +170,9 @@ function StratGrid({
             <span
               className={clsx(
                 'slead font-semibold leading-[1.2]',
-                !isSel && 'text-[7.5px] text-[var(--ink-dim,#6B7280)]',
+                !isSel && 'text-[7.5px] text-ink-dim',
                 isSel &&
-                  'mt-[3px] line-clamp-4 text-[12.5px] font-extrabold leading-[1.3] text-black',
+                  'mt-[3px] line-clamp-4 text-[12.5px] font-semibold leading-[1.3] text-ink-dim',
               )}
               data-testid={isSel ? 'sa-slead' : undefined}
             >
@@ -184,10 +186,8 @@ function StratGrid({
   );
 }
 
-// ── EmoBins — SSOT #emoBins (.bins) 발화분류 3칸 ──────────────────────────────
+// ── EmoBins — SSOT #emoBins 발화분류 3칸 ──────────────────────────────────────
 // FRONTEND-012: emotion → 감정(EMOTION) bin 표시.
-// SSOT: .bins > .bin.psy/.bin.intent/.bin.obstacle > .bin__h > b (label)
-//       + .bin__slot (orb goes here).
 // 3개 카테고리 (SSOT 변경 불가):
 //   psy     → 감정 / EMOTION
 //   intent  → 니즈 / NEEDS
@@ -202,23 +202,40 @@ type EmoBinsCatKey = typeof EMO_CATS[number]['key'];
 
 function EmoBins({ emotion }: { emotion: string | null }) {
   return (
-    <div className="bins" id="emoBins" data-testid="emo-bins">
+    <div
+      className="grid grid-cols-3 gap-2"
+      id="emoBins"
+      data-testid="emo-bins"
+    >
       {EMO_CATS.map(({ key, label, en }) => (
         <div
           key={key}
-          className={clsx('bin', key)}
+          className={clsx(
+            'flex flex-col gap-1 rounded-xl border border-[var(--hair)] bg-[var(--card)] p-2',
+            `bin bin--${key}`,
+          )}
           data-cat={key}
           data-testid={`emo-bin-${en.toLowerCase()}`}
         >
-          <div className="bin__h">
-            <b>{label}</b>
-            <i>{en}</i>
+          <div className="bin__h flex items-baseline gap-1">
+            <b className="font-disp text-[11px] font-bold text-ink">{label}</b>
+            <i className="font-mono text-[9px] not-italic text-ink-faint">{en}</i>
           </div>
-          <div className="bin__slot" id={`slot-${key}`} data-testid={`emo-slot-${en.toLowerCase()}`}>
+          <div
+            className="min-h-[28px]"
+            id={`slot-${key}`}
+            data-testid={`emo-slot-${en.toLowerCase()}`}
+          >
             {/* EMOTION bin: render emotion label as orb when available */}
             {key === 'psy' && emotion && (
-              <div className={clsx('orb', key)} data-testid="emo-emotion-orb">
-                <span className="otag">{emotion}</span>
+              <div
+                className={clsx(
+                  'orb inline-flex items-center rounded-full px-2 py-0.5',
+                  'bg-[var(--badge-bg)] text-[var(--badge-ink)]',
+                )}
+                data-testid="emo-emotion-orb"
+              >
+                <span className="otag font-mono text-[10px] font-bold">{emotion}</span>
               </div>
             )}
           </div>
@@ -326,15 +343,15 @@ export function SpeechAnalysis({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/60 p-3"
+      className="glass-card flex flex-col gap-2 p-3"
       aria-label="고객발화분석"
       data-testid="speech-analysis"
       id="card-emo"
     >
-      <h2 className="text-sm font-semibold text-[var(--ink,#23293A)]">고객발화분석</h2>
+      <h2 className="font-disp text-sm font-semibold text-ink">고객발화분석</h2>
 
       {/* 발화분류 section label */}
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint,#999)]">
+      <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint">
         발화분류
       </div>
 
@@ -344,7 +361,7 @@ export function SpeechAnalysis({
       {/* Transcript turns with keyword bubbles + flag badges */}
       <div className="flex flex-col gap-2" data-testid="sa-turns">
         {turns.length === 0 ? (
-          <p className="text-xs text-[var(--ink-faint,#999)]">발화 분석 대기 중</p>
+          <p className="text-xs text-ink-faint">발화 분석 대기 중</p>
         ) : (
           turns.map((turn) => (
             <TurnRow
@@ -355,13 +372,13 @@ export function SpeechAnalysis({
         )}
       </div>
 
-      {/* solvearrow */}
-      <div className="solvearrow flex items-center justify-center gap-1.5 py-1 text-[11px] text-[var(--ink-faint,#999)]">
+      {/* Arrow divider between transcript and strategy section */}
+      <div className="flex items-center justify-center gap-1.5 py-1 text-[11px] text-ink-faint">
         <span>▼</span>
       </div>
 
       {/* 대표 전략 20 section label */}
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint,#999)]">
+      <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint">
         대표 전략 20
       </div>
 

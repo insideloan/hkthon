@@ -4,7 +4,7 @@
 // 디자인 SSOT: docs/consult_redesigned-3.html #view-segment (세그먼트 분류 SVG + dial box)
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { clsx } from 'clsx';
 import { createCall, fetchCustomer } from '@/lib/appsync';
 import { CallButton } from '@/components/consult/CallButton';
@@ -12,12 +12,13 @@ import type { Customer } from '@/lib/appsync';
 
 type AnalysisPhase = 'loading' | 'analysing' | 'complete' | 'error';
 
+// Next.js 15: 동적 라우트 params는 Promise — client component에서 use()로 언래핑.
 type SegmentPageProps = {
-  params: { customerId: string };
+  params: Promise<{ customerId: string }>;
 };
 
 export default function SegmentPage({ params }: SegmentPageProps) {
-  const { customerId } = params;
+  const { customerId } = use(params);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [callId, setCallId] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
   return (
     <section
       id="view-segment"
-      className="relative min-h-screen bg-bg p-4"
+      className="relative min-h-screen bg-[var(--canvas)] p-4"
       data-testid="segment-page"
       data-phase={phase}
     >
@@ -78,13 +79,13 @@ export default function SegmentPage({ params }: SegmentPageProps) {
         {/* 상단: 고객 정보 + 분석 상태 */}
         <div className="sg-top mb-[14px] flex items-center gap-3">
           <div
-            className="ava grid h-[42px] w-[42px] flex-none place-items-center rounded-full bg-gradient-to-br from-[#5168DB] to-[#5B78F0] text-base font-extrabold text-white shadow-[0_6px_16px_-8px_rgba(53,81,214,.6)]"
+            className="ava grid h-[42px] w-[42px] flex-none place-items-center rounded-full bg-gradient-to-br from-route to-route-2 text-base font-extrabold text-white shadow-[0_6px_16px_-8px_rgba(53,81,214,.6)]"
             aria-hidden
           >
             {initials}
           </div>
           <div className="tx flex min-w-0 flex-col leading-[1.3]">
-            <h1 className="m-0 font-display text-xl font-extrabold tracking-[-0.01em] text-ink">
+            <h1 className="m-0 font-disp text-xl font-extrabold tracking-[-0.01em] text-ink">
               {customer?.name ?? '–'}
               {customer?.age != null && (
                 <span className="age ml-1 text-[13px] font-semibold text-ink-dim">
@@ -100,10 +101,10 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           {/* 분석 중 스피너 배지 */}
           {phase === 'analysing' && (
             <div
-              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(107,79,184,.32)] bg-[rgba(107,79,184,.12)] px-[14px] py-[7px] font-display text-[13px] font-bold text-purple"
+              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[var(--route-2,rgba(91,120,240,.32))] bg-[rgba(91,120,240,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-route-2"
               data-testid="analysis-status"
             >
-              <span className="sp-spin h-[13px] w-[13px] animate-spin rounded-full border-2 border-[rgba(107,79,184,.3)] border-t-purple" aria-hidden />
+              <span className="sp-spin h-[13px] w-[13px] animate-spin rounded-full border-2 border-[rgba(91,120,240,.3)] border-t-route-2" aria-hidden />
               세그먼트 분석 중
               <span className="sdots inline-flex w-[14px]">
                 <i className="not-italic opacity-0 [animation:sgblink_1.4s_infinite]">.</i>
@@ -114,7 +115,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           )}
           {phase === 'complete' && (
             <div
-              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(107,79,184,.32)] bg-[rgba(107,79,184,.12)] px-[14px] py-[7px] font-display text-[13px] font-bold text-purple"
+              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[var(--route-2,rgba(91,120,240,.32))] bg-[rgba(91,120,240,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-route-2"
               data-testid="analysis-complete-badge"
             >
               ✓ 분석 완료
@@ -123,7 +124,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
         </div>
 
         {/* 분석 카운터 */}
-        <div className="sg-counter glass mb-[13px] flex flex-col items-center gap-[3px] rounded-[18px] border border-card-bd bg-card px-0 py-[16px] pb-[14px] backdrop-blur-[16px]">
+        <div className="sg-counter glass-card mb-[13px] flex flex-col items-center gap-[3px] px-0 py-[16px] pb-[14px]">
           <span className="sg-clbl text-[11.5px] font-semibold text-ink-faint">분석 데이터 포인트</span>
           <span
             className={clsx(
@@ -138,7 +139,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
 
         {/* 세그먼트 분류 SVG (SSOT #view-segment 내 SVG 레이아웃) */}
         <div
-          className="glass rounded-[18px] border border-card-bd bg-card p-4 backdrop-blur-[16px]"
+          className="glass-card p-4"
           data-testid="segment-viz"
         >
           <svg
@@ -196,18 +197,18 @@ export default function SegmentPage({ params }: SegmentPageProps) {
         {/* 분석 완료 후 — 전략 정보 + 통화 버튼 */}
         {analysisComplete && (
           <div className="sg-final show mt-[14px] flex flex-col gap-3" data-testid="analysis-final">
-            <div className="glass sg-sec rounded-[18px] border border-card-bd bg-card px-[17px] py-[15px]">
-              <span className="sg-tag t2 mb-[11px] inline-block rounded-full bg-badge-bg px-[10px] py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.08em] text-route">
+            <div className="glass-card sg-sec px-[17px] py-[15px]">
+              <span className="sg-tag t2 mb-[11px] inline-block rounded-full bg-[var(--badge-bg)] px-[10px] py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.08em] text-route">
                 추천 상품
               </span>
               <div className="strat-card flex flex-col">
                 <div className="strat-mod py-[4px]">
-                  <div className="strat-mod-h mb-[13px] flex items-center gap-2 font-display text-sm font-extrabold text-ink">
+                  <div className="strat-mod-h mb-[13px] flex items-center gap-2 font-disp text-sm font-extrabold text-ink">
                     <i className="text-[19px] text-route" aria-hidden>💡</i>
                     자동차 담보대출
                   </div>
                   <div className="flow-row flex flex-wrap items-center gap-[10px]">
-                    <span className="flow-chip muted rounded-[11px] border border-hair bg-white/50 px-[13px] py-[7px] text-[13px] font-bold text-ink-faint line-through">
+                    <span className="flow-chip muted rounded-[11px] border border-[var(--hair)] bg-white/50 px-[13px] py-[7px] text-[13px] font-bold text-ink-faint line-through">
                       신용대출
                     </span>
                     <span className="flow-ar text-lg text-ink-faint">→</span>

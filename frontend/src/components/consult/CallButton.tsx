@@ -43,16 +43,15 @@ export function CallButton({ callId, analysisComplete = true }: CallButtonProps)
       className={clsx(
         // sg-btn base
         'inline-flex items-center gap-1.5 rounded-[10px] border px-5 py-[9px]',
-        'font-display text-[13px] font-bold transition-all duration-[180ms]',
+        'font-disp text-[13px] font-bold transition-all duration-[180ms]',
         // sg-btn--call: enabled
         !disabled && [
           'cursor-pointer border-route bg-route text-white',
           'hover:-translate-y-px hover:shadow-[0_6px_16px_-6px_rgba(53,81,214,0.6)]',
-          analysisComplete && 'animate-[cbtn_1.2s_ease-in-out_infinite]',
         ],
-        // sg-btn--call: disabled
+        // sg-btn--call: disabled — muted gray via tokens
         disabled && [
-          'cursor-default border-[#DCE2EA] bg-[#EEF1F5] text-[#A9B4C2]',
+          'cursor-default border-[var(--line)] bg-[var(--canvas-2)] text-ink-faint',
         ],
       )}
       disabled={disabled}
