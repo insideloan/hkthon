@@ -232,9 +232,12 @@ function CautionPop({ visible, x, y }: CautionPopProps) {
 }
 
 // ── NavBanner — SSOT #banner (.nav-banner) ────────────────────────────────────
-// Rebuilt with Tailwind utilities + CSS var tokens (Option 2).
-// glass-card = frosted bg from globals.css.
-// dist: churnRisk% when available (FRONTEND-012), else MOT-derived dist.
+// Absolutely positioned overlay on top of SVG map.
+// SSOT: position:absolute; top:13px; left:13px; right:13px;
+//       background:rgba(255,255,255,.94); backdrop-filter:blur(7px);
+//       border:1.4px solid #DAE1EA; border-radius:12px;
+//       box-shadow:0 10px 26px -14px rgba(28,44,70,.42); z-index:5
+// type-specific border colors: risk:#F4C6C4 / def:#C9D7F6 / done:#E0CFB8
 type NavBannerProps = {
   banner: BannerContent | null;
   dist: number; // 0-100
@@ -247,7 +250,28 @@ const TURN_SVG: Record<'risk' | 'def' | 'done', string> = {
   done: '<path d="M5 12.5l4.5 4.5L19 7" stroke="var(--go)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
-// Accent color per type for the dist badge and border accent
+// Border color per type
+const TYPE_BORDER: Record<'risk' | 'def' | 'done', string> = {
+  risk: '#F4C6C4',
+  def: '#C9D7F6',
+  done: '#E0CFB8',
+};
+
+// Turn icon background per type
+const TYPE_TURN_BG: Record<'risk' | 'def' | 'done', string> = {
+  risk: '#FBE3E2',
+  def: '#E2ECFE',
+  done: '#EFE6D8',
+};
+
+// Background per type
+const TYPE_BG: Record<'risk' | 'def' | 'done', string> = {
+  risk: 'rgba(255,246,245,.95)',
+  def: 'rgba(244,248,255,.95)',
+  done: 'rgba(238,250,243,.95)',
+};
+
+// Accent color for dist text
 const TYPE_ACCENT: Record<'risk' | 'def' | 'done', string> = {
   risk: 'var(--danger)',
   def: 'var(--route)',
@@ -263,38 +287,80 @@ function NavBanner({ banner, dist }: NavBannerProps) {
   return (
     <div
       id="banner"
-      className="glass-card flex items-center gap-3 px-4 py-3 rounded-xl"
+      className={clsx('nav-banner flex items-center', type)}
       data-testid="journey-banner"
       data-banner-type={type}
-      style={{ borderLeft: `3px solid ${accent}` }}
+      style={{
+        position: 'absolute',
+        top: 13,
+        left: 13,
+        right: 13,
+        zIndex: 5,
+        padding: '9px 13px',
+        borderRadius: '12px',
+        background: TYPE_BG[type],
+        backdropFilter: 'blur(7px)',
+        WebkitBackdropFilter: 'blur(7px)',
+        border: `1.4px solid ${TYPE_BORDER[type]}`,
+        boxShadow: '0 10px 26px -14px rgba(28,44,70,.42)',
+        gap: '11px',
+        alignItems: 'center',
+        transition: 'border-color .3s, background .3s',
+      }}
     >
-      {/* Turn icon — 24×24 SVG */}
+      {/* Turn icon — 32×32 with background */}
       <span
         id="turnIc"
-        className="flex-none w-6 h-6 flex items-center justify-center"
+        className="turn flex-none grid place-items-center"
         aria-hidden="true"
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '9px',
+          background: TYPE_TURN_BG[type],
+          display: 'grid',
+          placeItems: 'center',
+        }}
       >
         <svg
           viewBox="0 0 24 24"
           fill="none"
-          className="w-full h-full"
+          style={{ width: '19px', height: '19px' }}
           dangerouslySetInnerHTML={{ __html: TURN_SVG[type] }}
         />
       </span>
 
       {/* Text block — eyebrow + lead */}
-      <span className="flex flex-col gap-0.5 flex-1 min-w-0">
+      <span className="txt flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
         <span
-          className="font-mono text-[10px] uppercase tracking-widest"
-          style={{ color: 'var(--ink-faint)' }}
+          className="eyebrow font-mono uppercase"
+          style={{
+            fontSize: '8.5px',
+            fontWeight: 700,
+            letterSpacing: '.14em',
+            color: 'var(--ink-faint)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
           id="bannerEye"
           data-testid="banner-eyebrow"
         >
           {eyebrow}
         </span>
         <span
-          className="font-disp text-sm font-semibold leading-snug"
-          style={{ color: 'var(--ink)' }}
+          className="lead font-disp"
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            letterSpacing: '-.01em',
+            lineHeight: 1.2,
+            marginTop: '2px',
+            color: 'var(--ink)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
           id="bannerLead"
           data-testid="banner-lead"
           dangerouslySetInnerHTML={{ __html: lead }}
@@ -303,8 +369,14 @@ function NavBanner({ banner, dist }: NavBannerProps) {
 
       {/* Dist badge — churnRisk% */}
       <span
-        className="font-mono text-sm font-bold flex-none tabular-nums"
-        style={{ color: accent }}
+        className="dist font-mono"
+        style={{
+          fontSize: '12px',
+          fontWeight: 700,
+          color: accent,
+          flexShrink: 0,
+          textAlign: 'right',
+        }}
         id="bannerDist"
         data-testid="banner-dist"
       >
@@ -314,39 +386,146 @@ function NavBanner({ banner, dist }: NavBannerProps) {
   );
 }
 
-// ── Route path — SSOT SVG road/route lines ───────────────────────────────────
-// Simple road strip with a colored route overlay matching SSOT visual intent.
-function RoutePath() {
+// ── MapFrame — SSOT section frame rectangles + labels ────────────────────────
+function MapFrame() {
   return (
-    <g>
-      {/* Road base — two lanes */}
-      <path
-        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
-        stroke="var(--road, #c9c0b1)"
-        strokeWidth={28}
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* Road edge lines */}
-      <path
-        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
-        stroke="var(--road-edge, #b6ac9a)"
-        strokeWidth={30}
-        fill="none"
-        strokeLinecap="round"
-        opacity={0.4}
-      />
-      {/* Route highlight */}
-      <path
-        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
-        stroke="var(--route)"
-        strokeWidth={4}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray="12 8"
-        opacity={0.7}
-      />
+    <g textAnchor="middle" className="mapframe">
+      <rect x={30}   y={30} width={535} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
+      <rect x={585}  y={30} width={730} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
+      <rect x={1335} y={30} width={258} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
+      <g fontFamily="Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#23293A">
+        <text x={297}  y={51}>본인확인</text>
+        <text x={950}  y={51}>상품제안</text>
+        <text x={1464} y={51}>채널선택</text>
+      </g>
+      <g fontFamily="Pretendard,sans-serif" fontSize={12} fontWeight={700} fill="#9CAAB9">
+        <text x={1464} y={70}>상담원 연결 · 신청 URL 문자</text>
+      </g>
     </g>
+  );
+}
+
+// ── AxisLines — SSOT horizontal axis + vertical threshold + labels ────────────
+function AxisLines() {
+  return (
+    <>
+      {/* 가로축: 상담 진행(시간) */}
+      <g className="mapframe" fontFamily="JetBrains Mono,monospace" fontSize={10} fontWeight={700} letterSpacing={2} fill="#9CAAB9">
+        <line x1={55} y1={412} x2={1560} y2={412} stroke="#C8D2DD" strokeWidth={1.5} strokeDasharray="2 5"/>
+        <path d="M1560,412 l-9,-4 v8 z" fill="#C8D2DD"/>
+        <text x={55} y={404} textAnchor="start">상담 진행 (시간)</text>
+      </g>
+
+      {/* 세로축: 고객 상태 */}
+      <g className="mapframe">
+        <line x1={55} y1={230} x2={1560} y2={230} stroke="#8E9BAB" strokeWidth={1.6} strokeDasharray="10 8" opacity={0.9}/>
+        <g fontFamily="Pretendard,sans-serif" fontSize={18} fontWeight={800} textAnchor="start">
+          <text x={63} y={106} fill="var(--go)">▲ 전환 가능</text>
+          <text x={63} y={354} fill="var(--danger)">▼ 이탈 위험</text>
+        </g>
+      </g>
+    </>
+  );
+}
+
+// ── Route paths — SSOT ghost/route/routeInk/routeCore paths ──────────────────
+const ROUTE_D = "M70.0,232.0 C94.2,247.0 173.3,319.0 215.0,322.0 C256.7,325.0 284.2,248.7 320.0,250.0 C355.8,251.3 387.5,337.5 430.0,330.0 C472.5,322.5 533.3,218.3 575.0,205.0 C616.7,191.7 642.5,248.8 680.0,250.0 C717.5,251.2 758.3,198.3 800.0,212.0 C841.7,225.7 894.2,324.8 930.0,332.0 C965.8,339.2 987.5,274.7 1015.0,255.0 C1042.5,235.3 1063.3,200.5 1095.0,214.0 C1126.7,227.5 1178.3,323.3 1205.0,336.0 C1231.7,348.7 1239.2,292.3 1255.0,290.0 C1270.8,287.7 1274.2,340.7 1300.0,322.0 C1325.8,303.3 1369.2,211.7 1410.0,178.0 C1450.8,144.3 1522.5,129.7 1545.0,120.0";
+
+function RoutePaths() {
+  return (
+    <>
+      {/* 예상(고스트) 경로 — opacity는 globals.css #ghost/#ghost.show 로 제어 */}
+      <path
+        id="ghost"
+        className="ghost"
+        fill="none"
+        stroke="var(--route-2)"
+        strokeWidth={7}
+        strokeLinecap="round"
+        d={ROUTE_D}
+      />
+      {/* 재탐색(확정) 경로 */}
+      <path id="route" fill="none" d={ROUTE_D} />
+      {/* 주행 완료 구간: routeInk */}
+      <use href="#route" stroke="url(#routegrad)" strokeWidth={13} fill="none" strokeLinecap="round" filter="url(#glow)" id="routeInk" />
+      {/* routeCore */}
+      <use href="#route" stroke="#EAF1FF" strokeWidth={4} fill="none" strokeLinecap="round" id="routeCore" />
+    </>
+  );
+}
+
+// ── CpNode — SSOT .cp checkpoint circle node ─────────────────────────────────
+type CpNodeProps = {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  isGoal?: boolean;
+};
+
+function CpNode({ id, x, y, label, isGoal = false }: CpNodeProps) {
+  if (isGoal) {
+    return (
+      <g className="cp" id={id} transform={`translate(${x},${y})`}>
+        <circle className="cp-ring" r={46} fill="none" stroke="var(--go)" strokeWidth={3}/>
+        <circle className="cp-core" r={36} fill="#fff" stroke="var(--route)" strokeWidth={4} filter="url(#soft)"/>
+        <path d="M-11,-16 v32 M-11,-16 h17 l-4,6 4,6 h-17" fill="var(--route)" stroke="var(--route)" strokeWidth={2} strokeLinejoin="round"/>
+        <text
+          y={66}
+          fontFamily="JetBrains Mono,monospace"
+          fontSize={12}
+          fontWeight={700}
+          fill="var(--route)"
+          letterSpacing={2}
+          textAnchor="middle"
+        >
+          전환 GOAL
+        </text>
+      </g>
+    );
+  }
+  return (
+    <g className="cp" id={id} transform={`translate(${x},${y})`}>
+      <circle className="cp-ring" r={50} fill="none" stroke="var(--route)" strokeWidth={3}/>
+      <circle className="cp-core" r={42} fill="#fff" stroke="#9FB0C4" strokeWidth={3} filter="url(#soft)"/>
+      <text className="cp-label" y={5} textAnchor="middle" fill="var(--ink-dim)"
+        fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}
+      >
+        {label}
+      </text>
+      <g className="cp-check" transform="translate(30,-30)">
+        <circle r={9} fill="var(--route)"/>
+        <path d="M-4.5,0 l3,3 5,-6" stroke="#fff" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      </g>
+    </g>
+  );
+}
+
+// ── SVG Defs ─────────────────────────────────────────────────────────────────
+function SvgDefs() {
+  return (
+    <defs>
+      <pattern id="dots" width={26} height={26} patternUnits="userSpaceOnUse">
+        <circle cx={2} cy={2} r={1.1} fill="#CBC2B2" opacity={0.55}/>
+      </pattern>
+      <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx={0} dy={3} stdDeviation={4} floodColor="#26374e" floodOpacity={0.2}/>
+      </filter>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation={6} result="b"/>
+        <feMerge>
+          <feMergeNode in="b"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <linearGradient id="routegrad" x1={0} y1={0} x2={1} y2={0}>
+        <stop offset={0} stopColor="#2C5BD6"/>
+        <stop offset={1} stopColor="#4D7CF0"/>
+      </linearGradient>
+      <clipPath id="carClip">
+        <circle r={33} cx={0} cy={0}/>
+      </clipPath>
+    </defs>
   );
 }
 
@@ -366,7 +545,7 @@ export function JourneyMap({
   initialChurnRisk = null,
   disableLiveData = false,
 }: JourneyMapProps) {
-  const { markers, activeCautionSeq, addMot, setMarkerState, showCaution, hideCaution, reset } =
+  const { mots, markers, activeCautionSeq, addMot, setMarkerState, showCaution, hideCaution, reset } =
     useMotStore();
 
   const bannerRef = useRef<BannerContent | null>(null);
@@ -463,26 +642,52 @@ export function JourneyMap({
   // A marker is "risk-active" if churnRisk >= 50 (high-risk zone emphasis per SSOT)
   const isHighRisk = churnRisk !== null && churnRisk >= 50;
 
+  // SSOT: #svg.playing — 통화 시작(MOT 수신) 시 mapframe/carPos 표시
+  const isPlaying = mots.length > 0;
+
   return (
     <section
-      className="flex flex-col gap-2 w-full"
+      className="relative w-full h-full"
       aria-label="상담 여정 맵"
       data-testid="journey-map"
       data-churn-risk={churnRisk !== null ? churnRisk : undefined}
+      style={{ display: 'block' }}
     >
+      {/* NavBanner — absolutely positioned overlay on top of SVG */}
       <NavBanner banner={bannerRef.current} dist={bannerDist} />
 
       <svg
+        id="svg"
+        className={clsx(isPlaying && 'playing')}
         viewBox="25 12 1610 418"
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="상담 경로 여정 맵"
         data-testid="journey-svg"
-        className="w-full"
-        style={{ background: 'var(--canvas)', borderRadius: 12 }}
+        style={{ display: 'block', width: '100%', height: '100%' }}
       >
-        {/* Road/route path — visual backdrop */}
-        <RoutePath />
+        <SvgDefs />
+
+        {/* 도트 배경 */}
+        <rect x={0} y={0} width={1400} height={640} fill="url(#dots)"/>
+
+        {/* 구간 프레임 */}
+        <MapFrame />
+
+        {/* 축 */}
+        <AxisLines />
+
+        {/* 저항 골짜기 언더글로 */}
+        <g fill="var(--hazard)">
+          <ellipse className="hz" id="hz-rate"     cx={215}  cy={330} rx={46} ry={19}/>
+          <ellipse className="hz" id="hz-compare"  cx={430}  cy={338} rx={46} ry={19}/>
+          <ellipse className="hz" id="hz-pay"      cx={930}  cy={340} rx={46} ry={19}/>
+          <ellipse className="hz" id="hz-security" cx={1205} cy={344} rx={46} ry={19}/>
+          <ellipse className="hz" id="hz-avoid"    cx={1300} cy={330} rx={46} ry={19}/>
+        </g>
+
+        {/* 경로 (ghost/route/routeInk/routeCore) */}
+        <RoutePaths />
 
         {/* MOT 마커 (SSOT: .rz 그룹) */}
         <g fontFamily="var(--kr)" fontSize={18} fontWeight={800}>
@@ -495,6 +700,18 @@ export function JourneyMap({
             />
           ))}
         </g>
+
+        {/* 체크포인트 노드 (능선) */}
+        <g fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}>
+          <CpNode id="cp-interest" x={70}   y={232} label="시작"/>
+          <CpNode id="cp-trust"    x={575}  y={205} label="신뢰확보"/>
+          <CpNode id="cp-cond"     x={800}  y={212} label="조건이해"/>
+          <CpNode id="cp-limit"    x={1095} y={214} label="한도조회"/>
+          <CpNode id="cp-review"   x={1410} y={178} label="신청검토"/>
+        </g>
+
+        {/* 목적지 */}
+        <CpNode id="cp-goal" x={1545} y={120} label="전환 GOAL" isGoal />
 
         {/* cautionPop (SSOT: #cautionPop) */}
         <CautionPop

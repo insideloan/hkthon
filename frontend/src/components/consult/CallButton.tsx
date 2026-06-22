@@ -42,7 +42,7 @@ export function CallButton({ callId, analysisComplete = true }: CallButtonProps)
       type="button"
       className={clsx(
         // sg-btn base
-        'inline-flex items-center gap-1.5 rounded-[10px] border px-5 py-[9px]',
+        'mt-[14px] inline-flex items-center gap-1.5 rounded-[10px] border px-5 py-[9px]',
         'font-disp text-[13px] font-bold transition-all duration-[180ms]',
         // sg-btn--call: enabled
         !disabled && [
@@ -59,7 +59,7 @@ export function CallButton({ callId, analysisComplete = true }: CallButtonProps)
       data-testid="call-button"
       data-state={btnState}
     >
-      <span aria-hidden="true" className="text-base leading-none">📞</span>
+      <i className="ti ti-phone-call" aria-hidden="true" />
       {btnState === 'dialing' ? '발신 중…' : '발신하기'}
     </button>
   );

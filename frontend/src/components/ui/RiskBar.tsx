@@ -1,30 +1,38 @@
-// Churn-risk gauge bar wrapper (shared `*`). Tailwind lives here only.
-import { clsx } from 'clsx';
+// Churn-risk gauge bar wrapper (shared `*`). SSOT .adm-risk styling.
+// Track: rgba(82,66,44,.12) — warm brownish semi-transparent to blend with beige canvas.
+// Fill: var(--route) solid — SSOT riskColor() returns 'var(--route)' for all values (unified brand blue).
+// Pct text: font-mono 11px bold w-[30px] text-right, color matches fill (var(--route)).
 
-/** Returns the gauge fill class for a 0-100 churn-risk value. */
-export function riskClass(value: number): string {
-  if (value >= 60) return 'bg-risk-high';
-  if (value >= 35) return 'bg-risk-mid';
-  return 'bg-risk-low';
+/** Returns the risk fill color for a 0-100 churn-risk value.
+ * SSOT riskColor() is a uniform brand-blue — kept as a function for test compatibility. */
+export function riskClass(_value: number): string {
+  return 'var(--route)';
 }
 
 export function RiskBar({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
+  const fillColor = riskClass(clamped);
   return (
     <div className="flex items-center gap-2">
       <div
-        className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200"
+        className="h-[6px] flex-1 overflow-hidden rounded-full min-w-[34px]"
+        style={{ background: 'rgba(82,66,44,.12)' }}
         role="progressbar"
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}
       >
         <div
-          className={clsx('h-full rounded-full', riskClass(clamped))}
-          style={{ width: `${clamped}%` }}
+          className="h-full rounded-full"
+          style={{ width: `${clamped}%`, background: fillColor }}
         />
       </div>
-      <span className="w-9 text-right text-xs tabular-nums text-gray-700">{clamped}%</span>
+      <span
+        className="font-mono text-[11px] font-bold w-[30px] text-right tabular-nums"
+        style={{ color: fillColor }}
+      >
+        {clamped}%
+      </span>
     </div>
   );
 }

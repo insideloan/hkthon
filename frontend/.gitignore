@@ -8,3 +8,9 @@ next-env.d.ts
 
 # misc
 *.tsbuildinfo
+
+# local env
+.env.local
+
+# redesign Reviewer/Actor loop working artifacts (screenshots, capture script)
+.redesign/

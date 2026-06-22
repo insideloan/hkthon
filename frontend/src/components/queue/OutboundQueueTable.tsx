@@ -4,6 +4,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type React from 'react';
 import { clsx } from 'clsx';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { RiskBar } from '@/components/ui/RiskBar';
@@ -34,11 +35,11 @@ const STATE_TONE: Record<CallState, BadgeTone> = {
   ENDED: 'neutral',
 };
 
-/** Map a row's highlight flag to row emphasis. */
-function rowHighlightClass(highlight: QueueRow['highlight']): string {
-  if (highlight === 'needs_agent') return 'bg-red-50 hover:bg-red-100';
-  if (highlight === 'fraud_suspected') return 'bg-amber-50 hover:bg-amber-100';
-  return 'hover:bg-[rgba(53,81,214,0.06)]';
+/** Map a row's highlight flag to row background style (warm semi-transparent palette). */
+function rowHighlightStyle(highlight: QueueRow['highlight']): React.CSSProperties {
+  if (highlight === 'needs_agent') return { background: 'rgba(219,83,80,.06)' };
+  if (highlight === 'fraud_suspected') return { background: 'rgba(207,138,60,.08)' };
+  return {};
 }
 
 function formatElapsed(sec: number): string {
@@ -157,11 +158,14 @@ export function OutboundQueueTable({
             className={clsx(
               'grid gap-[10px] items-center px-4 py-[11px] transition-colors cursor-default',
               'border-b last:border-b-0',
-              rowHighlightClass(row.highlight),
+              row.highlight === 'needs_agent' && 'bg-red-50',
+              row.highlight === 'fraud_suspected' && 'bg-amber-50',
+              !row.highlight && 'hover:bg-[rgba(53,81,214,0.06)]',
             )}
             style={{
               gridTemplateColumns: GRID_COLS,
               borderColor: 'var(--hair)',
+              ...rowHighlightStyle(row.highlight),
             }}
           >
             {/* 고객 — avatar + name + sub */}
@@ -220,7 +224,7 @@ export function OutboundQueueTable({
 
             {/* 채널 */}
             <span className="text-[12.5px]" style={{ color: 'var(--ink-dim)' }}>
-              {row.scenario}
+              전화
             </span>
           </div>
         ))

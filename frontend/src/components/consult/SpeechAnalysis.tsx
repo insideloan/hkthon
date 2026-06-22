@@ -343,13 +343,10 @@ export function SpeechAnalysis({
 
   return (
     <section
-      className="glass-card flex flex-col gap-2 p-3"
+      className="flex flex-col gap-2"
       aria-label="고객발화분석"
       data-testid="speech-analysis"
-      id="card-emo"
     >
-      <h2 className="font-disp text-sm font-semibold text-ink">고객발화분석</h2>
-
       {/* 발화분류 section label */}
       <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint">
         발화분류
