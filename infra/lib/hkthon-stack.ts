@@ -172,10 +172,16 @@ export class HkthonStack extends cdk.Stack {
         ),
       ),
       authorizationConfig: {
+        // API_KEY: 프론트엔드(브라우저) 호출용 (기본).
         defaultAuthorization: {
           authorizationType: appsync.AuthorizationType.API_KEY,
           apiKeyConfig: { expires: cdk.Expiration.after(cdk.Duration.days(30)) },
         },
+        // IAM: Streams 팬아웃 Lambda가 _emit* 뮤테이션을 SigV4로 호출하기 위함.
+        // 추가 인증 모드로 등록해야 SigV4 호출이 401이 아닌 정상 처리됨.
+        additionalAuthorizationModes: [
+          { authorizationType: appsync.AuthorizationType.IAM },
+        ],
       },
       logConfig: { fieldLogLevel: appsync.FieldLogLevel.ERROR },
       xrayEnabled: false,
