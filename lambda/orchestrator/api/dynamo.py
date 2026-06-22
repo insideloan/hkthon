@@ -40,8 +40,18 @@ def pk_prod(product_id: str) -> str:
     return f"PROD#{product_id}"
 
 
+# 큐 인덱스 파티션 (관리자 대시보드 스냅샷). dialCall/상태변경이 갱신,
+# queue resolver가 조회. SK = CALL#{id}.
+PK_QUEUE = "QUEUE"
+
+
+def sk_call(call_id: str) -> str:
+    return f"CALL#{call_id}"
+
+
 SK_META = "META"
 SK_SUMMARY = "SUMMARY"
+SK_PREFIX_CALL = "CALL#"
 
 
 def sk_turn(seq: int) -> str:
@@ -124,6 +134,28 @@ def query(pk: str, sk_prefix: Optional[str] = None) -> list[dict[str, Any]]:
     kwargs: dict[str, Any] = {"KeyConditionExpression": cond}
     while True:
         resp = get_table().query(**kwargs)
+        items.extend(resp.get("Items", []))
+        lek = resp.get("LastEvaluatedKey")
+        if not lek:
+            break
+        kwargs["ExclusiveStartKey"] = lek
+    return items
+
+
+def scan(sk: Optional[str] = None) -> list[dict[str, Any]]:
+    """전체 테이블 스캔. sk 주면 해당 SK 아이템만(FilterExpression) 반환.
+
+    데모 규모(아이템 수십 개) 전용 — 큐 인덱스가 비었을 때의 fallback 경로다.
+    상시 핫패스는 query(PK_QUEUE, ...)이며 scan은 booth 콜드스타트 보호용.
+    """
+    from boto3.dynamodb.conditions import Attr
+
+    items: list[dict[str, Any]] = []
+    kwargs: dict[str, Any] = {}
+    if sk is not None:
+        kwargs["FilterExpression"] = Attr("SK").eq(sk)
+    while True:
+        resp = get_table().scan(**kwargs)
         items.extend(resp.get("Items", []))
         lek = resp.get("LastEvaluatedKey")
         if not lek:

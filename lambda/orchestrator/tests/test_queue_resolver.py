@@ -50,3 +50,33 @@ def test_queue_row_schema():
     for k in ("callId", "customerName", "state", "churnRisk", "assignee",
               "channel", "elapsedSec", "highlight"):
         assert k in row
+
+
+def _seed_meta(call_id, **kw):
+    item = {"PK": f"CALL#{call_id}", "SK": "META", "callId": call_id}
+    item.update(kw)
+    dynamo.put_item(item)
+
+
+def test_queue_fallback_scans_meta_when_index_empty():
+    # 큐 인덱스 비었을 때 CALL#/META 스캔으로 활성 콜 복원 (booth 콜드스타트).
+    _seed_meta("live1", state="IN_CALL", startedAt="2026-06-22T00:00:00Z")
+    _seed_meta("pend1", state="TRANSFER_PENDING")
+    _seed_meta("new1", state="CREATED")  # 발신 전 → 큐에서 제외
+    res = queue.resolve_queue({}, {})
+    assert {r["callId"] for r in res["rows"]} == {"live1", "pend1"}
+    assert res["summary"]["needsAgent"] == 1  # pend1
+
+
+def test_queue_index_takes_precedence_over_meta():
+    # 인덱스가 있으면 META 스캔은 하지 않는다 (핫패스).
+    _seed_queue_row("idx1", state="IN_CALL")
+    _seed_meta("meta1", state="IN_CALL")
+    res = queue.resolve_queue({}, {})
+    assert {r["callId"] for r in res["rows"]} == {"idx1"}
+
+
+def test_queue_fallback_reads_camel_started_at():
+    _seed_meta("c1", state="IN_CALL", startedAt="2026-06-22T00:00:00Z")
+    row = queue.resolve_queue({}, {})["rows"][0]
+    assert row["elapsedSec"] >= 0
