@@ -197,11 +197,22 @@ export class HkthonStack extends cdk.Stack {
       'createCall', 'dialCall', 'approveProduct', 'transferToAgent',
       'sendLink', 'endCall', 'nextTurn', 'startAudio', 'audioChunk',
     ];
+    // createCall/nextTurn existed in the placeholder stack under these construct
+    // IDs. Reuse them so CloudFormation updates the resolvers in place instead of
+    // creating new ones (which collides — AppSync allows one resolver per field,
+    // and CFN create-before-delete would briefly need two → AlreadyExists).
+    const MUTATION_RESOLVER_ID: Record<string, string> = {
+      createCall: 'CreateCallResolver',
+      nextTurn: 'NextTurnResolver',
+    };
     for (const f of QUERY_FIELDS) {
       orchestratorDs.createResolver(`Q_${f}`, { typeName: 'Query', fieldName: f });
     }
     for (const f of MUTATION_FIELDS) {
-      orchestratorDs.createResolver(`M_${f}`, { typeName: 'Mutation', fieldName: f });
+      orchestratorDs.createResolver(
+        MUTATION_RESOLVER_ID[f] ?? `M_${f}`,
+        { typeName: 'Mutation', fieldName: f },
+      );
     }
 
     // `_emit*` mutations: local (NONE) data source that just echoes the
