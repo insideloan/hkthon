@@ -75,19 +75,28 @@ function makeBanner(mot: MotDetected): BannerContent {
 
 // ── RzMarker — SSOT .rz SVG 그룹 ─────────────────────────────────────────────
 // rz-compare는 SSOT에서 ellipse(rx=44 ry=30), 나머지는 circle(r=33).
+// rz-core class kept as harmless string for SSOT lineage; no external CSS needed.
 function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerState }) {
   const isEllipse = id === 'rz-compare';
   const delay = ANIMATION_DELAY[id];
+
+  // Stroke color: alert/show→hazard, blocked→go
+  const strokeColor =
+    markerState === 'blocked' ? 'var(--go)' : 'var(--hazard)';
+  // Fill: blocked gets a subtle go tint
+  const fillColor =
+    markerState === 'blocked' ? 'var(--cmp-final, #f5fbf8)' : '#fff';
+
   if (isEllipse) {
     return (
       <ellipse
         className="rz-core"
         rx={44}
         ry={30}
-        fill="#fff"
-        stroke="var(--hazard)"
+        fill={fillColor}
+        stroke={strokeColor}
         strokeWidth={2.4}
-        strokeDasharray="4 5"
+        strokeDasharray={markerState === 'blocked' ? 'none' : '4 5'}
         style={{ animationDelay: delay }}
       />
     );
@@ -96,10 +105,10 @@ function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerStat
     <circle
       className="rz-core"
       r={33}
-      fill="#fff"
-      stroke="var(--hazard)"
+      fill={fillColor}
+      stroke={strokeColor}
       strokeWidth={2.4}
-      strokeDasharray="4 5"
+      strokeDasharray={markerState === 'blocked' ? 'none' : '4 5'}
       style={{ animationDelay: delay }}
     />
   );
@@ -112,6 +121,8 @@ type RzMarkerProps = {
   riskActive?: boolean;
 };
 
+// Note: 'rz', 'show', 'alert', 'blocked' class names are kept because
+// mot.test.tsx asserts them via toHaveClass(). They are the test contract.
 function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
   const { x, y, label } = MOT_MARKER_COORDS[id];
   const cls = clsx(
@@ -123,6 +134,9 @@ function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
     riskActive && markerState !== 'blocked' && 'risk-active',
   );
 
+  // Opacity: hidden→0, show/alert/blocked→1
+  const opacity = markerState === 'hidden' ? 0 : 1;
+
   return (
     <g
       className={cls}
@@ -131,22 +145,35 @@ function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
       data-testid={`mot-marker-${id}`}
       data-marker-state={markerState}
       data-risk-active={riskActive ? 'true' : undefined}
+      style={{
+        opacity,
+        transition: 'opacity 0.4s ease',
+        // risk-active: subtle hazard glow outline effect via filter
+        filter:
+          riskActive && markerState !== 'blocked'
+            ? 'drop-shadow(0 0 6px var(--hazard))'
+            : undefined,
+      }}
     >
       <RzCore id={id} state={markerState} />
       <text
         className="rz-label"
         y={5}
         textAnchor="middle"
-        fill="var(--hazard)"
-        fontFamily="Pretendard,sans-serif"
+        fill={markerState === 'blocked' ? 'var(--go)' : 'var(--hazard)'}
+        fontFamily="var(--kr)"
         fontSize={18}
         fontWeight={800}
       >
         {label}
       </text>
-      {/* rz-done: 방어 완료 체크 배지 (SSOT) */}
-      <g className="rz-done" transform="translate(24,-22)">
-        <circle r={9} fill="var(--hazard)" />
+      {/* rz-done: 방어 완료 체크 배지 (SSOT) — visible only when blocked */}
+      <g
+        className="rz-done"
+        transform="translate(24,-22)"
+        style={{ opacity: markerState === 'blocked' ? 1 : 0 }}
+      >
+        <circle r={9} fill="var(--go)" />
         <path
           d="M-4.5,0 l3,3 5,-6"
           stroke="#fff"
@@ -161,6 +188,7 @@ function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
 }
 
 // ── CautionPop — SSOT #cautionPop (! 경고 삼각형) ────────────────────────────
+// 'show' class is kept because mot.test.tsx asserts it via toHaveClass('show').
 type CautionPopProps = {
   visible: boolean;
   x: number;
@@ -175,6 +203,11 @@ function CautionPop({ visible, x, y }: CautionPopProps) {
       transform={`translate(${x},${y - 48})`}
       data-testid="caution-pop"
       data-visible={String(visible)}
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.3s ease',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
     >
       <path
         d="M0,-18 L17,13 H-17 Z"
@@ -190,7 +223,7 @@ function CautionPop({ visible, x, y }: CautionPopProps) {
         fontSize={18}
         fontWeight={700}
         fill="#fff"
-        fontFamily="Space Grotesk,sans-serif"
+        fontFamily="var(--disp)"
       >
         !
       </text>
@@ -199,48 +232,121 @@ function CautionPop({ visible, x, y }: CautionPopProps) {
 }
 
 // ── NavBanner — SSOT #banner (.nav-banner) ────────────────────────────────────
+// Rebuilt with Tailwind utilities + CSS var tokens (Option 2).
+// glass-card = frosted bg from globals.css.
 // dist: churnRisk% when available (FRONTEND-012), else MOT-derived dist.
 type NavBannerProps = {
   banner: BannerContent | null;
   dist: number; // 0-100
 };
 
+// Turn icon SVG paths per banner type
 const TURN_SVG: Record<'risk' | 'def' | 'done', string> = {
-  def: '<path d="M12 20V8M12 8l-5 5M12 8l5 5" stroke="#2C5BD6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
-  risk: '<path d="M12 3l9 16H3L12 3z" fill="none" stroke="#E5484D" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="#E5484D"/>',
-  done: '<path d="M5 12.5l4.5 4.5L19 7" stroke="#1F9D6B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  def: '<path d="M12 20V8M12 8l-5 5M12 8l5 5" stroke="var(--route)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  risk: '<path d="M12 3l9 16H3L12 3z" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="var(--danger)"/>',
+  done: '<path d="M5 12.5l4.5 4.5L19 7" stroke="var(--go)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+// Accent color per type for the dist badge and border accent
+const TYPE_ACCENT: Record<'risk' | 'def' | 'done', string> = {
+  risk: 'var(--danger)',
+  def: 'var(--route)',
+  done: 'var(--go)',
 };
 
 function NavBanner({ banner, dist }: NavBannerProps) {
   const type = banner?.type ?? 'def';
   const eyebrow = banner?.eyebrow ?? 'NEXT · 다음 안내';
   const lead = banner?.lead ?? '출발지 — <b>초기 관심</b> 구간 진입 대기';
+  const accent = TYPE_ACCENT[type];
 
   return (
     <div
       id="banner"
-      className={clsx('nav-banner', banner && type)}
+      className="glass-card flex items-center gap-3 px-4 py-3 rounded-xl"
       data-testid="journey-banner"
       data-banner-type={type}
+      style={{ borderLeft: `3px solid ${accent}` }}
     >
-      <span className="turn" id="turnIc">
-        <svg viewBox="0 0 24 24" fill="none" dangerouslySetInnerHTML={{ __html: TURN_SVG[type] }} />
+      {/* Turn icon — 24×24 SVG */}
+      <span
+        id="turnIc"
+        className="flex-none w-6 h-6 flex items-center justify-center"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          className="w-full h-full"
+          dangerouslySetInnerHTML={{ __html: TURN_SVG[type] }}
+        />
       </span>
-      <span className="txt">
-        <span className="eyebrow" id="bannerEye" data-testid="banner-eyebrow">
+
+      {/* Text block — eyebrow + lead */}
+      <span className="flex flex-col gap-0.5 flex-1 min-w-0">
+        <span
+          className="font-mono text-[10px] uppercase tracking-widest"
+          style={{ color: 'var(--ink-faint)' }}
+          id="bannerEye"
+          data-testid="banner-eyebrow"
+        >
           {eyebrow}
         </span>
         <span
-          className="lead"
+          className="font-disp text-sm font-semibold leading-snug"
+          style={{ color: 'var(--ink)' }}
           id="bannerLead"
           data-testid="banner-lead"
           dangerouslySetInnerHTML={{ __html: lead }}
         />
       </span>
-      <span className="dist" id="bannerDist" data-testid="banner-dist">
+
+      {/* Dist badge — churnRisk% */}
+      <span
+        className="font-mono text-sm font-bold flex-none tabular-nums"
+        style={{ color: accent }}
+        id="bannerDist"
+        data-testid="banner-dist"
+      >
         {dist}%
       </span>
     </div>
+  );
+}
+
+// ── Route path — SSOT SVG road/route lines ───────────────────────────────────
+// Simple road strip with a colored route overlay matching SSOT visual intent.
+function RoutePath() {
+  return (
+    <g>
+      {/* Road base — two lanes */}
+      <path
+        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
+        stroke="var(--road, #c9c0b1)"
+        strokeWidth={28}
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Road edge lines */}
+      <path
+        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
+        stroke="var(--road-edge, #b6ac9a)"
+        strokeWidth={30}
+        fill="none"
+        strokeLinecap="round"
+        opacity={0.4}
+      />
+      {/* Route highlight */}
+      <path
+        d="M50,355 Q400,360 760,355 Q1100,350 1580,355"
+        stroke="var(--route)"
+        strokeWidth={4}
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray="12 8"
+        opacity={0.7}
+      />
+    </g>
   );
 }
 
@@ -359,7 +465,7 @@ export function JourneyMap({
 
   return (
     <section
-      className="map flex flex-col gap-2"
+      className="flex flex-col gap-2 w-full"
       aria-label="상담 여정 맵"
       data-testid="journey-map"
       data-churn-risk={churnRisk !== null ? churnRisk : undefined}
@@ -372,9 +478,14 @@ export function JourneyMap({
         role="img"
         aria-label="상담 경로 여정 맵"
         data-testid="journey-svg"
+        className="w-full"
+        style={{ background: 'var(--canvas)', borderRadius: 12 }}
       >
+        {/* Road/route path — visual backdrop */}
+        <RoutePath />
+
         {/* MOT 마커 (SSOT: .rz 그룹) */}
-        <g fontFamily="Pretendard,sans-serif" fontSize={18} fontWeight={800}>
+        <g fontFamily="var(--kr)" fontSize={18} fontWeight={800}>
           {markers.map((entry) => (
             <RzMarker
               key={entry.id}

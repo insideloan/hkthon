@@ -1,3 +1,83 @@
+/* SSOT 디자인 토큰 — docs/consult_redesigned-3.html :root 미러.
+ * tailwind.config.ts(TEAM-LOCK)에 없는 변수만 여기 CSS 변수로 정의하고,
+ * 컴포넌트는 tailwind 토큰(text-ink/bg-go 등) 또는 bg-[var(--card)] 형태로 소비한다.
+ * (Option 2: SSOT 무효 클래스 의존 제거 → tailwind 토큰 + 아래 변수로 재구현) */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* 캔버스 / 종이 */
+  --canvas: #ece4d8;
+  --canvas-2: #e0d5c3;
+  --paper: #ffffff;
+  /* 경로 / 도로 */
+  --road: #c9c0b1;
+  --road-edge: #b6ac9a;
+  --route: #3551d6;
+  --route-2: #5b78f0;
+  /* 의미색 (tailwind 토큰과 동일 값 — var()로도 쓸 수 있게 중복 정의) */
+  --hazard: #cf8a3c;
+  --hazard-ink: #8a5a1e;
+  --danger: #db5350;
+  --go: #2e9e6e;
+  --ink: #23293a;
+  --ink-dim: #5e6678;
+  --ink-faint: #9aa0ac;
+  --line: #e3dbcd;
+  /* frosted-glass 카드 시스템 */
+  --card: rgba(255, 255, 255, 0.56);
+  --card-soft: rgba(255, 255, 255, 0.4);
+  --card-solid: rgba(255, 255, 255, 0.8);
+  --card-bd: rgba(255, 255, 255, 0.7);
+  --hair: rgba(82, 66, 44, 0.12);
+  --shadow: 0 22px 48px -30px rgba(86, 70, 48, 0.55);
+  --badge-bg: #e7ecfc;
+  --badge-ink: #3551d6;
+  --title: #3c4453;
+  /* 폰트 스택 */
+  --disp: 'Space Grotesk', 'Pretendard', system-ui, sans-serif;
+  --kr: 'Pretendard', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+  }
+  body {
+    font-family: var(--kr);
+    color: var(--ink);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.5'/%3E%3C/svg%3E"),
+      linear-gradient(to right, var(--canvas-2) 0%, var(--canvas) 100%);
+    background-color: var(--canvas);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  /* SSOT 폰트 역할을 tailwind 유틸로 노출 (font-disp / font-mono / font-kr) */
+  .font-disp {
+    font-family: var(--disp);
+  }
+  .font-kr {
+    font-family: var(--kr);
+  }
+  .font-mono {
+    font-family: var(--mono);
+  }
+  /* frosted-glass 카드 — SSOT .card/.sidebar 룩 (컴포넌트에서 .glass-card로 소비) */
+  .glass-card {
+    background: var(--card);
+    border: 1px solid var(--card-bd);
+    border-radius: 18px;
+    backdrop-filter: blur(16px) saturate(1.08);
+    -webkit-backdrop-filter: blur(16px) saturate(1.08);
+    box-shadow: var(--shadow);
+  }
+}
