@@ -20,7 +20,7 @@
 | **BACKEND** | API Contract & Core | 지원 (cckr34) | AppSync GraphQL 스키마(wire 계약)·resolver, Lambda 핸들러 엔트리·데이터소스 글루 |
 | **FRONTEND** | Next.js App | 주실 (jusilkkk) | 화면 전체(관리자/세그먼트/상담/CRM) + AppSync 클라이언트 + Zustand 스토어 |
 
-> **역할/계층 기반 1인 1모듈.** 고객 iPhone UI 제거(단일 상담원 화면 + 노트북 마이크/스피커 음성 채널). CLOUD(일조)는 TEAM-LOCK 파일·PR을 관장하는 허브 역할도 겸한다.
+> **역할/계층 기반 1인 1모듈.** 고객 iPhone UI 제거(단일 상담원 화면 + 노트북 마이크/스피커 음성 채널). CLOUD(일조)는 인프라·배포·CI 허브 역할을 겸한다. (TEAM-LOCK은 2026-06-22 폐지)
 > 모듈 간 인터페이스(AppSync 이벤트 계약)는 **BACKEND가 정의**하고 변경은 BACKEND PR (§5).
 
 ---
@@ -29,8 +29,10 @@
 
 > ✅ = 본인이 직접 push 가능 (자기 모듈)
 > 🔒 = PR 필수 (다른 모듈 파일)
-> 🚫 = TEAM LOCK (합의 필수, 거의 안 건드림)
-> `*` = shared (누구나 push 가능, e.g. UI wrapper)
+> `*` = shared (누구나 push 가능, e.g. UI wrapper, deps/configs/docs)
+>
+> **TEAM-LOCK 폐지 (2026-06-22)**: 의존성·설정·문서 파일은 모두 SHARED(`*`)로 전환됨.
+> 남은 멤버가 전 모듈을 자유롭게 작업하기 위해 전원 합의 게이트를 제거. (boundary 강제도 비활성 — #105)
 
 > **⚙️ 자동 SSOT**: 아래 yaml 블록이 `scripts/check-module-boundary.py`가 읽는 단일 진실 공급원입니다.
 > yaml을 수정하면 사람용 표도 같이 수정해야 합니다 (`./install.sh --verify-modules`로 drift 검사).
@@ -51,7 +53,7 @@
 #
 # Special owners (NOT a real module — handled specially in check):
 #   "*"          = shared (anyone can write; e.g. UI wrappers, OWNER.md, tests)
-#   "TEAM-LOCK"  = requires all-team approval (deps, configs, MODULES.md itself)
+#   (TEAM-LOCK removed 2026-06-22 — deps/configs/docs folded into SHARED.)
 
 modules:
   - code: DATA
@@ -109,6 +111,8 @@ modules:
       - initialize.sh
 
   # Shared: anyone can write. Wrappers, OWNER.md, slice docs, tests, etc.
+  # TEAM-LOCK was removed (2026-06-22) — deps/configs/docs are now shared so the
+  # remaining members can move across all modules without all-team approval.
   - code: SHARED
     name: Shared (any module owner)
     owner_person: anyone
@@ -123,13 +127,7 @@ modules:
       - .githooks/*
       - .gitignore
       - README.md
-
-  # TEAM-LOCK: requires all-team approval. The pre-push hook blocks
-  # any individual push that touches these. CLOUD(일조)가 PR을 관장.
-  - code: TEAM-LOCK
-    name: Team Lock (all-team approval required)
-    owner_person: all
-    files:
+      # ── formerly TEAM-LOCK (deps / configs / docs) — now shared ──
       - frontend/package.json
       - frontend/pnpm-lock.yaml
       - frontend/tailwind.config.ts
@@ -168,7 +166,7 @@ modules:
 | `lambda/orchestrator/seed.py` | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
 | `data/scenarios/*` (scenario.json) | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
 | `data/lexicon/*` (S3 배포본) | ✅ | 🔒 | 🔒 | 🔒 | 🔒 |
-| `lambda/orchestrator/requirements.txt` | 🚫 | 🚫 | 🚫 | 🚫 | ✅ (의존성 PR) |
+| `lambda/orchestrator/requirements.txt` | `*` | `*` | `*` | `*` | `*` (shared — 구 TEAM-LOCK) |
 | `lambda/orchestrator/tests/*` | ✅ | ✅ | ✅ | ✅ | ✅ (각자 자기 모듈 테스트) |
 
 ### 2.2 Frontend (`frontend/src/`)
@@ -184,9 +182,9 @@ modules:
 | `frontend/src/lib/mic.ts` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
 | `frontend/src/stores/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
 | `frontend/src/types/*` | 🔒 | 🔒 | 🔒 | ✅ | 🔒 |
-| `frontend/tailwind.config.ts` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ |
-| `frontend/package.json` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ (의존성 PR) |
-| `frontend/next.config.mjs` | 🚫 | 🚫 | 🚫 | 🔒 | ✅ |
+| `frontend/tailwind.config.ts` | `*` | `*` | `*` | `*` | `*` (shared — 구 TEAM-LOCK) |
+| `frontend/package.json` | `*` | `*` | `*` | `*` | `*` (shared — 구 TEAM-LOCK) |
+| `frontend/next.config.mjs` | 🔒 | 🔒 | 🔒 | 🔒 | ✅ (CLOUD 소유) |
 
 > wire-format(AppSync GraphQL 스키마)은 **BACKEND가 정의**하되 DATA(모델 모양)·FRONTEND(클라 타입)와 합의 — §5 참고.
 
@@ -195,17 +193,15 @@ modules:
 | Path | 규칙 |
 |---|---|
 | `infra/*`, `amplify.yml`, `.github/workflows/*`, `docs/cloud/*`, `hk-skills/scripts/*`, `initialize.sh` | AWS IaC·배포·CI·운영 도구(boundary 훅/드리프트/온보딩). CLOUD(일조) 소유 |
-| `frontend/package.json`, `frontend/pnpm-lock.yaml` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
-| `lambda/orchestrator/requirements.txt` | 새 의존성 추가 시 PR → CLOUD 리뷰 |
-| `infra/package.json`, `infra/cdk.json` | CDK 의존성·설정. PR → CLOUD 리뷰 |
-| `frontend/tailwind.config.ts`, `frontend/next.config.mjs` | 설정 변경 시 PR → CLOUD 리뷰 |
-| `docs/reference/*` · `hk-skills/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | 합의 후 PR |
+| `frontend/next.config.mjs` | Next.js 빌드 설정. CLOUD 소유 |
+| `frontend/package.json`, `frontend/pnpm-lock.yaml`, `frontend/tailwind.config.ts` | **SHARED** (구 TEAM-LOCK). 누구나 push 가능 |
+| `lambda/orchestrator/requirements.txt`, `infra/package.json`, `infra/cdk.json` | **SHARED** (구 TEAM-LOCK). 누구나 push 가능 |
+| `docs/reference/*` · `hk-skills/reference/*` (ARCHITECTURE/STACK/CONVENTIONS/PRODUCT-BRIEF/CHURN-RISK-LEXICON + churn_risk_lexicon.json) | **SHARED** (구 TEAM-LOCK). 누구나 push 가능 |
 | `OWNER.md` | 모듈 owner 누구든 push 가능 (status 갱신) |
-| `docs/MODULES.md` · `hk-skills/MODULES.md` (이 파일) | 합의 후 PR (CLOUD가 머지 관장) |
-| `docs/WORKFLOW.md` · `hk-skills/WORKFLOW.md` | 합의 후 PR |
+| `docs/MODULES.md` · `hk-skills/MODULES.md` (이 파일) · `docs/WORKFLOW.md` · `hk-skills/WORKFLOW.md` | **SHARED** (구 TEAM-LOCK). 누구나 push 가능 |
 
-> **TEAM LOCK 파일은** 누가 작성해도 PR. 본인이 push 못 함 (maintainer도 PR 권장).
-> **렉시콘 주의**: 이탈위험도 키워드 사전 SSOT는 `docs/reference/CHURN-RISK-LEXICON.md`(prose) + `docs/reference/churn_risk_lexicon.json`(code). `data/lexicon/`의 S3 배포본은 SSOT를 따라가는 복사본 — 사전 변경은 reference 두 파일 동시 수정 → PR.
+> **TEAM-LOCK 폐지 (2026-06-22)**: 의존성·설정·문서 파일은 모두 SHARED로 전환. 남은 멤버가 전 모듈을 막힘 없이 작업하기 위해 전원 합의 게이트를 제거했다 (boundary 강제도 비활성 — #105). CLOUD는 인프라 파일만 계속 소유.
+> **렉시콘 주의**: 이탈위험도 키워드 사전 SSOT는 `docs/reference/CHURN-RISK-LEXICON.md`(prose) + `docs/reference/churn_risk_lexicon.json`(code). `data/lexicon/`의 S3 배포본은 SSOT를 따라가는 복사본 — 사전 변경은 reference 두 파일 동시 수정.
 
 ---
 
@@ -221,7 +217,7 @@ modules:
 
 > AppSync 서버리스로 전환. 오디오/STT 입력은 라이브 모드에서 Lambda(orchestrator)가 Transcribe로 직접 수용(AGENT 로직), 스크립트 모드는 `scenario.json` 재생.
 
-**1인 1모듈**. 본인이 owner인 모듈 안에서는 자유 push. 다른 모듈은 PR. CLOUD(일조)는 TEAM-LOCK·PR 머지를 관장.
+**1인 1모듈**. 본인이 owner인 모듈 안에서는 자유 push. (boundary 강제는 비활성 — #105. TEAM-LOCK 폐지로 deps/설정/문서는 누구나 push.)
 
 ---
 
@@ -229,10 +225,9 @@ modules:
 
 ### 4.1 PR을 만들어야 하는 경우
 
-1. 다른 사람 모듈의 파일을 변경해야 할 때
-2. TEAM LOCK 파일을 건드릴 때 (CLOUD가 머지 관장)
-3. wire-format (AppSync GraphQL 스키마)을 바꿀 때 → **BACKEND에 PR**, DATA/FRONTEND 합의
-4. 새 dependency를 추가할 때 (CLOUD 리뷰)
+1. 다른 사람 모듈의 파일을 변경해야 할 때 (권장 — boundary 강제는 비활성)
+2. wire-format (AppSync GraphQL 스키마)을 바꿀 때 → **BACKEND에 PR**, DATA/FRONTEND 합의
+3. 새 dependency를 추가할 때 (SHARED — 누구나 가능하나 PR 권장)
 
 ### 4.2 PR 타이틀 규약
 
@@ -245,7 +240,7 @@ modules:
 - `[FRONTEND] color speech keywords PRO=green/CONS=red`
 - `[BACKEND] add onMotDetected subscription to schema`
 - `[CLOUD] provision AppSync API + DynamoDB resolver`
-- `[TEAM-LOCK] add aws-cdk-lib to infra deps`
+- `[SHARED] add aws-cdk-lib to infra deps`
 
 ### 4.3 PR 본문
 
@@ -347,16 +342,15 @@ DynamoDB 싱글 테이블 (+Streams): `Call`/`Turn`/`MOT`/`ComplianceReview`/`Su
 
 1. `MODULES.md`의 yaml 블록에 파일 추가
 2. 위 사람용 표 (§2.1 또는 §2.2)도 같은 셀에 ✅ 표시 추가
-3. `./install.sh --verify-modules` 실행해서 일치 확인
-4. PR (TEAM LOCK이므로 모든 팀원 approve)
+3. `./install.sh --verify-modules` 실행해서 일치 확인 (lint-modules drift 체크는 CI에서 유지)
 
 ---
 
-## 7. Pre-push hook (자동 강제) / Auto enforcement
+## 7. Pre-push hook / Auto enforcement (현재 비활성)
 
-`setup-project.sh`가 `.githooks/pre-push`를 설치. push 시점에 변경 파일이 본인 모듈인지 `scripts/check-module-boundary.py`가 본 yaml로 검증 → 위반 시 push block.
+> **boundary 강제 비활성화 (2026-06-22, #105)**: BACKEND/DATA owner 부재로 남은 멤버가 전 모듈을 나눠 작업하기 위해, `.githooks/pre-push`와 CI의 module-boundary 강제가 꺼졌다. 본 문서의 ownership 표는 **참고용 가이드**로 유지된다 (lint-modules drift 체크는 계속 동작).
 
-**훅 무시하지 마세요.** 우회(`git push --no-verify`) 금지. 시간 압박이 클수록 자동 강제가 안전합니다.
+(과거) `setup-project.sh`가 `.githooks/pre-push`를 설치하면 push 시점에 변경 파일이 본인 모듈인지 `scripts/check-module-boundary.py`가 yaml로 검증했다. 재활성화하려면 #105 커밋을 revert.
 
 ---
 
@@ -395,10 +389,10 @@ A. FRONTEND(주실)가 화면 전체를 소유. 화면 간 일관성은 한 owne
 A. 누구든 push 가능(`*`). wrapper 변경이 다른 모듈 UI에 영향 줄 수 있으니, 큰 변경은 PR + Demo.
 
 **Q. 시나리오 데이터(`scenario.json`)와 렉시콘은?**
-A. DATA 소유(`data/scenarios/*`, `data/lexicon/*`). 단 렉시콘 점수모델 SSOT는 `docs/reference/*`(TEAM-LOCK).
+A. DATA 소유(`data/scenarios/*`, `data/lexicon/*`). 렉시콘 점수모델 SSOT는 `docs/reference/*` (현재 SHARED).
 
 **Q. pre-push hook을 우회해야 할 때?**
-A. 거의 없음. 정말 필요하면 owner 합의 + 모듈 boundary 명시. 우회는 항상 기록.
+A. boundary 강제는 현재 비활성(#105)이라 우회가 필요 없다. 재활성화 시에는 owner 합의 후 기록.
 
 ---
 
@@ -406,7 +400,7 @@ A. 거의 없음. 정말 필요하면 owner 합의 + 모듈 boundary 명시. 우
 
 1. `MODULES.md` 안 yaml 블록 (§2) 수정
 2. 사람용 표 (§2.1, §2.2) 같이 수정
-3. `./install.sh --verify-modules` 실행
-4. PR (TEAM LOCK, 모든 팀원 approve)
+3. `./install.sh --verify-modules` 실행 (lint-modules drift 체크)
+4. PR 권장 (이 파일은 현재 SHARED — boundary 강제 없음)
 
 > **Drift는 항상 사람이 확인**합니다. 자동 동기화는 의도적으로 안 함 — 그게 안전.

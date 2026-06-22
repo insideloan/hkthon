@@ -24,9 +24,10 @@ import * as path from 'path';
  *   - #44 (CLOUD-003)  verify Amplify auto-deploy + env injection
  *   - #52 (CLOUD-010)  audit IAM least-privilege + extend CloudWatch alarms
  *
- * NOTE: the Lambda handler and GraphQL schema here are intentionally
- * placeholders so `cdk synth` passes standalone, before AGENT/BACKEND code
- * exists. They are replaced in #49/#50.
+ * Wired to real code (2026-06-22): AppSync uses graphql/schema.graphql, the
+ * orchestrator Lambda bundles lambda/ (BACKEND/AGENT), all query/mutation
+ * resolvers route to it, `_emit*` mutations fan out via a DynamoDB Streams
+ * Lambda (stream_fanout) bound to subscriptions by @aws_subscribe.
  */
 export class HkthonStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -59,10 +60,9 @@ export class HkthonStack extends cdk.Stack {
     });
 
     // ── Lambda orchestrator (Python 3.13) ───────────────────────────────
-    // Placeholder bundle (infra/lambda-placeholder/) that resolves createCall /
-    // nextTurn by writing real DynamoDB items — proves the AppSync->Lambda->
-    // DynamoDB path in script mode. Replaced by the real orchestrator bundle in
-    // CLOUD-008 (#50). ORCHESTRATOR_MODE defaults to script mode.
+    // Real BACKEND/AGENT bundle (lambda/orchestrator). Resolves every AppSync
+    // query/mutation via handler.py fieldName dispatch. ORCHESTRATOR_MODE
+    // defaults to script mode (scenario.json replay); live mode uses Transcribe.
     const orchestratorLogs = new logs.LogGroup(this, 'OrchestratorLogs', {
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -84,7 +84,9 @@ export class HkthonStack extends cdk.Stack {
 
     const orchestrator = new lambda.Function(this, 'Orchestrator', {
       runtime: lambda.Runtime.PYTHON_3_13,
-      handler: 'handler.handler',
+      // Real BACKEND/AGENT bundle. Bundle root is lambda/ so `orchestrator` is an
+      // importable package (handler.py uses relative imports `from .resolvers`).
+      handler: 'orchestrator.handler.handler',
       layers: [depsLayer],
       // Bundle includes churn_risk_lexicon.json (copied from the SSOT at
       // hk-skills/reference/) so churn_risk.py loads it from /var/task at
@@ -93,7 +95,10 @@ export class HkthonStack extends cdk.Stack {
       // bundle (lambda/orchestrator/), carry the lexicon copy forward and keep
       // LEXICON_LOCAL_PATH pointing at it — the file must ship inside the asset.
       // The bundle copy is a build artifact of the SSOT; re-sync if the SSOT changes.
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambda-placeholder')),
+      // Real orchestrator bundle (lambda/orchestrator + AGENT/BACKEND code).
+      // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
+      // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
@@ -102,10 +107,11 @@ export class HkthonStack extends cdk.Stack {
         SCENARIO_KEY: 'scenarios/scenario.json',
         LEXICON_KEY: 'lexicon/churn_risk_lexicon.json',
         // churn_risk.py reads LEXICON_LOCAL_PATH (a real on-disk file), not S3.
-        // The lexicon SSOT is bundled into the Lambda asset (see lambda asset
-        // dir); at runtime the bundle unzips to /var/task. Missing file →
+        // The lexicon copy ships inside the orchestrator package
+        // (lambda/orchestrator/churn_risk_lexicon.json); bundle root is lambda/
+        // so at runtime it unzips to /var/task/orchestrator/. Missing file →
         // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
-        LEXICON_LOCAL_PATH: '/var/task/churn_risk_lexicon.json',
+        LEXICON_LOCAL_PATH: '/var/task/orchestrator/churn_risk_lexicon.json',
         ORCHESTRATOR_MODE: 'script',
         LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
@@ -157,12 +163,12 @@ export class HkthonStack extends cdk.Stack {
     }));
 
     // ── AppSync GraphQL API ─────────────────────────────────────────────
-    // Placeholder schema; #49 applies the real graphql/schema.graphql.
+    // Real BACKEND schema (graphql/schema.graphql) — #49 (CLOUD-007).
     const api = new appsync.GraphqlApi(this, 'Api', {
       name: 'hkthon-api',
       definition: appsync.Definition.fromSchema(
         appsync.SchemaFile.fromAsset(
-          path.join(__dirname, 'schema.placeholder.graphql'),
+          path.join(__dirname, '..', '..', 'graphql', 'schema.graphql'),
         ),
       ),
       authorizationConfig: {
@@ -175,22 +181,83 @@ export class HkthonStack extends cdk.Stack {
       xrayEnabled: false,
     });
 
-    // Data sources: DynamoDB (resolver direct) + Lambda (orchestrator).
-    api.addDynamoDbDataSource('TableDataSource', table);
+    // Lambda data source: the orchestrator resolves every query/mutation.
+    // Default Lambda-DS mapping passes { field, arguments, source, ... } as the
+    // event; handler.py dispatches on event["fieldName"].
     const orchestratorDs = api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
 
-    // Placeholder resolvers: route createCall / nextTurn to the orchestrator
-    // Lambda. Default Lambda-DS request/response mapping passes the GraphQL
-    // field + arguments through as the event. #49 replaces these with the
-    // resolvers defined against BACKEND's real schema.
-    orchestratorDs.createResolver('CreateCallResolver', {
-      typeName: 'Mutation',
-      fieldName: 'createCall',
+    // Query + mutation resolvers routed to the orchestrator. The `_emit*`
+    // mutations are invoked by the Streams fan-out (below) and bound to
+    // subscriptions via @aws_subscribe in the schema; they also need a resolver
+    // so AppSync accepts the mutation call (NONE data source — pass-through).
+    const QUERY_FIELDS = [
+      'queue', 'call', 'mots', 'callSummary', 'customer', 'customers',
+    ];
+    const MUTATION_FIELDS = [
+      'createCall', 'dialCall', 'approveProduct', 'transferToAgent',
+      'sendLink', 'endCall', 'nextTurn', 'startAudio', 'audioChunk',
+    ];
+    for (const f of QUERY_FIELDS) {
+      orchestratorDs.createResolver(`Q_${f}`, { typeName: 'Query', fieldName: f });
+    }
+    for (const f of MUTATION_FIELDS) {
+      orchestratorDs.createResolver(`M_${f}`, { typeName: 'Mutation', fieldName: f });
+    }
+
+    // `_emit*` mutations: local (NONE) data source that just echoes the
+    // arguments back as the payload, so the linked subscription fans out.
+    const noneDs = api.addNoneDataSource('EmitNoneDataSource');
+    const EMIT_FIELDS = [
+      '_emitTurn', '_emitIndexUpdate', '_emitSpeechAnalysis', '_emitStrategyUpdate',
+      '_emitComplianceState', '_emitMot', '_emitQueueUpdate', '_emitCallEnded',
+    ];
+    for (const f of EMIT_FIELDS) {
+      noneDs.createResolver(`E_${f}`, {
+        typeName: 'Mutation',
+        fieldName: f,
+        requestMappingTemplate: appsync.MappingTemplate.fromString(
+          '{"version":"2017-02-28","payload": $util.toJson($context.arguments)}',
+        ),
+        responseMappingTemplate: appsync.MappingTemplate.fromString(
+          '$util.toJson($context.result)',
+        ),
+      });
+    }
+
+    // ── DynamoDB Streams → AppSync fan-out Lambda (#28 / BACKEND-009) ────
+    // Stream events → stream_fanout.handler calls the _emit* mutations over
+    // the AppSync HTTP endpoint (IAM-signed). No separate WebSocket server.
+    const fanout = new lambda.Function(this, 'StreamFanout', {
+      runtime: lambda.Runtime.PYTHON_3_13,
+      handler: 'orchestrator.api.stream_fanout.handler',
+      layers: [depsLayer],
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        APPSYNC_URL: api.graphqlUrl,
+        APPSYNC_API_ID: api.apiId,
+        LOG_LEVEL: 'INFO',
+      },
+      logGroup: new logs.LogGroup(this, 'FanoutLogs', {
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     });
-    orchestratorDs.createResolver('NextTurnResolver', {
-      typeName: 'Mutation',
-      fieldName: 'nextTurn',
+    // Stream trigger (newest-first; skip old records on cold start).
+    fanout.addEventSourceMapping('FanoutStream', {
+      eventSourceArn: table.tableStreamArn!,
+      startingPosition: lambda.StartingPosition.LATEST,
+      batchSize: 10,
+      retryAttempts: 2,
+      bisectBatchOnError: true,
     });
+    table.grantStreamRead(fanout);
+    // Fan-out invokes AppSync mutations (GraphQL over HTTPS, IAM auth).
+    fanout.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['appsync:GraphQL'],
+      resources: [`arn:aws:appsync:${this.region}:${this.account}:apis/${api.apiId}/types/Mutation/*`],
+    }));
 
     // ── Bedrock Guardrail ───────────────────────────────────────────────
     // Compliance loop for generated drafts (STACK.md §5). Model *account*
@@ -304,6 +371,7 @@ export class HkthonStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TableName', { value: table.tableName });
     new cdk.CfnOutput(this, 'AssetsBucketName', { value: bucket.bucketName });
     new cdk.CfnOutput(this, 'OrchestratorName', { value: orchestrator.functionName });
+    new cdk.CfnOutput(this, 'StreamFanoutName', { value: fanout.functionName });
     new cdk.CfnOutput(this, 'GuardrailId', { value: guardrail.attrGuardrailId });
     new cdk.CfnOutput(this, 'AmplifyAppId', { value: amplifyApp.attrAppId });
   }
