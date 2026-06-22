@@ -60,3 +60,51 @@ def test_resolver_error_reraised_with_code_in_message(monkeypatch):
 def test_module_imports_clean():
     """핸들러 모듈 재import 가능 (콜드스타트 안전)."""
     importlib.reload(h)
+
+
+# ── admin _seed 필드 (aws lambda invoke 경로) ────────────────────────────────────
+
+
+def _inject_fake_table():
+    from orchestrator.api import dynamo
+    from orchestrator.tests.test_seed import ConditionalFakeTable
+    dynamo.set_table(ConditionalFakeTable())
+
+
+def test_seed_field_seeds_all():
+    """_seed(기본 what=all) → 고객 + 큐 둘 다 시드, 큐 스냅샷에 행이 보인다."""
+    from orchestrator.api import dynamo
+    from orchestrator.resolvers import queue
+    _inject_fake_table()
+    try:
+        resp = h.handler({"fieldName": "_seed", "arguments": {}}, None)
+        assert resp["ok"] is True
+        assert resp["customers"] == 10
+        assert resp["queue"] == 9
+        assert queue.resolve_queue({}, {})["summary"]["total"] == 9
+    finally:
+        dynamo.set_table(None)
+
+
+def test_seed_field_queue_only():
+    """what=queue → 고객 시드는 건너뛰고 큐만."""
+    from orchestrator.api import dynamo
+    _inject_fake_table()
+    try:
+        resp = h.handler({"fieldName": "_seed", "arguments": {"what": "queue"}}, None)
+        assert resp["customers"] is None
+        assert resp["queue"] == 9
+    finally:
+        dynamo.set_table(None)
+
+
+def test_seed_field_rejects_unknown_target():
+    import pytest
+    _inject_fake_table()
+    from orchestrator.api import dynamo
+    try:
+        with pytest.raises(h.OrchestratorError) as ei:
+            h.handler({"fieldName": "_seed", "arguments": {"what": "bogus"}}, None)
+        assert ei.value.error_type == "INVALID_STATE"
+    finally:
+        dynamo.set_table(None)
