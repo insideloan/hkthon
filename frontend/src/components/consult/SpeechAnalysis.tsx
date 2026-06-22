@@ -1,0 +1,372 @@
+// SpeechAnalysis — 카드① 고객발화분석 (FRONTEND-004/005/006).
+// 실시간: onSpeechAnalysis + onStrategyUpdate + onIndexUpdate AppSync 구독.
+// SSOT: docs/consult_redesigned-3.html 카드① (#card-emo).
+//
+// 디자인 원칙 (SSOT 재정렬 2026-06-22):
+//   · 키워드(.kw): 폰트 강조(bold·1.18em)만 — 색상·배경 없음.
+//   · 극성(polarity)을 색상에 매핑하지 않음(k-go/k-risk 미사용).
+//   · 턴 단위 위험/방어 신호: flag 배지(.flag--risk/.flag--def).
+//   · reason: 키워드 아코디언 없음 — 선택된 전략 카드 .slead로 노출.
+//   · 전략: 카드①내 STRAT20 파이프라인 (20 .scard → 규칙 선택 .scard.sel).
+//   · 별도 StrategyPanel 없음, 카드② DB분석 불변.
+//   · FRONTEND-012: emotion → 발화분류 bins의 감정(EMOTION) bin 표시.
+'use client';
+
+import { useEffect, useState } from 'react';
+import { clsx } from 'clsx';
+import { subscribeSpeechAnalysis, subscribeStrategyUpdate } from '@/lib/appsync';
+import * as appsyncMod from '@/lib/appsync';
+import type {
+  SpeechAnalysis as SpeechAnalysisData,
+  SpeechToken,
+  StrategyUpdate,
+} from '@/types/realtime';
+
+// ── STRAT20 (SSOT docs/consult_redesigned-3.html) ──────────────────────────
+const STRAT20: ReadonlyArray<{ name: string; lead: string }> = [
+  { name: '관심 환기 전략',          lead: '개인 관련성 높은 한 문장으로 통화 지속 이유를 만든다' },
+  { name: '신뢰 확보 전략',          lead: '통화 출처·연락 사유·공식 절차를 먼저 설명해 경계를 낮춘다' },
+  { name: '상품 확인 전략',          lead: '상품의 목적과 구조를 먼저 정리한다' },
+  { name: '의심 해소 전략',          lead: '과장 없이 확인 전/후 정보를 분리해 설명한다' },
+  { name: '공감 후 전환 전략',       lead: '우려를 먼저 인정한 뒤 부담 낮은 다음 행동으로 연결한다' },
+  { name: '불안 완화 전략',          lead: '신용·개인정보·승인 불안에 안전 기준과 절차를 설명한다' },
+  { name: '부담 완화 전략',          lead: '월 납입·기간·대환 관점으로 상환 부담을 설명한다' },
+  { name: '한도 탐색 전략',          lead: '확정 표현 없이 가능 한도 확인 절차로 유도한다' },
+  { name: '금리 비교 전략',          lead: '기존 조건 대비 비교 기준을 제시한다' },
+  { name: '대환 제안 전략',          lead: '갈아타기 가능성과 절감 효과를 확인시킨다' },
+  { name: '추가 자금 전략',          lead: '필요 금액·사용 시점·상환 가능성을 확인한다' },
+  { name: '승인 가능성 확인 전략',   lead: '고객 조건으로 진행 가능한지 기본 요건을 확인한다' },
+  { name: '자격 조건 확인 전략',     lead: '명의·연식·소득 등 필수 조건을 점검한다' },
+  { name: '절차 간소화 전략',        lead: '단계와 소요 시간을 짧게 정리한다' },
+  { name: '상환 조건 설명 전략',     lead: '상환 방식·기간·중도상환 등 이용 후 조건을 설명한다' },
+  { name: '비교 검토 지원 전략',     lead: '금리·월 납입·총 상환액 기준으로 비교를 돕는다' },
+  { name: '긴급 실행 전략',          lead: '가능 시점과 필수 확인사항을 우선 안내한다' },
+  { name: '재통화 예약 전략',        lead: '후속 콜 기회로 전환한다' },
+  { name: '거절 존중 전략',          lead: '추가 설득을 멈추고 종료·수신거부를 안내한다' },
+  { name: '상담원 인계·컴플라이언스 보호 전략', lead: '안전 문구로 전환하거나 사람에게 넘긴다' },
+];
+
+// ── turn-level signal: CONS token → risk, PRO token → def (risk wins) ──────
+type TurnSignal = 'risk' | 'def' | null;
+
+function deriveTurnSignal(tokens: SpeechToken[]): TurnSignal {
+  let signal: TurnSignal = null;
+  for (const tok of tokens) {
+    if (tok.polarity === 'CONS') return 'risk'; // risk has priority
+    if (tok.polarity === 'PRO') signal = 'def';
+  }
+  return signal;
+}
+
+// ── Token renderer: .kw = font emphasis only (no color, no background) ──────
+function TokenBubble({ tokens }: { tokens: SpeechToken[] }) {
+  return (
+    <span className="text-[11px] leading-relaxed">
+      {tokens.map((tok, i) => (
+        <span
+          key={i}
+          className={clsx(
+            // All tokens are plain ink color — polarity NOT mapped to color.
+            'text-[#333]',
+            // Keywords get font emphasis only (.kw style from SSOT).
+            tok.polarity !== 'NEUTRAL' && 'kw font-extrabold text-[1.18em] tracking-tight',
+          )}
+          data-testid={tok.polarity !== 'NEUTRAL' ? 'sa-kw' : undefined}
+        >
+          {tok.text}
+          {i < tokens.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// ── Per-turn row: bubble + optional flag badge ───────────────────────────────
+function TurnRow({ analysis }: { analysis: SpeechAnalysisData }) {
+  const signal = deriveTurnSignal(analysis.tokens);
+  return (
+    <div
+      className="flex flex-col gap-1"
+      data-testid="sa-turn"
+      data-turn-seq={analysis.turnSeq}
+    >
+      <div className="max-w-[88%] self-start rounded-[9px] border border-[#E0E0E0] bg-white px-[9px] py-[6px]">
+        <TokenBubble tokens={analysis.tokens} />
+      </div>
+      {signal === 'risk' && (
+        <span
+          className="flag flag--risk inline-flex items-center gap-1.5 self-start rounded-full border border-[#F3C7C6] bg-[#FCE9E9] px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-[var(--danger,#D6322E)]"
+          data-testid="sa-flag-risk"
+        >
+          위험 신호
+        </span>
+      )}
+      {signal === 'def' && (
+        <span
+          className="flag flag--def inline-flex items-center gap-1.5 self-start rounded-full border border-[#E0CFB8] bg-[#F4ECE0] px-[9px] py-[3px] font-mono text-[10px] font-bold tracking-[.02em] text-[var(--go,#2E9E6E)]"
+          data-testid="sa-flag-def"
+        >
+          방어 신호
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── STRAT20 grid: 20 cards, selected one enlarged (.scard.sel) ───────────────
+// reason from onSpeechAnalysis is surfaced as the selected card's .slead text
+// (SSOT: .stratg.resolved .scard.sel .slead)
+function StratGrid({
+  selectedIndex,
+  overrideLead,
+}: {
+  selectedIndex: number | null;
+  overrideLead?: string;
+}) {
+  const resolved = selectedIndex !== null;
+  return (
+    <div
+      className={clsx('stratg', resolved && 'resolved')}
+      data-testid="sa-stratg"
+      data-resolved={resolved ? 'true' : 'false'}
+    >
+      {STRAT20.map((s, idx) => {
+        const isSel = resolved && idx === selectedIndex;
+        return (
+          <div
+            key={idx}
+            className={clsx(
+              'scard',
+              'relative flex flex-col gap-[2px] rounded-[9px] border border-[var(--hair,#E8E8E8)] bg-white/60 p-[6px]',
+              // When resolved, hide all non-selected cards; show selected enlarged
+              resolved && !isSel && 'hidden',
+              resolved && isSel && 'flex-1 overflow-hidden',
+              isSel && 'sel',
+            )}
+            data-testid={isSel ? 'sa-scard-sel' : 'sa-scard'}
+            data-i={idx}
+          >
+            <span
+              className={clsx(
+                'sno font-mono font-bold',
+                !isSel && 'text-[7px] text-[var(--ink-faint,#999)]',
+                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-black',
+              )}
+            >
+              {String(idx + 1).padStart(2, '0')}
+            </span>
+            <span
+              className={clsx(
+                'stx font-extrabold leading-tight tracking-[-0.02em]',
+                !isSel && 'text-[11.5px] text-[var(--ink,#23293A)]',
+                isSel && 'text-[12.5px] font-extrabold leading-[1.3] text-black',
+              )}
+              data-testid={isSel ? 'sa-stx' : undefined}
+            >
+              {s.name}
+            </span>
+            <span
+              className={clsx(
+                'slead font-semibold leading-[1.2]',
+                !isSel && 'text-[7.5px] text-[var(--ink-dim,#6B7280)]',
+                isSel &&
+                  'mt-[3px] line-clamp-4 text-[12.5px] font-extrabold leading-[1.3] text-black',
+              )}
+              data-testid={isSel ? 'sa-slead' : undefined}
+            >
+              {/* If reason is provided via onSpeechAnalysis, use it; else STRAT20 lead */}
+              {isSel && overrideLead ? overrideLead : s.lead}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── EmoBins — SSOT #emoBins (.bins) 발화분류 3칸 ──────────────────────────────
+// FRONTEND-012: emotion → 감정(EMOTION) bin 표시.
+// SSOT: .bins > .bin.psy/.bin.intent/.bin.obstacle > .bin__h > b (label)
+//       + .bin__slot (orb goes here).
+// 3개 카테고리 (SSOT 변경 불가):
+//   psy     → 감정 / EMOTION
+//   intent  → 니즈 / NEEDS
+//   obstacle→ 이용가능성 / AVAILABILITY
+const EMO_CATS = [
+  { key: 'psy',      label: '감정',     en: 'EMOTION' },
+  { key: 'intent',   label: '니즈',     en: 'NEEDS' },
+  { key: 'obstacle', label: '이용가능성', en: 'AVAILABILITY' },
+] as const;
+
+type EmoBinsCatKey = typeof EMO_CATS[number]['key'];
+
+function EmoBins({ emotion }: { emotion: string | null }) {
+  return (
+    <div className="bins" id="emoBins" data-testid="emo-bins">
+      {EMO_CATS.map(({ key, label, en }) => (
+        <div
+          key={key}
+          className={clsx('bin', key)}
+          data-cat={key}
+          data-testid={`emo-bin-${en.toLowerCase()}`}
+        >
+          <div className="bin__h">
+            <b>{label}</b>
+            <i>{en}</i>
+          </div>
+          <div className="bin__slot" id={`slot-${key}`} data-testid={`emo-slot-${en.toLowerCase()}`}>
+            {/* EMOTION bin: render emotion label as orb when available */}
+            {key === 'psy' && emotion && (
+              <div className={clsx('orb', key)} data-testid="emo-emotion-orb">
+                <span className="otag">{emotion}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Component state ───────────────────────────────────────────────────────────
+type TurnAnalysis = {
+  turnSeq: number;
+  tokens: SpeechToken[];
+};
+
+type SpeechAnalysisState = {
+  turns: TurnAnalysis[];
+  selectedStrategyIndex: number | null;
+  strategyLead: string | undefined;
+};
+
+// ── Props (mock-first: initialState + disableLiveData mirrors CompliancePanel) ─
+export type SpeechAnalysisProps = {
+  callId: string;
+  /** Seed state for tests/Storybook — skips live AppSync subscription. */
+  initialState?: SpeechAnalysisState;
+  /** FRONTEND-012: seed initial emotion for tests/Storybook. */
+  initialEmotion?: string | null;
+  disableLiveData?: boolean;
+};
+
+export function SpeechAnalysis({
+  callId,
+  initialState,
+  initialEmotion = null,
+  disableLiveData = false,
+}: SpeechAnalysisProps) {
+  const [turns, setTurns] = useState<TurnAnalysis[]>(initialState?.turns ?? []);
+  const [selectedStratIdx, setSelectedStratIdx] = useState<number | null>(
+    initialState?.selectedStrategyIndex ?? null,
+  );
+  const [strategyLead, setStrategyLead] = useState<string | undefined>(
+    initialState?.strategyLead,
+  );
+  // FRONTEND-012: emotion → 감정 bin
+  const [emotion, setEmotion] = useState<string | null>(initialEmotion);
+
+  // onIndexUpdate subscription — FRONTEND-012: update emotion bin
+  useEffect(() => {
+    if (disableLiveData) return;
+    // Guard: partial test mocks may omit subscribeIndexUpdate — check existence
+    // before access to avoid Vitest mock proxy throw on undefined named exports.
+    if (!('subscribeIndexUpdate' in appsyncMod)) return;
+    const sub = appsyncMod.subscribeIndexUpdate;
+    if (typeof sub !== 'function') return;
+    const unsub = sub(
+      callId,
+      (index) => setEmotion(index.emotion),
+      (err) => console.error('onIndexUpdate(SpeechAnalysis) 구독 오류', err),
+    );
+    return unsub;
+  }, [callId, disableLiveData]);
+
+  // onSpeechAnalysis subscription
+  useEffect(() => {
+    if (disableLiveData) return;
+    const unsub = subscribeSpeechAnalysis(
+      callId,
+      (analysis: SpeechAnalysisData) => {
+        setTurns((prev) => {
+          // Replace existing turn for this seq, or append
+          const idx = prev.findIndex((t) => t.turnSeq === analysis.turnSeq);
+          const next = { turnSeq: analysis.turnSeq, tokens: analysis.tokens };
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = next;
+            return updated;
+          }
+          return [...prev, next];
+        });
+        // Surface the last token's reason in the selected strategy lead
+        const lastReason = analysis.tokens.at(-1)?.reason;
+        if (lastReason) setStrategyLead(lastReason);
+      },
+      (err) => console.error('onSpeechAnalysis 구독 오류', err),
+    );
+    return unsub;
+  }, [callId, disableLiveData]);
+
+  // onStrategyUpdate subscription
+  useEffect(() => {
+    if (disableLiveData) return;
+    const unsub = subscribeStrategyUpdate(
+      callId,
+      (strategy: StrategyUpdate) => {
+        // Find which STRAT20 card matches by headline
+        const matchIdx = STRAT20.findIndex((s) => s.name === strategy.headline);
+        setSelectedStratIdx(matchIdx >= 0 ? matchIdx : null);
+        setStrategyLead(strategy.rationale || undefined);
+      },
+      (err) => console.error('onStrategyUpdate 구독 오류', err),
+    );
+    return unsub;
+  }, [callId, disableLiveData]);
+
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/60 p-3"
+      aria-label="고객발화분석"
+      data-testid="speech-analysis"
+      id="card-emo"
+    >
+      <h2 className="text-sm font-semibold text-[var(--ink,#23293A)]">고객발화분석</h2>
+
+      {/* 발화분류 section label */}
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint,#999)]">
+        발화분류
+      </div>
+
+      {/* SSOT #emoBins — 감정/니즈/이용가능성 bins; EMOTION bin shows callStore emotion */}
+      <EmoBins emotion={emotion} />
+
+      {/* Transcript turns with keyword bubbles + flag badges */}
+      <div className="flex flex-col gap-2" data-testid="sa-turns">
+        {turns.length === 0 ? (
+          <p className="text-xs text-[var(--ink-faint,#999)]">발화 분석 대기 중</p>
+        ) : (
+          turns.map((turn) => (
+            <TurnRow
+              key={turn.turnSeq}
+              analysis={{ callId, turnSeq: turn.turnSeq, tokens: turn.tokens }}
+            />
+          ))
+        )}
+      </div>
+
+      {/* solvearrow */}
+      <div className="solvearrow flex items-center justify-center gap-1.5 py-1 text-[11px] text-[var(--ink-faint,#999)]">
+        <span>▼</span>
+      </div>
+
+      {/* 대표 전략 20 section label */}
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint,#999)]">
+        대표 전략 20
+      </div>
+
+      {/* STRAT20 pipeline — resolved shows enlarged selected card */}
+      <StratGrid selectedIndex={selectedStratIdx} overrideLead={strategyLead} />
+    </section>
+  );
+}
