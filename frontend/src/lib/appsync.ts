@@ -497,6 +497,7 @@ const DIAL_CALL_MUTATION = /* GraphQL */ `
 export type DialCallResult = { callId: string; state: string };
 
 export async function dialCall(callId: string): Promise<DialCallResult> {
+  if (USE_MOCK) return { callId, state: 'DIALING' };
   const res = await getClient().graphql({
     query: DIAL_CALL_MUTATION,
     variables: { callId },
@@ -522,6 +523,7 @@ const CREATE_CALL_MUTATION = /* GraphQL */ `
 export type CreateCallResult = { callId: string; state: string };
 
 export async function createCall(customerId: string): Promise<CreateCallResult> {
+  if (USE_MOCK) return { callId: `mock-${customerId}`, state: 'ANALYZING' };
   const res = await getClient().graphql({
     query: CREATE_CALL_MUTATION,
     variables: { customerId },
@@ -556,6 +558,9 @@ export type Customer = {
 };
 
 export async function fetchCustomer(customerId: string): Promise<Customer> {
+  if (USE_MOCK) {
+    return { customerId, name: '박서준', age: 38, phone: '010-****-2840', targetProduct: '대환대출' };
+  }
   const res = await getClient().graphql({
     query: CUSTOMER_QUERY,
     variables: { customerId },
