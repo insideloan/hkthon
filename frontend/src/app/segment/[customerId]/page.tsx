@@ -150,25 +150,25 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           >
             {/* 카테고리 레이블 */}
             <g className={clsx('cat', phase !== 'loading' && 'show')} data-testid="sg-categories">
-              <text x="60" y="24" className="ts" textAnchor="middle">금리민감도</text>
-              <text x="340" y="24" className="ts" textAnchor="middle">자산보유형</text>
-              <text x="620" y="24" className="ts" textAnchor="middle">신규유입형</text>
+              <text x="60" y="24" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink-dim)">금리민감도</text>
+              <text x="340" y="24" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink-dim)">자산보유형</text>
+              <text x="620" y="24" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink-dim)">신규유입형</text>
             </g>
-            {/* 클러스터 박스 */}
+            {/* 클러스터 박스 (SVG 프레젠테이션 속성으로 토큰 직접 지정 — CSS 의존 제거) */}
             <g className={clsx('clu box', phase !== 'loading' && 'show')}>
-              <rect x="10" y="35" width="100" height="60" rx="10" />
-              <text x="60" y="60" className="ts" textAnchor="middle">대환대출</text>
-              <text x="60" y="80" className="th" textAnchor="middle">38%</text>
+              <rect x="10" y="35" width="100" height="60" rx="10" fill="var(--card-solid)" stroke="var(--hair)" strokeWidth="1" />
+              <text x="60" y="60" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">대환대출</text>
+              <text x="60" y="80" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--ink-dim)">38%</text>
             </g>
             <g className={clsx('clu box c-blue', phase !== 'loading' && 'show')} style={{ transitionDelay: '0.1s' }}>
-              <rect x="290" y="35" width="100" height="60" rx="10" />
-              <text x="340" y="60" className="ts" textAnchor="middle">자동차담보</text>
-              <text x="340" y="80" className="th" textAnchor="middle">71%</text>
+              <rect x="290" y="35" width="100" height="60" rx="10" fill="var(--badge-bg)" stroke="var(--route)" strokeWidth="1.5" />
+              <text x="340" y="60" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">자동차담보</text>
+              <text x="340" y="80" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--route)">71%</text>
             </g>
             <g className={clsx('clu box', phase !== 'loading' && 'show')} style={{ transitionDelay: '0.2s' }}>
-              <rect x="570" y="35" width="100" height="60" rx="10" />
-              <text x="620" y="60" className="ts" textAnchor="middle">신용대출</text>
-              <text x="620" y="80" className="th" textAnchor="middle">22%</text>
+              <rect x="570" y="35" width="100" height="60" rx="10" fill="var(--card-solid)" stroke="var(--hair)" strokeWidth="1" />
+              <text x="620" y="60" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">신용대출</text>
+              <text x="620" y="80" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--ink-dim)">22%</text>
             </g>
             {/* 연결선 */}
             <line
@@ -185,10 +185,10 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             {analysisComplete && (
               <g className="seg show lock" data-testid="customer-segment-dot">
                 <circle cx="340" cy="170" r="10" fill="var(--route)" />
-                <text x="340" y="200" className="th" textAnchor="middle" fill="var(--route)">
+                <text x="340" y="200" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--route)">
                   {customer?.name ?? '고객'}
                 </text>
-                <text x="340" y="218" className="ts" textAnchor="middle">자산보유형 · HIGH</text>
+                <text x="340" y="218" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink-dim)">자산보유형 · HIGH</text>
               </g>
             )}
           </svg>
