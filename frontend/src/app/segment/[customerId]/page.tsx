@@ -326,11 +326,18 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           </svg>
         </div>
 
-        {/* 분석 완료 후 — 전략 정보 + 통화 버튼 */}
+        {/* 분석 완료 후 — 전략 정보 + 통화 버튼.
+            SSOT .sg-final: opacity:0 → .show(opacity:1) 페이드인 (mount 토글 아님). */}
         {analysisComplete && (
           <>
-            {/* sg-final: SSOT structure — only the strat-card inside, no gap needed */}
-            <div className="sg-final show mt-[14px] flex flex-col" data-testid="analysis-final">
+            {/* sg-final: SSOT — opacity .5s 페이드인 + gap:12px */}
+            <div
+              className={clsx(
+                'sg-final mt-[14px] flex flex-col gap-[12px] opacity-0 transition-opacity duration-500',
+                analysisComplete && 'show opacity-100',
+              )}
+              data-testid="analysis-final"
+            >
               <div className="glass-card sg-sec px-[17px] py-[15px]">
                 <span className="sg-tag t2 mb-[11px] inline-block rounded-full bg-[var(--badge-bg)] px-[10px] py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.08em] text-route">
                   상담 전략
@@ -389,7 +396,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                       <span className="flow-chip muted rounded-[11px] border border-[var(--hair)] bg-white/50 px-[13px] py-[7px] text-[13px] font-bold text-ink-faint line-through">
                         신용대출
                       </span>
-                      <span className="flow-ar text-lg text-ink-faint">→</span>
+                      <i className="ti ti-arrow-right flow-ar not-italic text-[18px] text-ink-faint" aria-hidden></i>
                       <span className="flow-chip strong rounded-[11px] border border-route bg-route px-[16px] py-[9px] text-base font-bold text-white shadow-[0_6px_16px_-8px_rgba(53,81,214,.6)]">
                         자동차 담보대출
                       </span>
