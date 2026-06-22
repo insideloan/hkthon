@@ -54,7 +54,8 @@ def _turn_payload(item: dict) -> dict:
         "seq": item.get("seq"),
         "speaker": item.get("speaker"),
         "text": item.get("text"),
-        "flag": item.get("flag"),
+        # AGENT stores "risk"/"def"/None; wire TurnFlag enum is RISK/DEF/NEUTRAL.
+        "flag": _TURN_FLAG.get(item.get("flag"), "NEUTRAL"),
         "tokens": item.get("tokens") or [],
     }
 
@@ -68,29 +69,43 @@ def _mot_payload(item: dict) -> dict:
 
 def _compliance_payload(item: dict) -> dict:
     call_id = (item.get("PK") or "").removeprefix("CALL#")
+    # AGENT stores state lowercase ("drafting"...); wire enum is uppercase.
+    state = item.get("state")
     return {
         "callId": call_id,
-        "state": item.get("state"),
+        "state": state.upper() if isinstance(state, str) else state,
         "draft": item.get("draft"),
+        # 부가 필드(_emit 인자 화이트리스트 밖) — 구독 onComplianceState resolver/표시용.
         "violatedPolicies": item.get("violated_policies") or [],
-        "finalDiff": item.get("final"),
+        "finalDiff": item.get("final_text"),
     }
 
 
 def _emit(mutation: str, payload: dict) -> dict:
-    """AppSync `_emit*` 뮤테이션 호출 (라이브 환경). 테스트에서는 client 미주입 → 로깅만.
+    """AppSync `_emit*` 뮤테이션 호출.
 
-    실제 호출은 AppSync 클라이언트(appsync_client)가 주입됐을 때만 수행한다.
-    팬아웃 단위 테스트는 _dispatch 반환값(emit 목록)으로 검증하므로 외부 호출 불필요.
+    주입된 emit 함수(`set_appsync_emit`)가 있으면 그것을 쓰고, 없으면 기본
+    SigV4 AppSync 클라이언트(`appsync_emit.emit`)를 지연 로드해 호출한다.
+    단위 테스트는 set_appsync_emit으로 mock을 주입하거나 _DISABLE_EMIT로 끈다.
+    한 emit 실패가 배치 전체를 막지 않도록 예외는 삼킨다.
     """
     logger.info("emit %s: %s", mutation, payload)
-    if _appsync_emit is not None:
-        _appsync_emit(mutation, payload)
+    fn = _appsync_emit
+    if fn is None and not _DISABLE_EMIT:
+        from . import appsync_emit
+        fn = appsync_emit.emit
+    if fn is not None:
+        try:
+            fn(mutation, payload)
+        except Exception:  # noqa: BLE001 — 한 emit 실패가 팬아웃 배치를 막지 않게
+            logger.exception("AppSync emit failed: %s", mutation)
     return {"mutation": mutation, "payload": payload}
 
 
-# AppSync emit 함수 주입점 (라이브 배포 시 set; 테스트는 None).
+# AppSync emit 함수 주입점. 라이브 배포에서는 None이면 appsync_emit.emit을 자동 사용.
+# 테스트에서 mock을 주입하거나, _DISABLE_EMIT=True로 외부 호출을 완전히 끈다.
 _appsync_emit: Optional[Callable[[str, dict], Any]] = None
+_DISABLE_EMIT: bool = False
 
 
 def set_appsync_emit(fn: Optional[Callable[[str, dict], Any]]) -> None:
