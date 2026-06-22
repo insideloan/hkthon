@@ -58,6 +58,14 @@ def _filter_vars(mutation: str, payload: dict) -> dict:
     return {k: payload[k] for k in allowed if k in payload and payload[k] is not None}
 
 
+def _json_default(o: Any):
+    """json.dumps 보조: Decimal(DynamoDB 숫자) → int(정수) / float."""
+    import decimal
+    if isinstance(o, decimal.Decimal):
+        return int(o) if o == o.to_integral_value() else float(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
 def _endpoint() -> str:
     url = os.environ.get("APPSYNC_URL", "")
     if not url:
@@ -100,7 +108,10 @@ def emit(mutation: str, payload: dict) -> Any:
     """
     variables = _filter_vars(mutation, payload)
     query = _build_query(mutation, _EMIT_ARGS.get(mutation, {}))
-    body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+    # DynamoDB Streams의 숫자는 Decimal로 역직렬화된다 — json 기본 인코더가 처리
+    # 못하므로 default 훅으로 int/float 변환.
+    body = json.dumps({"query": query, "variables": variables},
+                      default=_json_default).encode("utf-8")
 
     result = _sign_and_post(_endpoint(), body)
     if result.get("errors"):
