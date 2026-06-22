@@ -131,10 +131,14 @@ class ComplianceStep(TypedDict, total=False):
 
 
 class Strategy(TypedDict, total=False):
-    """StrategyPanel용 전략. tactic은 signals.Tactic 라벨(20종 정규값)."""
+    """카드①(SSOT-3 #stratGrid / STRAT20)용 전략. tactic은 signals.Tactic 라벨(20종 정규값).
+
+    FRONTEND 매핑: headline=카드 제목(.stx), lead=카드 부연 한 문장(.slead).
+    """
 
     tactic: str       # signals.Tactic.value (카탈로그 밖이면 분류 폴백)
-    headline: str
+    headline: str     # 전략 제목 — 카드 .stx
+    lead: str         # 전략 부연 한 문장 — 카드 .slead (signals.TACTIC_LEAD 정본)
 
 
 class MotResult(TypedDict, total=False):

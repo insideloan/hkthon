@@ -30,6 +30,8 @@ def test_classify_fills_signal_axes(monkeypatch):
     assert out["need"] == Need.LOWER_PAYMENT
     assert out["usability"] == Usability.AFTER_COMPARE
     assert out["strategy"]["tactic"] == Tactic.PROPOSE_REFINANCE.value
+    # 카드 부연 lead(.slead)는 tactic으로부터 SSOT-3 정본 매핑 (Drift 3)
+    assert out["strategy"]["lead"] == "갈아타기 가능성과 절감 효과를 확인시킨다"
     assert out["classified_by"] == "llm"
 
 
@@ -44,10 +46,11 @@ def test_classify_out_of_catalog_signal_falls_back_to_none(monkeypatch):
 
 
 def test_classify_out_of_catalog_tactic_preserves_raw(monkeypatch):
-    """전략은 카탈로그 밖이어도 화면 표시를 위해 원문 보존."""
+    """전략은 카탈로그 밖이어도 화면 표시를 위해 원문 보존. lead는 매핑 불가→키 없음(하위호환)."""
     _patch(monkeypatch, strategy_tactic="신박한전략", strategy_headline="h")
     out = nodes.classify({"customer_text": "x", "history": []})
     assert out["strategy"]["tactic"] == "신박한전략"
+    assert "lead" not in out["strategy"]
 
 
 def test_classify_llm_failure_falls_back(monkeypatch):

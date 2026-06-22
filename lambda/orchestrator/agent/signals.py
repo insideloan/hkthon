@@ -214,6 +214,39 @@ TACTIC_DEF: dict[Tactic, tuple[str, str]] = {
     Tactic.HANDOFF_PROTECT: ("AI 단정 응답이 위험한 경우 안전 문구로 전환하거나 사람에게 넘긴다", "확정적으로 안내드리기 어려운 부분이라 상담원을 통해 정확히 확인드리겠습니다."),
 }
 
+# 전략 카드 lead(.slead) — SSOT-3 STRAT20 원문(docs/consult_redesigned-3.html:1677~).
+# FRONTEND 카드①(#stratGrid)의 .stx=전략명(=Tactic.value), .slead=아래 한 문장.
+# TACTIC_DEF[0](상세 정의)와 의미는 같으나 화면 노출 텍스트는 SSOT-3 원문이 정본이므로 분리 보관.
+TACTIC_LEAD: dict[Tactic, str] = {
+    Tactic.AROUSE_INTEREST: "개인 관련성 높은 한 문장으로 통화 지속 이유를 만든다",
+    Tactic.BUILD_TRUST: "통화 출처·연락 사유·공식 절차를 먼저 설명해 경계를 낮춘다",
+    Tactic.CLARIFY_PRODUCT: "상품의 목적과 구조를 먼저 정리한다",
+    Tactic.RESOLVE_DOUBT: "과장 없이 확인 전/후 정보를 분리해 설명한다",
+    Tactic.EMPATHIZE_PIVOT: "우려를 먼저 인정한 뒤 부담 낮은 다음 행동으로 연결한다",
+    Tactic.EASE_ANXIETY: "신용·개인정보·승인 불안에 안전 기준과 절차를 설명한다",
+    Tactic.EASE_BURDEN: "월 납입·기간·대환 관점으로 상환 부담을 설명한다",
+    Tactic.EXPLORE_LIMIT: "확정 표현 없이 가능 한도 확인 절차로 유도한다",
+    Tactic.COMPARE_RATE: "기존 조건 대비 비교 기준을 제시한다",
+    Tactic.PROPOSE_REFINANCE: "갈아타기 가능성과 절감 효과를 확인시킨다",
+    Tactic.EXTRA_FUND: "필요 금액·사용 시점·상환 가능성을 확인한다",
+    Tactic.CHECK_APPROVAL: "고객 조건으로 진행 가능한지 기본 요건을 확인한다",
+    Tactic.CHECK_ELIGIBILITY: "명의·연식·소득 등 필수 조건을 점검한다",
+    Tactic.SIMPLIFY_PROCESS: "단계와 소요 시간을 짧게 정리한다",
+    Tactic.EXPLAIN_REPAY: "상환 방식·기간·중도상환 등 이용 후 조건을 설명한다",
+    Tactic.SUPPORT_COMPARE: "금리·월 납입·총 상환액 기준으로 비교를 돕는다",
+    Tactic.URGENT_EXEC: "가능 시점과 필수 확인사항을 우선 안내한다",
+    Tactic.SCHEDULE_CALLBACK: "후속 콜 기회로 전환한다",
+    Tactic.RESPECT_REJECTION: "추가 설득을 멈추고 종료·수신거부를 안내한다",
+    Tactic.HANDOFF_PROTECT: "안전 문구로 전환하거나 사람에게 넘긴다",
+}
+
+
+def tactic_lead(tactic: "Tactic | None") -> str:
+    """Tactic → 전략 카드 lead(.slead) 문구. None이면 빈 문자열."""
+    if tactic is None:
+        return ""
+    return TACTIC_LEAD.get(tactic, "")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 시연 케이스 (xlsx '시연 케이스' 표) — 데모 시나리오 ↔ 신호 프로파일 매핑
