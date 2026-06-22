@@ -6,7 +6,7 @@ import pytest
 
 from orchestrator.api import dynamo
 from orchestrator.handler import OrchestratorError
-from orchestrator.resolvers import calls
+from orchestrator.resolvers import calls, queue
 
 from ._fake_dynamo import FakeTable
 
@@ -124,3 +124,43 @@ def test_action_on_ended_is_invalid_state():
         with pytest.raises(OrchestratorError) as ei:
             fn({}, {"callId": cid, **extra})
         assert ei.value.error_type == "INVALID_STATE"
+
+
+# ── 큐 인덱스 갱신 (queue resolver 스냅샷 소스) ──────────────────────────────────
+
+
+def _queue_index_row(call_id):
+    item = dynamo.get_item(dynamo.PK_QUEUE, dynamo.sk_call(call_id))
+    return item
+
+
+def test_dial_call_writes_queue_index():
+    out = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    idx = _queue_index_row(out["id"])
+    assert idx is not None
+    assert idx["state"] == "DIALING"
+    # queue resolver가 인덱스에서 행을 본다 (META 스캔 fallback 불필요).
+    rows = queue.resolve_queue({}, {})["rows"]
+    assert [r["callId"] for r in rows] == [out["id"]]
+
+
+def test_dial_call_mirrors_customer_name():
+    dynamo.put_item({"PK": dynamo.pk_cust("cust1"), "SK": "META",
+                     "customerId": "cust1", "name": "박서준"})
+    out = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    assert _queue_index_row(out["id"])["customer_name"] == "박서준"
+    assert queue.resolve_queue({}, {})["rows"][0]["customerName"] == "박서준"
+
+
+def test_transfer_updates_queue_index_state():
+    cid = _make_call()
+    calls.resolve_transfer_to_agent({}, {"callId": cid})
+    assert _queue_index_row(cid)["state"] == "TRANSFER_PENDING"
+    row = next(r for r in queue.resolve_queue({}, {})["rows"] if r["callId"] == cid)
+    assert row["highlight"] == "needs_agent"
+
+
+def test_end_call_updates_queue_index_state():
+    cid = _make_call()
+    calls.resolve_end_call({}, {"callId": cid})
+    assert _queue_index_row(cid)["state"] == "ENDED"

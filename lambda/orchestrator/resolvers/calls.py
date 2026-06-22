@@ -33,6 +33,32 @@ def _call_out(item: dict) -> dict:
     }
 
 
+def _upsert_queue_index(call: dict) -> None:
+    """큐 인덱스(PK=QUEUE, SK=CALL#{id}) 갱신.
+
+    queue resolver가 읽는 스냅샷 소스. dialCall/상태변경이 호출해 META의
+    최신 상태를 인덱스에 미러링한다 (queue.py가 query(PK=QUEUE)로 조회).
+    META(snake)에서 큐 row가 쓰는 필드만 투영 — 고객명/단계/이탈위험 등 분석
+    필드는 stream fanout이 META에 누적한 값을 그대로 따라온다.
+    """
+    call_id = call.get("callId")
+    if not call_id:
+        return
+    item = {
+        "PK": dynamo.PK_QUEUE,
+        "SK": dynamo.sk_call(call_id),
+        "callId": call_id,
+        "state": call.get("state"),
+        "started_at": call.get("started_at"),
+    }
+    # 선택 필드는 META에 있을 때만 미러링(없으면 row에서 None).
+    for src in ("customer_name", "stage", "churn_risk", "assignee", "channel",
+                "fraud_suspected", "needs_agent"):
+        if call.get(src) is not None:
+            item[src] = call[src]
+    dynamo.put_item(item)
+
+
 def _customer_out(item: dict) -> dict | None:
     if not item:
         return None
@@ -115,6 +141,9 @@ def resolve_dial_call(event: dict, args: dict) -> dict:
             f"customer {customer_id} already has an active call ({existing})",
         )
 
+    # 큐 row에 고객명을 띄우기 위해 발신 시점 META에 미러링(스냅샷용, 선택).
+    cust = dynamo.get_item(dynamo.pk_cust(customer_id), dynamo.SK_META) or {}
+
     call_id = new_call_id()
     item = {
         "PK": dynamo.pk_call(call_id),
@@ -124,6 +153,8 @@ def resolve_dial_call(event: dict, args: dict) -> dict:
         "state": "DIALING",
         "started_at": now_iso(),
     }
+    if cust.get("name"):
+        item["customer_name"] = cust["name"]
     dynamo.put_item(item)
     # 고객→활성콜 인덱스 (싱글 테이블, GSI 없이 중복 발신 검사용).
     dynamo.put_item({
@@ -131,6 +162,8 @@ def resolve_dial_call(event: dict, args: dict) -> dict:
         "SK": "ACTIVE_CALL",
         "callId": call_id,
     })
+    # 큐 인덱스 갱신 — queue resolver 스냅샷 소스(PK=QUEUE).
+    _upsert_queue_index(item)
     return _call_out(item)
 
 
@@ -221,6 +254,7 @@ def resolve_transfer_to_agent(event: dict, args: dict) -> dict:
         dynamo.pk_call(call_id), dynamo.SK_META,
         {"state": "TRANSFER_PENDING", "agent_joined_at": now_iso()},
     )
+    _upsert_queue_index(item)
     return _call_out(item)
 
 
@@ -248,6 +282,7 @@ def resolve_end_call(event: dict, args: dict) -> dict:
         dynamo.pk_call(call_id), dynamo.SK_META,
         {"state": "ENDED", "ended_at": now_iso()},
     )
+    _upsert_queue_index(item)
     # 요약 생성 트리거. summaries.write_summary가 turn/MOT를 집계해 SUMMARY 기록.
     from .summaries import write_summary
 

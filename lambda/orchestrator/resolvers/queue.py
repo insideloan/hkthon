@@ -14,7 +14,7 @@ import time
 
 from ..api import dynamo
 
-_QUEUE_PK = "QUEUE"
+_QUEUE_PK = dynamo.PK_QUEUE
 
 
 def _elapsed_sec(started_at: str | None) -> int:
@@ -36,6 +36,9 @@ def _highlight(item: dict) -> str | None:
 
 
 def _row_out(item: dict) -> dict:
+    # started_at(snake, 큐 인덱스) / startedAt(camel, CALL#/META) 양쪽 허용 —
+    # fallback 스캔 경로가 META 아이템을 그대로 넘기기 때문.
+    started = item.get("started_at") or item.get("startedAt")
     return {
         "callId": item.get("callId"),
         "customerName": item.get("customer_name"),
@@ -44,15 +47,33 @@ def _row_out(item: dict) -> dict:
         "churnRisk": item.get("churn_risk"),
         "assignee": item.get("assignee"),
         "channel": item.get("channel"),
-        "elapsedSec": _elapsed_sec(item.get("started_at")),
+        "elapsedSec": _elapsed_sec(started),
         "highlight": _highlight(item),
     }
+
+
+def _snapshot_items() -> list[dict]:
+    """큐 row 소스 아이템. 인덱스(PK=QUEUE) 우선, 비었으면 CALL#/META 스캔.
+
+    정상 경로는 dialCall/상태변경이 갱신하는 큐 인덱스. 인덱스가 비어 있으면
+    (인덱스 도입 전 생성된 콜, 또는 booth 콜드스타트) META를 스캔해 활성 콜을
+    복원한다 — 데모 규모 전용 fallback. CREATED는 발신 전이라 큐에서 제외.
+    """
+    items = dynamo.query(_QUEUE_PK, dynamo.SK_PREFIX_CALL)
+    if items:
+        return items
+    metas = dynamo.scan(sk=dynamo.SK_META)
+    return [
+        m for m in metas
+        if str(m.get("PK", "")).startswith(dynamo.SK_PREFIX_CALL)
+        and m.get("state") and m.get("state") != "CREATED"
+    ]
 
 
 def resolve_queue(event: dict, args: dict) -> dict:
     """큐 스냅샷. highlightOnly=true면 highlight 행만 반환."""
     highlight_only = bool(args.get("highlightOnly", False))
-    items = dynamo.query(_QUEUE_PK, "CALL#")
+    items = _snapshot_items()
     rows = [_row_out(i) for i in items]
 
     if highlight_only:
