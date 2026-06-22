@@ -37,6 +37,7 @@
   --badge-bg: #e7ecfc;
   --badge-ink: #3551d6;
   --title: #3c4453;
+  --purple: #6B4FB8;
   /* 폰트 스택 */
   --disp: 'Space Grotesk', 'Pretendard', system-ui, sans-serif;
   --kr: 'Pretendard', system-ui, sans-serif;
@@ -82,6 +83,56 @@
   }
 }
 
+/* ── JourneyMap SSOT CSS 규칙 ──────────────────────────────────────────────── */
+/* #ghost: 예상(고스트) 경로 — 기본 숨김, .show 클래스 시 표시 */
+#ghost { stroke-dasharray: 6 9; opacity: 0; transition: opacity .35s }
+#ghost.show { opacity: .85 }
+#ghost.kill { opacity: 0 }
+
+/* .cp: 체크포인트 노드 — 기본 숨김, .now/.done 도달 시 표시 */
+.cp { opacity: 0; transition: opacity .45s ease }
+.cp.now, .cp.done { opacity: 1 }
+
+/* .mapframe: 맵 프레임(구간 박스·라벨·축) — playing 상태에만 표시 */
+.mapframe { opacity: 0; transition: opacity .55s ease }
+#svg.playing .mapframe { opacity: 1 }
+
+/* .hz: 저항 골짜기 언더글로 — 기본 숨김, .show 시 표시 */
+.hz { opacity: 0; transition: opacity .5s ease }
+.hz.show { opacity: .1 }
+
+/* #carPos: 차량 위치 — playing 상태에만 표시 */
+#carPos { opacity: 0; transition: opacity .4s ease }
+#svg.playing #carPos { opacity: 1 }
+
+/* ── chaincard #card-emo / #card-db / #card-strat — SSOT CSS lines 665–674 ── */
+/* 카드 배경: 흰색→따뜻한 흰색 그라디언트 (SSOT line 665–669) */
+#card-emo, #card-emo.run, #card-emo.ok, #card-emo.run.risky,
+#card-db, #card-db.run, #card-db.ok, #card-db.run.risky,
+#card-strat, #card-strat.run, #card-strat.ok, #card-strat.run.risky {
+  background: linear-gradient(to right, #FFFFFF, #FAF9F6);
+}
+
+/* .card .card-scroll — SSOT line 670–671: flex 레이아웃 + 네거티브 마진으로 스크롤바 트랙 가장자리 정렬 */
+.card .card-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: -2px -4px -2px 0;
+  padding: 2px 4px 2px 0;
+}
+.card .card-scroll::-webkit-scrollbar { width: 6px; }
+.card .card-scroll::-webkit-scrollbar-thumb { background: #D2DAE3; border-radius: 6px; }
+
+/* .card.idle .card-scroll — SSOT line 674: 유휴 카드 스크롤 영역 50% 불투명도 */
+.card.idle .card-scroll { opacity: 0.5; }
+
+/* .nav-banner: 내비게이션 배너 — React 컴포넌트가 visibility를 직접 제어하므로 강제 숨김 제거 */
+
 /* 사이드바 LIVE dot 펄스 (SSOT .sb-foot .d) */
 @keyframes beatG {
   0% {
@@ -92,5 +143,39 @@
   }
   100% {
     box-shadow: 0 0 0 0 rgba(46, 158, 110, 0);
+  }
+}
+
+/* sgblink — segment page status-pre dots animation (SSOT line 575) */
+@keyframes sgblink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* spin — general spin animation used by sp-spin in status-pre */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* sglock — segment selected seg lock animation (SSOT line 592) */
+@keyframes sglock {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+
+/* Badge dot pulse — SSOT .adm-badge .dot with beatG animation */
+@keyframes badgeDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  70% {
+    box-shadow: 0 0 0 4px transparent;
+    opacity: 0.7;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 1;
   }
 }

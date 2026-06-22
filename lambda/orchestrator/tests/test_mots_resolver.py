@@ -47,3 +47,13 @@ def test_mots_deprecated_fields_absent():
 
 def test_mots_empty():
     assert mots.resolve_mots({}, {"callId": "none"}) == []
+
+
+def test_mot_out_handles_decimal_stageindex():
+    """DynamoDB 숫자(Decimal) stageIndex/turn_seq도 처리 (라이브 회귀 방지)."""
+    import decimal
+    out = mots.mot_out({"motId": "MOT_2", "state": "SHOW",
+                        "stageIndex": decimal.Decimal("0"),
+                        "turn_seq": decimal.Decimal("3")})
+    assert out["stage"] == "TRUST"
+    assert out["turnSeq"] == 3 and isinstance(out["turnSeq"], int)

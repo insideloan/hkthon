@@ -14,11 +14,12 @@ def test_ping_smoke():
     assert resp == {"ok": True}
 
 
-def test_unknown_field_returns_internal_error():
-    """알 수 없는 fieldName → INTERNAL 에러 응답 (예외 미발생)."""
-    resp = h.handler({"fieldName": "noSuchField", "arguments": {}}, None)
-    assert resp["error"] is True
-    assert resp["errorType"] == "INTERNAL"
+def test_unknown_field_raises_internal():
+    """알 수 없는 fieldName → INTERNAL OrchestratorError raise (AppSync가 GraphQL error로 매핑)."""
+    import pytest
+    with pytest.raises(h.OrchestratorError) as ei:
+        h.handler({"fieldName": "noSuchField", "arguments": {}}, None)
+    assert ei.value.error_type == "INTERNAL"
 
 
 def test_field_name_from_info_block():
@@ -38,14 +39,22 @@ def test_settings_loads_env(monkeypatch):
     config.get_settings.cache_clear()
 
 
-def test_resolver_error_maps_to_error_type(monkeypatch):
-    """OrchestratorError → errorType 매핑."""
+def test_resolver_error_reraised_with_code_in_message(monkeypatch):
+    """OrchestratorError는 raise되어 AppSync가 GraphQL error로 매핑.
+
+    errorType은 보존하되, AppSync errorType이 'Lambda:Unhandled'로 고정되므로
+    message 앞에 코드를 실어("NOT_FOUND: ...") 클라이언트가 파싱하게 한다.
+    """
+    import pytest
+
     def boom(event, args):
         raise h.OrchestratorError("NOT_FOUND", "nope")
 
     monkeypatch.setattr(h, "_resolver_map", lambda: {"x": boom})
-    resp = h.handler({"fieldName": "x"}, None)
-    assert resp["errorType"] == "NOT_FOUND"
+    with pytest.raises(h.OrchestratorError) as ei:
+        h.handler({"fieldName": "x"}, None)
+    assert ei.value.error_type == "NOT_FOUND"
+    assert ei.value.message.startswith("NOT_FOUND:")
 
 
 def test_module_imports_clean():

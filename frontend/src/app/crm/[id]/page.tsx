@@ -8,9 +8,39 @@ import { ConsultFlow } from '@/components/crm/ConsultFlow';
 
 // ── 정적 목 데이터 ─────────────────────────────────────────────────────────────
 const MOCK_AGENTS = [
-  { id: 'a1', name: '김지수', status: '대기 중', statusOk: true },
-  { id: 'a2', name: '이태우', status: '대기 중', statusOk: true },
-  { id: 'a3', name: '박현아', status: '통화 중', statusOk: false },
+  {
+    id: 'a1',
+    name: '김지수',
+    init: '김',
+    status: '즉시 가능',
+    statusOk: true,
+    skill: '주택담보',
+    exp: '7년',
+    rate: '92%',
+    wait: '즉시 가능',
+  },
+  {
+    id: 'a2',
+    name: '이태우',
+    init: '이',
+    status: '즉시 가능',
+    statusOk: true,
+    skill: '금리협상',
+    exp: '5년',
+    rate: '88%',
+    wait: '즉시 가능',
+  },
+  {
+    id: 'a3',
+    name: '박현아',
+    init: '박',
+    status: '곧 가능',
+    statusOk: false,
+    skill: '신용대출',
+    exp: '4년',
+    rate: '85%',
+    wait: '3분 후',
+  },
 ];
 
 // ── 고객 프로필 KV 데이터 ──────────────────────────────────────────────────────
@@ -124,7 +154,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
         <h1 className="font-disp text-[22px] font-extrabold tracking-[-0.01em] m-0 text-[var(--ink)]">
           상담 CRM
         </h1>
-        <span className="font-mono text-[10px] font-bold text-[var(--go)] bg-[rgba(107,74,42,0.12)] rounded-full px-2.5 py-[3px]">
+        <span className="font-mono text-[10px] font-bold text-[var(--go)] bg-[rgba(107,74,42,0.12)] border border-[rgba(107,74,42,0.3)] rounded-full px-2.5 py-[3px]">
           AI 상담 종료 · 상담사 연결 대기
         </span>
       </div>
@@ -192,7 +222,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
               ))}
             </div>
             {/* .sum-next */}
-            <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(53,81,214,0.07)] rounded-[10px] px-[12px] py-[9px]">
+            <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(53,81,214,0.07)] border-l-[3px] border-[var(--route)] rounded-[0_8px_8px_0] px-[12px] py-[9px]">
               ▶ 권장:{' '}
               <b className="text-[var(--route)]">우대금리 0.3%p 적용 제안 → 금리 인하 요구권 안내</b>
             </div>
@@ -209,20 +239,47 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
               {MOCK_AGENTS.map((agent) => (
                 <div
                   key={agent.id}
-                  className="flex items-center justify-between py-[6px] border-b border-dashed border-[var(--hair)] last:border-0"
+                  className="flex items-center gap-[11px] border border-[var(--card-bd)] rounded-[13px] bg-[rgba(255,255,255,0.5)] px-[12px] py-[10px]"
                   data-testid="agent-item"
                 >
-                  <span className="text-[13px] font-bold text-[var(--ink)]">{agent.name}</span>
+                  {/* .av — circular gradient avatar */}
                   <span
-                    className={[
-                      'text-[10px] font-bold rounded-full px-2.5 py-[3px]',
-                      agent.statusOk
-                        ? 'text-[var(--go)] bg-[rgba(46,158,110,0.12)]'
-                        : 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]',
-                    ].join(' ')}
+                    className="flex-none flex items-center justify-center w-[40px] h-[40px] rounded-full text-white font-extrabold text-[15px]"
+                    style={{ background: 'linear-gradient(135deg,#5168DB,#5B78F0)' }}
+                    aria-hidden
                   >
-                    {agent.status}
+                    {agent.init}
                   </span>
+                  {/* .info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-[7px]">
+                      <span className="text-[13.5px] font-extrabold text-[var(--ink)]">{agent.name}</span>
+                      <span
+                        className={[
+                          'font-mono text-[8.5px] font-bold rounded-full px-[7px] py-[1px]',
+                          agent.statusOk
+                            ? 'text-[var(--go)] bg-[rgba(107,74,42,0.14)]'
+                            : 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]',
+                        ].join(' ')}
+                      >
+                        {agent.status}
+                      </span>
+                    </div>
+                    {/* .meta */}
+                    <div className="text-[11px] text-[var(--ink-dim)] mt-[2px]">
+                      {agent.skill} · {agent.exp} ·{' '}
+                      <b className="text-[var(--route)]">{agent.rate}</b> · {agent.wait}
+                    </div>
+                  </div>
+                  {/* .pick button */}
+                  <button
+                    className="flex-none font-disp text-[11.5px] font-bold text-white rounded-[9px] px-[12px] py-[7px] disabled:cursor-default shadow-[0_4px_12px_-3px_rgba(44,91,214,0.5)]"
+                    style={agent.statusOk ? { background: 'var(--route)' } : { background: '#B9B0A0' }}
+                    disabled={!agent.statusOk}
+                    data-testid="agent-pick"
+                  >
+                    연결
+                  </button>
                 </div>
               ))}
             </div>

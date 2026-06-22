@@ -1,7 +1,7 @@
-# Verify Checklist — `AGENT-010` (컴플라이언스 Guardrails 실호출)
+# Verify Checklist — `AGENT-010` (컴플라이언스 Guardrails + ComplianceReview persist)
 
 > **`hk-verify` skill이 채웁니다. 비개발자가 코드 없이 한 줄씩 체크.**
-> 이 PR 범위는 Bedrock Guardrails **실호출 경로**(mock 단위 테스트). DynamoDB write(ComplianceReview)는 의존성 DATA-005(models) 완료 후 후속 PR.
+> Bedrock Guardrails 실호출 경로 + **ComplianceReview DynamoDB write(persist)**. DATA-005(models) 머지로 write 경로 unblock·완료.
 
 관련 issue: **#18** · 변경 파일: `lambda/orchestrator/agent/compliance.py`, `lambda/orchestrator/tests/test_compliance_loop.py`, `docs/slices/AGENT-010/VERIFY.md`
 
@@ -35,7 +35,14 @@
   ```bash
   cd lambda && python -m pytest orchestrator/tests/test_compliance_loop.py -q -k "loop"
   ```
-- [ ] **DynamoDB write 호출 검증 (mock boto3)** — ⏸ DATA-005(models) 완료 후 후속 PR로 이관
+- [ ] **`violatedPolicies` 배열 (reviewing 단계)** — 복수 규제 check 목록
+  ```bash
+  cd lambda && python -m pytest orchestrator/tests/test_compliance_loop.py -q -k "violated"
+  ```
+- [ ] **DynamoDB write 호출 검증 (mock boto3)** — ✅ `persist_compliance_log`: 단계별 1행(SK `CMPL#{turn}#{try}#{state}`), 충돌 없음, final_text 팬아웃 호환
+  ```bash
+  cd lambda && python -m pytest orchestrator/tests/test_compliance_loop.py -q -k "persist"
+  ```
 
 ---
 

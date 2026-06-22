@@ -165,7 +165,7 @@ export function ConsultFlow({
           >
             {/* sf-stage */}
             <span
-              className="flex-none w-[78px] font-disp text-xs font-extrabold text-route"
+              className="flex-none w-[78px] font-disp text-xs font-extrabold text-[var(--route)] bg-[var(--badge-bg)] rounded-[8px] px-[8px] py-[5px] text-center"
               data-testid="sf-stage"
             >
               {step.stage}

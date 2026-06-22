@@ -21,6 +21,7 @@ vi.mock('@/stores/motStore', () => {
   return {
     MOT_MARKER_IDS,
     useMotStore: () => ({
+      mots: [],
       markers: MOT_MARKER_IDS.map((id: string) => ({ id, state: 'hidden' })),
       activeCautionSeq: null,
       addMot: vi.fn(),

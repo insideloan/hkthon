@@ -172,8 +172,7 @@ export function CompliancePanel({
 
   if (!state) {
     return (
-      <section className="glass-card p-3" aria-label="컴플라이언스 체크">
-        <h2 className="mb-2 font-disp text-sm font-semibold text-ink">컴플라이언스 체크</h2>
+      <section aria-label="컴플라이언스 체크">
         <p className="text-xs text-ink-faint">상담 시작 대기</p>
       </section>
     );
@@ -186,14 +185,12 @@ export function CompliancePanel({
   const approved = phase === 'approved';
 
   return (
-    <section
-      className="glass-card flex flex-col gap-2 p-3"
+    <div
+      className="flex flex-col gap-2"
       aria-label="컴플라이언스 체크"
       data-testid="compliance-panel"
       data-phase={phase}
     >
-      <h2 className="font-disp text-sm font-semibold text-ink">컴플라이언스 체크</h2>
-
       {/* 가안 발화 (1+2 기반) */}
       <div>
         <div className={SECTION_LABEL}>가안 발화</div>
@@ -242,6 +239,6 @@ export function CompliancePanel({
           전 규제 통과 · 송출 준비
         </div>
       )}
-    </section>
+    </div>
   );
 }

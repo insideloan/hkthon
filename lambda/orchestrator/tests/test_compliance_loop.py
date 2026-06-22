@@ -1,11 +1,16 @@
-"""AGENT-010 (#18) — Bedrock Guardrails 실호출 경로 검증 (mock boto3).
+"""AGENT-010 (#18) — Bedrock Guardrails 실호출 경로 + ComplianceReview persist 검증.
 
-DynamoDB write(ComplianceReview)는 DATA-005(models) 완료 후 후속. 본 테스트는
-Guardrails 실호출 파싱 + 룰 폴백 + 루프 재작성 경로에 집중한다.
+Guardrails 실호출 파싱 + 룰 폴백 + 루프 재작성 경로 + DynamoDB write(ComplianceReview)
+검증. DATA-005 models.compliance 완료로 persist 경로가 unblock됨.
 """
+
+import pytest
 
 from orchestrator.agent import compliance as c
 from orchestrator.agent.state import Stage
+from orchestrator.api import dynamo
+
+from ._fake_dynamo import FakeTable
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -215,3 +220,72 @@ def test_approved_final_text_present_on_clean_first_pass(monkeypatch):
     assert approved["state"] == "approved"
     assert approved["draft"] == "상담원 연결해 드리겠습니다"
     assert approved["final_text"] == final
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# persist_compliance_log — ComplianceReview DynamoDB write (Acceptance #5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def _fake_table():
+    dynamo.set_table(FakeTable())
+    yield
+    dynamo.set_table(None)
+
+
+def _redraft_log(monkeypatch):
+    """위반 1회→재작성→통과 로그 생성 (drafting..approved 전 단계 포함)."""
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    seq = [
+        {"action": "GUARDRAIL_INTERVENED", "assessments": [
+            {"contentPolicy": {"filters": [{"type": "MISCONDUCT", "action": "BLOCKED"}]}}]},
+        {"action": "NONE", "assessments": []},
+    ]
+
+    class _Seq(_FakeBedrock):
+        def apply_guardrail(self, **kwargs):
+            self.calls.append(kwargs)
+            return seq[len(self.calls) - 1]
+
+    fake = _Seq()
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c.router, "converse", lambda *a, **k: "정정된 안내입니다")
+    log, _ = c.review_loop("무조건 됩니다", {"stage": Stage.PROPOSE})
+    return log
+
+
+def test_persist_writes_one_item_per_step(monkeypatch, _fake_table):
+    log = _redraft_log(monkeypatch)
+    written = c.persist_compliance_log("call-1", 3, log)
+    # 단계별 1행 — 로그 step 수와 동일
+    assert len(written) == len(log)
+    # 모든 아이템이 같은 통화 PK, SK는 CMPL#{turn}#{try}#{state}
+    for item in written:
+        assert item["PK"] == dynamo.pk_call("call-1")
+        assert item["SK"].startswith("CMPL#3#")
+    # 단계 전이가 SK 충돌 없이 모두 보존됐는지
+    stored = dynamo.query(dynamo.pk_call("call-1"), dynamo.SK_PREFIX_CMPL)
+    states = {i["state"] for i in stored}
+    assert {"drafting", "reviewing", "redacting", "redrafting", "approved"} <= states
+    assert len(stored) == len(log)
+
+
+def test_persist_reviewing_carries_violated_policies(monkeypatch, _fake_table):
+    log = _redraft_log(monkeypatch)
+    c.persist_compliance_log("call-1", 3, log)
+    stored = dynamo.query(dynamo.pk_call("call-1"), dynamo.SK_PREFIX_CMPL)
+    reviewing = [i for i in stored if i["state"] == "reviewing"]
+    assert reviewing
+    assert any("MISCONDUCT" in (i.get("violated_policies") or []) for i in reviewing)
+
+
+def test_persist_approved_has_final_for_fanout(monkeypatch, _fake_table):
+    """팬아웃(_compliance_payload)이 finalDiff로 읽는 final_text가 approved에 실린다."""
+    log = _redraft_log(monkeypatch)
+    c.persist_compliance_log("call-1", 3, log)
+    stored = dynamo.query(dynamo.pk_call("call-1"), dynamo.SK_PREFIX_CMPL)
+    approved = next(i for i in stored if i["state"] == "approved")
+    assert approved["final_text"] == "정정된 안내입니다"
+    assert approved["final"] == "정정된 안내입니다"  # 모델 필드도 동일
+    assert approved["draft"] == "무조건 됩니다"       # 원문 보존

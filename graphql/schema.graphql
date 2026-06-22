@@ -57,7 +57,7 @@ type Customer {
   scenarioHint: String
 }
 
-type Token {
+type Token @aws_iam @aws_api_key {
   text: String!
   polarity: Polarity
   reason: String
@@ -143,7 +143,7 @@ type SendLinkResult { ok: Boolean!, callId: ID!, url: String! }
 # Subscription payloads (SSOT-3 정합)
 # ─────────────────────────────────────────────────────────────────────────────
 
-type TurnPayload {
+type TurnPayload @aws_iam @aws_api_key {
   callId: ID!
   seq: Int
   speaker: String
@@ -152,9 +152,9 @@ type TurnPayload {
   tokens: [Token!]
 }
 
-type IndexUpdatePayload { callId: ID!, churnRisk: Int, emotion: String }
+type IndexUpdatePayload @aws_iam @aws_api_key { callId: ID!, churnRisk: Int, emotion: String }
 
-type SpeechAnalysisPayload {
+type SpeechAnalysisPayload @aws_iam @aws_api_key {
   callId: ID!
   turnId: ID
   polarity: Polarity
@@ -163,11 +163,11 @@ type SpeechAnalysisPayload {
 }
 
 # 별도 StrategyPanel 없음 — 두 필드로 단순화 (카드① .stx/.slead).
-type StrategyUpdatePayload { callId: ID!, strategyHeadline: String!, rationale: String! }
+type StrategyUpdatePayload @aws_iam @aws_api_key { callId: ID!, strategyHeadline: String!, rationale: String! }
 
-type PolicyCheck { id: ID!, label: String!, passed: Boolean! }
+type PolicyCheck @aws_iam @aws_api_key { id: ID!, label: String!, passed: Boolean! }
 
-type ComplianceStatePayload {
+type ComplianceStatePayload @aws_iam @aws_api_key {
   callId: ID!
   state: ComplianceStateEnum!
   draft: String
@@ -175,15 +175,15 @@ type ComplianceStatePayload {
   finalDiff: String
 }
 
-type MotDetectedPayload {
+type MotDetectedPayload @aws_iam @aws_api_key {
   callId: ID!
   markerId: MotMarkerId!
   state: MotState!
   stage: MotStage!
 }
 
-type QueueUpdatePayload { callId: ID!, state: CallState }
-type CallEndedPayload { callId: ID! }
+type QueueUpdatePayload @aws_iam @aws_api_key { callId: ID!, state: CallState }
+type CallEndedPayload @aws_iam @aws_api_key { callId: ID! }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Query / Mutation / Subscription roots
@@ -214,14 +214,14 @@ type Mutation {
   audioChunk(callId: ID!, data: String!): Boolean
 
   # 내부 _emit* — Streams 팬아웃이 호출, 구독이 @aws_subscribe로 연결.
-  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag): TurnPayload
-  _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload
-  _emitSpeechAnalysis(callId: ID!, turnId: ID, polarity: Polarity, reason: String, turnFlag: TurnFlag): SpeechAnalysisPayload
-  _emitStrategyUpdate(callId: ID!, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload
-  _emitComplianceState(callId: ID!, state: ComplianceStateEnum!, draft: String, finalDiff: String): ComplianceStatePayload
-  _emitMot(callId: ID!, markerId: MotMarkerId!, state: MotState!, stage: MotStage!): MotDetectedPayload
-  _emitQueueUpdate(callId: ID!, state: CallState): QueueUpdatePayload
-  _emitCallEnded(callId: ID!): CallEndedPayload
+  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag): TurnPayload @aws_iam
+  _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload @aws_iam
+  _emitSpeechAnalysis(callId: ID!, turnId: ID, polarity: Polarity, reason: String, turnFlag: TurnFlag): SpeechAnalysisPayload @aws_iam
+  _emitStrategyUpdate(callId: ID!, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload @aws_iam
+  _emitComplianceState(callId: ID!, state: ComplianceStateEnum!, draft: String, finalDiff: String): ComplianceStatePayload @aws_iam
+  _emitMot(callId: ID!, markerId: MotMarkerId!, state: MotState!, stage: MotStage!): MotDetectedPayload @aws_iam
+  _emitQueueUpdate(callId: ID!, state: CallState): QueueUpdatePayload @aws_iam
+  _emitCallEnded(callId: ID!): CallEndedPayload @aws_iam
 }
 
 type Subscription {

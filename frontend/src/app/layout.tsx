@@ -13,6 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.31.0/iconfont/tabler-icons.min.css" />
+      </head>
       <body>
         {/* SSOT .wrap: display:flex; gap:11px; align-items:stretch */}
         <div className="flex gap-3 p-[18px_10px] items-stretch min-h-screen">

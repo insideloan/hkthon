@@ -31,10 +31,12 @@ function StatCard({
   label,
   value,
   accent,
+  unit,
 }: {
   label: string;
-  value: number | null;
+  value: number | string | null;
   accent?: 'live' | 'miss' | 'done' | 'warn' | undefined;
+  unit?: string;
 }) {
   const valueColor =
     accent === 'live' ? 'text-[var(--route)]'
@@ -60,6 +62,9 @@ function StatCard({
       </div>
       <div className={`font-disp text-[26px] font-[800] leading-tight mt-[3px] ${valueColor}`}>
         {value ?? 0}
+        {unit && (
+          <small style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-dim)' }}>{unit}</small>
+        )}
       </div>
     </div>
   );
@@ -72,6 +77,16 @@ export default function Home() {
   const summary = useQueueStore((s) => s.summary);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
 
+  // Compute completion rate for the 4th stat card (SSOT .adm-stat.cmp — '완료율')
+  const totalCalls =
+    (summary?.waiting ?? 0) +
+    (summary?.inProgress ?? 0) +
+    (summary?.needsAgent ?? 0) +
+    (summary?.ended ?? 0);
+  const completionRate =
+    totalCalls > 0 ? ((summary?.ended ?? 0) / totalCalls) * 100 : 0;
+  const completionRateDisplay = completionRate.toFixed(1);
+
   // Compute filtered rows for the count badge and table
   const filteredRows = rows.filter((row) => {
     if (activeFilter === 'all') return true;
@@ -83,7 +98,7 @@ export default function Home() {
   });
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className="w-full p-0">
       {/* ── sum-head ── */}
       <div className="flex items-baseline gap-3 mb-3">
         <h1
@@ -106,10 +121,10 @@ export default function Home() {
 
       {/* ── adm-stats ── */}
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
-        <StatCard label="대기" value={summary?.waiting ?? 0} />
-        <StatCard label="진행중" value={summary?.inProgress ?? 0} accent="live" />
-        <StatCard label="상담원 필요" value={summary?.needsAgent ?? 0} accent="miss" />
-        <StatCard label="이탈 의심" value={summary?.fraudSuspected ?? 0} accent="warn" />
+        <StatCard label="현재 진행 중인 콜" value={(summary?.inProgress ?? 0) + (summary?.waiting ?? 0)} accent="live" />
+        <StatCard label="대기 중 상담원" value={2} />
+        <StatCard label="오늘 상담사 연결" value={summary?.ended ?? 0} unit="건" accent="done" />
+        <StatCard label="컴플라이언스 준수율" value={completionRateDisplay} unit="%" accent="done" />
       </div>
 
       {/* ── adm-toolbar ── */}
@@ -142,12 +157,12 @@ export default function Home() {
           className="ml-auto font-mono text-[11px] font-bold"
           style={{ color: 'var(--ink-faint)' }}
         >
-          {filteredRows.length}건
+          {filteredRows.length} / {rows.length} 건
         </span>
       </div>
 
       {/* ── adm-table (glass-card shell) ── */}
-      <div className="glass-card overflow-hidden">
+      <div className="glass-card overflow-hidden" style={{ borderRadius: 16 }}>
         <OutboundQueueTable filteredRows={filteredRows} />
       </div>
     </main>
