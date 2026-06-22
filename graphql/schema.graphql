@@ -1,0 +1,250 @@
+# AppSync GraphQL 스키마 — BACKEND(지원) 소유 / wire 계약 SSOT.
+#
+# 아키텍처: Amplify(Next.js) → AppSync(GraphQL) → Lambda(orchestrator) →
+#           DynamoDB(+Streams) → Bedrock/Transcribe. REST/WebSocket 없음.
+# 실시간: 구독은 _emit* 뮤테이션에 @aws_subscribe로 연결, DynamoDB Streams
+#         팬아웃(api/stream_fanout.py)이 _emit*를 발화한다.
+#
+# 형상은 SSOT-3(docs/consult_redesigned-3.html) 정합. MOT/turnFlag canonical은
+# 이슈 #28 "계약 정합성 확정" 블록 기준.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enums
+# ─────────────────────────────────────────────────────────────────────────────
+
+enum CallState { CREATED DIALING IN_CALL TRANSFER_PENDING ENDED }
+
+enum Polarity { PRO CONS NEUTRAL }
+
+# 턴 레벨 flag 배지 (.flag--risk / .flag--def). null→NEUTRAL.
+enum TurnFlag { RISK DEF NEUTRAL }
+
+# MOT (Moment of Truth) — SSOT-3 신규 형상.
+enum MotMarkerId { MOT_1 MOT_2 MOT_3 MOT_4 MOT_5 }
+enum MotState { SHOW ALERT BLOCKED }
+enum MotStage { TRUST OBJECTION COLLATERAL CLOSE }
+
+# 컴플라이언스 상태머신.
+enum ComplianceStateEnum { DRAFTING REVIEWING REDACTING REDRAFTING APPROVED }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core types
+# ─────────────────────────────────────────────────────────────────────────────
+
+type Call {
+  id: ID!
+  customerId: String
+  state: CallState
+  scenario: String
+  fraudSuspected: Boolean
+  startedAt: String
+  endedAt: String
+  agentJoinedAt: String
+}
+
+type ExistingLoans { own: Int, other: Int }
+
+type Customer {
+  id: ID!
+  name: String
+  phone: String
+  targetProduct: String
+  rate: String
+  limit: Int
+  existingLoans: ExistingLoans
+  hasVehicle: Boolean
+  creditScore: Int
+  scenarioHint: String
+}
+
+type Token {
+  text: String!
+  polarity: Polarity
+  reason: String
+}
+
+type Turn {
+  seq: Int!
+  speaker: String
+  text: String
+  node: String
+  churnAfter: Int
+  flag: TurnFlag
+  tokens: [Token!]
+}
+
+# call 스냅샷의 analysis (SSOT-3): aiAction/data 폐기, 4필드만.
+type Analysis {
+  strategyHeadline: String
+  rationale: String
+  churnRisk: Float
+  emotion: String
+}
+
+type CallSnapshot {
+  call: Call!
+  customer: Customer
+  analysis: Analysis
+  transcript: [Turn!]!
+  currentNode: String
+}
+
+# MOT — 신규 형상 (markerId/state/stage/turnSeq). 폐기 필드 없음.
+type MOT {
+  markerId: MotMarkerId!
+  state: MotState!
+  stage: MotStage!
+  turnSeq: Int!
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Queue
+# ─────────────────────────────────────────────────────────────────────────────
+
+type QueueSummary { total: Int!, needsAgent: Int!, fraudSuspected: Int!, inCall: Int! }
+
+type QueueRow {
+  callId: ID!
+  customerName: String
+  state: CallState
+  stage: String
+  churnRisk: Int
+  assignee: String
+  channel: String
+  elapsedSec: Int
+  highlight: String        # needs_agent | fraud_suspected | null
+}
+
+type QueueResult { summary: QueueSummary!, rows: [QueueRow!]! }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Summary / actions
+# ─────────────────────────────────────────────────────────────────────────────
+
+type CallSummaryResult {
+  id: ID!
+  callId: ID!
+  resultType: String
+  content: String
+  flow: [String!]
+  categories: [String!]
+  handoffReason: String
+  fraudSuspected: Boolean
+  strategyHeadline: String
+  strategyLead: String
+  createdAt: String
+  mots: [MOT!]!            # CRM sum-flow 단계에 stage로 매핑
+}
+
+type ApproveResult { ok: Boolean!, callId: ID!, productId: ID }
+type SendLinkResult { ok: Boolean!, callId: ID!, url: String! }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subscription payloads (SSOT-3 정합)
+# ─────────────────────────────────────────────────────────────────────────────
+
+type TurnPayload {
+  callId: ID!
+  seq: Int
+  speaker: String
+  text: String
+  flag: TurnFlag
+  tokens: [Token!]
+}
+
+type IndexUpdatePayload { callId: ID!, churnRisk: Int, emotion: String }
+
+type SpeechAnalysisPayload {
+  callId: ID!
+  turnId: ID
+  polarity: Polarity
+  reason: String
+  turnFlag: TurnFlag
+}
+
+# 별도 StrategyPanel 없음 — 두 필드로 단순화 (카드① .stx/.slead).
+type StrategyUpdatePayload { callId: ID!, strategyHeadline: String!, rationale: String! }
+
+type PolicyCheck { id: ID!, label: String!, passed: Boolean! }
+
+type ComplianceStatePayload {
+  callId: ID!
+  state: ComplianceStateEnum!
+  draft: String
+  violatedPolicies: [PolicyCheck!]!
+  finalDiff: String
+}
+
+type MotDetectedPayload {
+  callId: ID!
+  markerId: MotMarkerId!
+  state: MotState!
+  stage: MotStage!
+}
+
+type QueueUpdatePayload { callId: ID!, state: CallState }
+type CallEndedPayload { callId: ID! }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Query / Mutation / Subscription roots
+# ─────────────────────────────────────────────────────────────────────────────
+
+type Query {
+  queue(highlightOnly: Boolean): QueueResult!
+  call(id: ID!): CallSnapshot!
+  mots(callId: ID!): [MOT!]!
+  callSummary(id: ID!): CallSummaryResult!
+  customer(id: ID!): Customer!
+  customers: [Customer!]!
+}
+
+type Mutation {
+  # 분석 전용 / 발신
+  createCall(customerId: ID!): Call!
+  dialCall(customerId: ID!): Call!
+  # 콜 액션 4종
+  approveProduct(callId: ID!, productId: ID!): ApproveResult!
+  transferToAgent(callId: ID!): Call!
+  sendLink(callId: ID!, url: String!): SendLinkResult!
+  endCall(callId: ID!): Call!
+  # 스크립트 모드 진행
+  nextTurn(callId: ID!): Turn
+  # 라이브 오디오 (스크립트 모드 no-op)
+  startAudio(callId: ID!): Boolean
+  audioChunk(callId: ID!, data: String!): Boolean
+
+  # 내부 _emit* — Streams 팬아웃이 호출, 구독이 @aws_subscribe로 연결.
+  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag): TurnPayload
+  _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload
+  _emitSpeechAnalysis(callId: ID!, turnId: ID, polarity: Polarity, reason: String, turnFlag: TurnFlag): SpeechAnalysisPayload
+  _emitStrategyUpdate(callId: ID!, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload
+  _emitComplianceState(callId: ID!, state: ComplianceStateEnum!, draft: String, finalDiff: String): ComplianceStatePayload
+  _emitMot(callId: ID!, markerId: MotMarkerId!, state: MotState!, stage: MotStage!): MotDetectedPayload
+  _emitQueueUpdate(callId: ID!, state: CallState): QueueUpdatePayload
+  _emitCallEnded(callId: ID!): CallEndedPayload
+}
+
+type Subscription {
+  onQueueUpdate: QueueUpdatePayload
+    @aws_subscribe(mutations: ["_emitQueueUpdate"])
+  onTurn(callId: ID!): TurnPayload
+    @aws_subscribe(mutations: ["_emitTurn"])
+  onIndexUpdate(callId: ID!): IndexUpdatePayload
+    @aws_subscribe(mutations: ["_emitIndexUpdate"])
+  onSpeechAnalysis(callId: ID!): SpeechAnalysisPayload
+    @aws_subscribe(mutations: ["_emitSpeechAnalysis"])
+  onStrategyUpdate(callId: ID!): StrategyUpdatePayload
+    @aws_subscribe(mutations: ["_emitStrategyUpdate"])
+  onComplianceState(callId: ID!): ComplianceStatePayload
+    @aws_subscribe(mutations: ["_emitComplianceState"])
+  onMotDetected(callId: ID!): MotDetectedPayload
+    @aws_subscribe(mutations: ["_emitMot"])
+  onCallEnded(callId: ID!): CallEndedPayload
+    @aws_subscribe(mutations: ["_emitCallEnded"])
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
