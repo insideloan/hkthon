@@ -111,16 +111,26 @@ class Strategy(TypedDict, total=False):
 
 
 class MotResult(TypedDict, total=False):
-    """detect_mot 판정 결과 (MOT 아이템 투영)."""
+    """detect_mot 판정 결과 (MOT 아이템 투영).
 
-    type: Literal["RISK", "CONVERSION"]
+    SSOT: docs/consult_redesigned-3.html. BACKEND #28 계약 준수.
+    - motId: MOT_1~MOT_5 (markerId enum, wire 값)
+    - state: SHOW|ALERT|BLOCKED (대문자 wire 값)
+    - stageIndex: 0(TRUST)~3(CLOSE) — sum-flow 4단계 매핑
+    - is_conversion: TRANSFER_INTENT/BUYING_INTENT 전환 여부
+
+    폐기 필드 (SSOT-3 기준): type, narrative, strategy, outcome,
+    churnBefore(snake: churn_before 그대로), churnAfter(직접 출력 제거).
+    """
+
+    motId: str                                      # "MOT_1".."MOT_5"
     turn_seq: int
     churn_before: int
     churn_after: int
     triggers: list[str]
-    strategy: Strategy
-    outcome: Literal["defended", "converted", "lost"]
-    narrative: str
+    state: Literal["SHOW", "ALERT", "BLOCKED"]
+    stageIndex: int                                 # 0=TRUST,1=OBJECTION,2=COLLATERAL,3=CLOSE
+    is_conversion: bool
 
 
 # ─────────────────────────────────────────────────────────────────────────────
