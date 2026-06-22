@@ -278,13 +278,76 @@ export class HkthonStack extends cdk.Stack {
 
     // ── Bedrock Guardrail ───────────────────────────────────────────────
     // Compliance loop for generated drafts (STACK.md §5). Model *account*
-    // access is requested separately in #51 — this only creates the
-    // guardrail resource + a baseline content policy. #51 verifies blocking.
+    // access is requested separately in #51 — this creates the guardrail
+    // resource with the 금소법 (Financial Consumer Protection Act) policies
+    // the orchestrator's compliance loop actually checks. #51 verifies blocking.
+    //
+    // ⚠️ compliance.py:_extract_violated parses topicPolicy + contentPolicy +
+    // sensitiveInformationPolicy from the ApplyGuardrail response. The denied
+    // topics below mirror the rule-fallback _POLICY_PATTERNS (CONFIRM_PROMISE /
+    // FIXED_FIGURE / RATE_NEVER_RISES / RISK_DOWNPLAY) so the live Bedrock path
+    // catches the same 금소법 violations the deterministic fallback does — without
+    // them the Bedrock path would degrade to generic moderation only.
     const guardrail = new bedrock.CfnGuardrail(this, 'ComplianceGuardrail', {
       name: 'hkthon-compliance',
-      description: 'Booth demo compliance guardrail for orchestrator drafts.',
+      description: 'Booth demo 금소법 compliance guardrail for orchestrator drafts.',
       blockedInputMessaging: '입력을 처리할 수 없습니다.',
       blockedOutputsMessaging: '컴플라이언스 정책에 따라 응답을 제공할 수 없습니다.',
+      // 금소법 부당권유·확정수치·금리불변·리스크무마 — DENY 토픽으로 차단.
+      topicPolicyConfig: {
+        topicsConfig: [
+          {
+            name: 'ConfirmPromise',
+            type: 'DENY',
+            definition:
+              '심사 결과를 단정하거나 대출 승인·실행을 확약/보장하는 표현. ' +
+              '금소법상 부당권유(확정·약속)에 해당.',
+            examples: [
+              '무조건 승인됩니다.',
+              '제가 반드시 해드릴게요.',
+              '대출은 확정이라고 보시면 됩니다.',
+              '한도는 보장해 드립니다.',
+            ],
+          },
+          {
+            name: 'FixedFigure',
+            type: 'DENY',
+            definition:
+              '예시·가정·심사 단서 없이 금리/한도/절감액 등 수치를 단정하는 표현. ' +
+              '심사 전 확정 수치 제시는 금소법 위반.',
+            examples: [
+              '금리는 3.2%로 적용됩니다.',
+              '한도는 5천만원 나옵니다.',
+              '월 20만원 절감됩니다.',
+            ],
+          },
+          {
+            name: 'RateNeverRises',
+            type: 'DENY',
+            definition:
+              '향후 금리가 오르지 않는다거나 변동이 없다고 단정하는 표현. ' +
+              '금리 불변 단정은 금소법 위반.',
+            examples: [
+              '금리는 절대 안 오릅니다.',
+              '앞으로 금리 변동은 전혀 없습니다.',
+              '이 금리가 계속 유지됩니다.',
+            ],
+          },
+          {
+            name: 'RiskDownplay',
+            type: 'DENY',
+            definition:
+              '연체·담보·중도상환 등으로 인한 불이익이나 위험이 없다고 무마하는 표현. ' +
+              '리스크 무마는 금소법 위반.',
+            examples: [
+              '그럴 일 절대 없습니다.',
+              '불이익은 전혀 없어요.',
+              '연체돼도 문제 전혀 없습니다.',
+              '걱정 안 하셔도 됩니다.',
+            ],
+          },
+        ],
+      },
       contentPolicyConfig: {
         filtersConfig: [
           { type: 'HATE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
@@ -292,6 +355,31 @@ export class HkthonStack extends cdk.Stack {
           { type: 'SEXUAL', inputStrength: 'HIGH', outputStrength: 'HIGH' },
           { type: 'VIOLENCE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
           { type: 'MISCONDUCT', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+        ],
+      },
+      // PII / 제3자 정보노출 차단 (금소법 §1 공통요건). 표준 PII 엔터티는
+      // ANONYMIZE(마스킹), 한국 고유 식별자(주민등록번호·계좌번호)는 정규식으로 BLOCK.
+      sensitiveInformationPolicyConfig: {
+        piiEntitiesConfig: [
+          { type: 'EMAIL', action: 'ANONYMIZE' },
+          { type: 'PHONE', action: 'ANONYMIZE' },
+          { type: 'NAME', action: 'ANONYMIZE' },
+          { type: 'CREDIT_DEBIT_CARD_NUMBER', action: 'BLOCK' },
+          { type: 'INTERNATIONAL_BANK_ACCOUNT_NUMBER', action: 'BLOCK' },
+        ],
+        regexesConfig: [
+          {
+            name: 'KoreanRRN',
+            description: '주민등록번호 (YYMMDD-NNNNNNN)',
+            pattern: '\\d{6}-\\d{7}',
+            action: 'BLOCK',
+          },
+          {
+            name: 'KoreanBankAccount',
+            description: '국내 계좌번호 (10~14자리, 하이픈 포함)',
+            pattern: '\\d{2,6}-\\d{2,6}-\\d{2,6}',
+            action: 'BLOCK',
+          },
         ],
       },
     });
