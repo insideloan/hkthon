@@ -14,7 +14,9 @@ import os
 import re
 
 from . import prompts
+from ..api import dynamo
 from ..llm import router
+from ..models.compliance import ComplianceReview, sk as cmpl_sk
 from .state import CallState, ComplianceStep, Stage
 
 logger = logging.getLogger(__name__)
@@ -193,3 +195,55 @@ def _step(state_name, draft, verdict, violated, try_no, *, final_text=None) -> C
         try_no=try_no,
         final_text=final_text,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# persist — ComplianceReview write → Streams → onComplianceState 팬아웃
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# review_loop가 만든 ComplianceStep 로그를 DATA-005 `ComplianceReview` 모델로
+# DynamoDB에 적재한다. write만 하면 BACKEND의 DynamoDB Streams 팬아웃
+# (api/stream_fanout.py: SK가 "CMPL#"로 시작 → `_emitComplianceState`)이 자동으로
+# onComplianceState 구독에 발화한다 — 별도 emit 코드 불필요.
+#
+# SK는 단계별 1행 보존을 위해 DATA-005 베이스(CMPL#{turn}#{try})에 단계명을 덧붙인
+# `CMPL#{turn}#{try}#{state}`를 쓴다. startswith("CMPL#") 디스패치와 호환되며, 한 try
+# 안의 drafting/reviewing/redacting/redrafting/approved 전이가 서로 덮어쓰지 않는다.
+
+
+def persist_compliance_log(
+    call_id: str, turn_seq: int, compliance_log: list[ComplianceStep],
+) -> list[dict]:
+    """ComplianceStep 로그를 ComplianceReview 아이템으로 DynamoDB에 write.
+
+    각 step마다 한 아이템(SK=CMPL#{turn}#{try}#{state}). 팬아웃 페이로드가 읽는
+    `final_text` 키(api/stream_fanout._compliance_payload)는 모델 `final` 필드와
+    함께 별칭으로 같이 실어 wire(finalDiff) 호환을 보장한다.
+
+    Returns:
+        write된 아이템 dict 목록 (멱등/검증용).
+    """
+    written: list[dict] = []
+    for step in compliance_log:
+        state = step.get("state")
+        try_no = int(step.get("try_no", 0))
+        final_text = step.get("final_text")
+        review = ComplianceReview(
+            call_id=call_id,
+            turn=turn_seq,
+            try_index=try_no,
+            state=state,
+            draft=step.get("draft", "") or "",
+            violated_policies=list(step.get("violated_policies") or []),
+            final=final_text or "",
+        )
+        item = review.to_item()
+        # 단계별 1행 보존: 베이스 SK(CMPL#{turn}#{try})에 단계명 suffix.
+        item["SK"] = f"{cmpl_sk(turn_seq, try_no)}#{state}"
+        # 팬아웃(_compliance_payload)이 finalDiff로 읽는 키 별칭.
+        item["final_text"] = final_text
+        dynamo.put_item(item)
+        written.append(item)
+    logger.info("persist_compliance_log: call=%s turn=%s steps=%d",
+                call_id, turn_seq, len(written))
+    return written

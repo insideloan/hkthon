@@ -60,6 +60,23 @@ def test_emit_calls_sign_and_post(monkeypatch):
     assert "_emitMot" in captured["body"]["query"]
 
 
+def test_emit_serializes_decimal(monkeypatch):
+    """DynamoDB Streams 숫자(Decimal)도 JSON 직렬화된다 (라이브 회귀 방지)."""
+    import decimal
+    captured = {}
+
+    def fake_post(url, body):
+        import json
+        captured["body"] = json.loads(body.decode())
+        return {"data": {}}
+
+    monkeypatch.setenv("APPSYNC_URL", "https://x/graphql")
+    monkeypatch.setattr(ae, "_sign_and_post", fake_post)
+    ae.emit("_emitIndexUpdate", {"callId": "c1", "churnRisk": decimal.Decimal("62"),
+                                 "emotion": "불안"})
+    assert captured["body"]["variables"]["churnRisk"] == 62  # int로 직렬화
+
+
 def test_emit_logs_graphql_errors(monkeypatch, caplog):
     monkeypatch.setenv("APPSYNC_URL", "https://x/graphql")
     monkeypatch.setattr(ae, "_sign_and_post",

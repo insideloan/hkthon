@@ -102,7 +102,7 @@ class Usability(str, Enum):
 
 
 class Tactic(str, Enum):
-    """대표 대응 전략 (xlsx '전략' 표, 20종). StrategyPanel.tactic의 정규 값."""
+    """대표 대응 전략 (xlsx '전략' 표, 20종). 카드①(SSOT-3 #stratGrid / STRAT20)의 정규 값 — Strategy.tactic→headline(.stx)/lead(.slead) 매핑."""
 
     AROUSE_INTEREST = "관심 환기 전략"        # 1
     BUILD_TRUST = "신뢰 확보 전략"           # 2

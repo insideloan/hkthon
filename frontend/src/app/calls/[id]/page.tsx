@@ -243,13 +243,19 @@ export default function ConsultCockpitPage({ params }: PageProps) {
 
         {/* ── 우-상단: 여정 맵 ── */}
         {/* .map — SSOT: position:relative; height:100%; min-height:0; border-radius:18px;
-            overflow:hidden; border:1px solid var(--card-bd) */}
+            overflow:hidden; border:1px solid var(--card-bd);
+            background:#F9F6EE; backdrop-filter:blur(16px) saturate(1.08);
+            box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.5) */}
         <div
           className="map relative min-h-0 overflow-hidden"
           style={{
             height: '100%',
             borderRadius: '18px',
             border: '1px solid var(--card-bd)',
+            background: '#F9F6EE',
+            backdropFilter: 'blur(16px) saturate(1.08)',
+            WebkitBackdropFilter: 'blur(16px) saturate(1.08)',
+            boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)',
           }}
         >
           {/* .map__title — SSOT: position:absolute; top:11px; left:12px; z-index:6;
@@ -284,10 +290,10 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.9" />
               </svg>
             </span>
-            {/* SSOT: span inside map__title — font-weight:600; color:var(--title) */}
+            {/* SSOT .map__title — font-family:var(--disp); font-size:13.5px; font-weight:800; color:var(--title) */}
             <span
               className="font-disp"
-              style={{ fontWeight: 600, fontSize: '13px', color: 'var(--title)' }}
+              style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--title)' }}
             >
               상담 여정
             </span>
@@ -360,7 +366,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 color: 'var(--title)',
               }}
             >
-              응답 준비
+              AI 응답 준비
             </h2>
             {/* .sub — SSOT: font-size:10.5px; color:var(--ink-faint) */}
             <span style={{ fontSize: '10.5px', color: 'var(--ink-faint)' }}>
@@ -427,7 +433,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                     고객발화분석
                   </span>
                 </div>
-                <div className="card-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col" style={{ gap: '8px' }}>
+                <div className="card-scroll">
                   <SpeechAnalysis callId={callId} disableLiveData={false} />
                 </div>
               </div>
@@ -469,7 +475,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                     DB 분석
                   </span>
                 </div>
-                <div className="card-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col" style={{ gap: '8px' }}>
+                <div className="card-scroll">
                   {/* 사용 데이터 섹션 */}
                   <div
                     className="flex items-center font-mono font-bold uppercase tracking-wider"
@@ -539,7 +545,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                     컴플라이언스 체크
                   </span>
                 </div>
-                <div className="card-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col" style={{ gap: '8px' }}>
+                <div className="card-scroll">
                   <CompliancePanel callId={callId} disableLiveData={false} />
                 </div>
               </div>
