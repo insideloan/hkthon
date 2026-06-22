@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from .api import dynamo
@@ -144,7 +145,103 @@ def seed_customers(customers: list[Customer] | None = None) -> int:
     return inserted
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 데모용 큐 스냅샷 9행 (docs/consult_redesigned-3.html 의 CALLS 배열).
+#
+# queue resolver가 읽는 큐 인덱스(PK=QUEUE, SK=CALL#{id})에 직접 적재한다.
+# 시연 시작 시 관리자 대시보드가 "살아있는" 상태로 보이게 하는 용도.
+# 실제 booth 콜(dialCall → c{ts} 아이템)은 이 위에 누적된다 — ID가 겹치지 않으므로
+# 데모 행과 라이브 행이 공존한다.
+#
+# started_at은 적재 시점에 elapsed_sec 오프셋으로 계산한다 — 정적 타임스탬프를
+# 박아두면 시연 당일 elapsedSec이 어긋나므로, 시드를 다시 실행하면 항상 맞는다.
+# state는 canonical SDL enum (schema.graphql): CREATED DIALING IN_CALL
+# TRANSFER_PENDING ENDED. (프로토타입의 pre/live/wait/done/miss → 아래 매핑.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# (call_id, customer_name, state, stage, churn_risk, assignee, channel,
+#  elapsed_sec, highlight)
+SEED_QUEUE_ROWS: list[dict[str, Any]] = [
+    # pre → DIALING
+    {"id": "c-demo-01", "customer_name": "박서준", "state": "DIALING",
+     "stage": "사전 고객분석", "churn_risk": 34, "assignee": "AI 코파일럿",
+     "channel": "아웃바운드", "elapsed_sec": 0},
+    # live → IN_CALL
+    {"id": "c-demo-02", "customer_name": "이정훈", "state": "IN_CALL",
+     "stage": "우려 풀기", "churn_risk": 48, "assignee": "AI 코파일럿",
+     "channel": "아웃바운드", "elapsed_sec": 221},
+    {"id": "c-demo-03", "customer_name": "김하늘", "state": "IN_CALL",
+     "stage": "신뢰 쌓기", "churn_risk": 34, "assignee": "AI 코파일럿",
+     "channel": "인바운드", "elapsed_sec": 68},
+    # wait → TRANSFER_PENDING (needs_agent highlight)
+    {"id": "c-demo-04", "customer_name": "정민서", "state": "TRANSFER_PENDING",
+     "stage": "연결 대기", "churn_risk": 55, "assignee": None,
+     "channel": "인바운드", "elapsed_sec": 0, "needs_agent": True},
+    {"id": "c-demo-05", "customer_name": "한지우", "state": "TRANSFER_PENDING",
+     "stage": "연결 대기", "churn_risk": 40, "assignee": None,
+     "channel": "아웃바운드", "elapsed_sec": 0, "needs_agent": True},
+    # done → ENDED
+    {"id": "c-demo-06", "customer_name": "오세훈", "state": "ENDED",
+     "stage": "상담사 연결", "churn_risk": 18, "assignee": "김도현",
+     "channel": "인바운드", "elapsed_sec": 475},
+    {"id": "c-demo-07", "customer_name": "배수지", "state": "ENDED",
+     "stage": "전환 성공", "churn_risk": 12, "assignee": "이서연",
+     "channel": "아웃바운드", "elapsed_sec": 330},
+    # miss → ENDED
+    {"id": "c-demo-08", "customer_name": "윤재호", "state": "ENDED",
+     "stage": "담보 오해 이탈", "churn_risk": 88, "assignee": "AI 코파일럿",
+     "channel": "아웃바운드", "elapsed_sec": 134},
+    {"id": "c-demo-09", "customer_name": "강예린", "state": "ENDED",
+     "stage": "초반 거부 이탈", "churn_risk": 94, "assignee": "AI 코파일럿",
+     "channel": "인바운드", "elapsed_sec": 46},
+]
+
+
+def _queue_item(row: dict[str, Any], now: float) -> dict[str, Any]:
+    """큐 시드 행 → 큐 인덱스 아이템. started_at은 now - elapsed_sec로 계산.
+
+    필드 네이밍은 resolvers/queue.py:_row_out 계약(snake_case)을 따른다.
+    """
+    started = time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                            time.gmtime(now - row["elapsed_sec"]))
+    item = {
+        "PK": dynamo.PK_QUEUE,
+        "SK": dynamo.sk_call(row["id"]),
+        "callId": row["id"],
+        "customer_name": row["customer_name"],
+        "state": row["state"],
+        "stage": row["stage"],
+        "churn_risk": row["churn_risk"],
+        "channel": row["channel"],
+        "started_at": started,
+    }
+    if row.get("assignee"):
+        item["assignee"] = row["assignee"]
+    if row.get("needs_agent"):
+        item["needs_agent"] = True
+    if row.get("fraud_suspected"):
+        item["fraud_suspected"] = True
+    return item
+
+
+def seed_queue(rows: list[dict[str, Any]] | None = None) -> int:
+    """데모 큐 9행을 큐 인덱스(PK=QUEUE)에 적재. 삽입된 행 수 반환.
+
+    고객 시드와 달리 **무조건 덮어쓴다** (conditional 아님) — 시연 직전 재실행으로
+    started_at/elapsed를 갱신하는 게 목적이므로 멱등 skip은 오히려 방해다.
+    데모 행 ID(c-demo-NN)는 라이브 booth 콜(c{ts})과 겹치지 않는다.
+    """
+    rows = rows if rows is not None else SEED_QUEUE_ROWS
+    now = time.time()
+    for row in rows:
+        dynamo.put_item(_queue_item(row, now))
+    logger.info("seed_queue: %d demo queue rows written", len(rows))
+    return len(rows)
+
+
 if __name__ == "__main__":  # pragma: no cover — 수동 시드 실행 엔트리
     logging.basicConfig(level=logging.INFO)
     n = seed_customers()
-    print(f"seeded {n} new customers ({len(SEED_CUSTOMERS)} total personas)")
+    q = seed_queue()
+    print(f"seeded {n} new customers ({len(SEED_CUSTOMERS)} personas) "
+          f"+ {q} demo queue rows")
