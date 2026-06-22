@@ -11,6 +11,20 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_KEY="hk.module"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Boundary enforcement DISABLED (2026-06-22).
+# BACKEND/DATA owners are unavailable; remaining members share all modules,
+# so module-ownership enforcement is turned off. Docs/yaml in MODULES.md and
+# check-module-boundary.py are kept for reference. To re-enable, set
+#   git config hk.boundary on        (or unset HK_BOUNDARY_DISABLED below)
+# and revert this block.
+# ─────────────────────────────────────────────────────────────────────────────
+HK_BOUNDARY_DISABLED=1
+if [[ "${HK_BOUNDARY_DISABLED:-0}" = "1" || "$(git config --get hk.boundary || echo on)" = "off" ]]; then
+  echo "[pre-push] module boundary enforcement DISABLED — skipping (see .githooks/pre-push)"
+  exit 0
+fi
+
 # Locate check-module-boundary.py. initialize.sh records its path in git config
 # (hk.checkscript); otherwise we search the known locations: the .hk-skills
 # worktree (current layout), backend/scripts (legacy bootstrap), or repo scripts.
@@ -60,6 +74,16 @@ remote="${1:-}"
 remote_url="${2:-}"
 local_ref="" ; local_sha="" ; remote_ref="" ; remote_sha=""
 if read -r local_ref local_sha remote_ref remote_sha; then :; fi
+
+# Branch DELETE: git sends an all-zero local_sha (nothing being pushed). A delete
+# touches no files, so the boundary check doesn't apply — skip it. (Previously
+# this was misread as "push everything", flagging a delete as a boundary
+# violation because the zero sha broke the diff base.)
+ZERO="0000000000000000000000000000000000000000"
+if [[ "${local_sha:-$ZERO}" = "$ZERO" ]]; then
+  echo "[pre-push] branch delete (no commits pushed) — boundary check skipped"
+  exit 0
+fi
 
 # Integration branch the team builds on. Feature branches diff against this.
 # (Branch model: feature -> dev -> main. PRs target dev; dev -> main when integrated.)

@@ -68,7 +68,7 @@ function CheckRow({ check }: { check: ComplianceCheck }) {
     <li
       className={clsx(
         'flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs transition-colors',
-        !reviewed && 'border-gray-200 opacity-60',
+        !reviewed && 'border-[var(--hair)] opacity-60',
         reviewed && flagged && 'border-danger/30 bg-danger/5',
         reviewed && !flagged && 'border-go/30 bg-go/5',
       )}
@@ -78,7 +78,7 @@ function CheckRow({ check }: { check: ComplianceCheck }) {
       <span
         className={clsx(
           'grid h-4 w-4 flex-none place-items-center rounded-full text-[10px] font-bold text-white',
-          !reviewed && 'bg-gray-300',
+          !reviewed && 'bg-[var(--ink-faint)]',
           reviewed && flagged && 'bg-danger',
           reviewed && !flagged && 'bg-go',
         )}
@@ -144,7 +144,7 @@ function FinalDiff({ segments }: { segments: FinalSegment[] }) {
   );
 }
 
-const SECTION_LABEL = 'mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-faint';
+const SECTION_LABEL = 'mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint';
 
 type CompliancePanelProps = {
   callId: string;
@@ -172,8 +172,8 @@ export function CompliancePanel({
 
   if (!state) {
     return (
-      <section className="rounded-2xl border border-white/70 bg-white/60 p-3" aria-label="컴플라이언스 체크">
-        <h2 className="mb-2 text-sm font-semibold text-ink">컴플라이언스 체크</h2>
+      <section className="glass-card p-3" aria-label="컴플라이언스 체크">
+        <h2 className="mb-2 font-disp text-sm font-semibold text-ink">컴플라이언스 체크</h2>
         <p className="text-xs text-ink-faint">상담 시작 대기</p>
       </section>
     );
@@ -187,12 +187,12 @@ export function CompliancePanel({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-2xl border border-white/70 bg-white/60 p-3"
+      className="glass-card flex flex-col gap-2 p-3"
       aria-label="컴플라이언스 체크"
       data-testid="compliance-panel"
       data-phase={phase}
     >
-      <h2 className="text-sm font-semibold text-ink">next action · 컴플라이언스 체크</h2>
+      <h2 className="font-disp text-sm font-semibold text-ink">컴플라이언스 체크</h2>
 
       {/* 가안 발화 (1+2 기반) */}
       <div>

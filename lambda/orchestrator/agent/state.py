@@ -113,34 +113,55 @@ class Token(TypedDict):
     reason: str
 
 
-class ComplianceStep(TypedDict):
-    """Guardrails 루프 단계 로그 (onComplianceState)."""
+class ComplianceStep(TypedDict, total=False):
+    """Guardrails 루프 단계 로그 (onComplianceState).
+
+    draft         = 해당 단계의 현재 텍스트(원문/차단본/재작성본).
+    final_text    = approved 단계에서만 채워지는 최종 확정 발화. FRONTEND가
+                    draft(원문)와 final_text(최종)를 diff로 렌더(SSOT-3 cmpFinal).
+                    그 외 단계에서는 None.
+    """
 
     state: Literal["drafting", "reviewing", "redacting", "redrafting", "approved"]
     draft: str
     verdict: Optional[str]
     violated_policies: list[str]
     try_no: int
+    final_text: Optional[str]
 
 
 class Strategy(TypedDict, total=False):
-    """StrategyPanel용 전략. tactic은 signals.Tactic 라벨(20종 정규값)."""
+    """카드①(SSOT-3 #stratGrid / STRAT20)용 전략. tactic은 signals.Tactic 라벨(20종 정규값).
+
+    FRONTEND 매핑: headline=카드 제목(.stx), lead=카드 부연 한 문장(.slead).
+    """
 
     tactic: str       # signals.Tactic.value (카탈로그 밖이면 분류 폴백)
-    headline: str
+    headline: str     # 전략 제목 — 카드 .stx
+    lead: str         # 전략 부연 한 문장 — 카드 .slead (signals.TACTIC_LEAD 정본)
 
 
 class MotResult(TypedDict, total=False):
-    """detect_mot 판정 결과 (MOT 아이템 투영)."""
+    """detect_mot 판정 결과 (MOT 아이템 투영).
 
-    type: Literal["RISK", "CONVERSION"]
+    SSOT: docs/consult_redesigned-3.html. BACKEND #28 계약 준수.
+    - motId: MOT_1~MOT_5 (markerId enum, wire 값)
+    - state: SHOW|ALERT|BLOCKED (대문자 wire 값)
+    - stageIndex: 0(TRUST)~3(CLOSE) — sum-flow 4단계 매핑
+    - is_conversion: TRANSFER_INTENT/BUYING_INTENT 전환 여부
+
+    폐기 필드 (SSOT-3 기준): type, narrative, strategy, outcome,
+    churnBefore(snake: churn_before 그대로), churnAfter(직접 출력 제거).
+    """
+
+    motId: str                                      # "MOT_1".."MOT_5"
     turn_seq: int
     churn_before: int
     churn_after: int
     triggers: list[str]
-    strategy: Strategy
-    outcome: Literal["defended", "converted", "lost"]
-    narrative: str
+    state: Literal["SHOW", "ALERT", "BLOCKED"]
+    stageIndex: int                                 # 0=TRUST,1=OBJECTION,2=COLLATERAL,3=CLOSE
+    is_conversion: bool
 
 
 # ─────────────────────────────────────────────────────────────────────────────

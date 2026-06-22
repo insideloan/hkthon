@@ -6,7 +6,12 @@ import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/api';
 import type { V6Client } from '@aws-amplify/api-graphql';
 import type { ZodTypeAny, TypeOf } from 'zod';
-import { QueueResultSchema, type QueueResult } from '@/types/queue';
+import {
+  QueueResultSchema,
+  type QueueResult,
+  type QueueRow,
+  type QueueSummary,
+} from '@/types/queue';
 import { ComplianceStateSchema, type ComplianceState } from '@/types/compliance';
 import {
   TurnSchema,
@@ -24,6 +29,14 @@ import {
 } from '@/types/realtime';
 
 let configured = false;
+
+// Demo/offline mode: when NEXT_PUBLIC_USE_MOCK is set, queue ops serve local
+// fixtures instead of hitting AppSync. Lets the dashboard render populated rows
+// before the backend schema (BACKEND-009) is deployed, and avoids the live
+// subscription's reconnect loop. Unset in prod → real AppSync path, unchanged.
+const USE_MOCK =
+  process.env.NEXT_PUBLIC_USE_MOCK === '1' ||
+  process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
 /** Configure Amplify once from public env. Safe to call repeatedly. */
 export function configureAppSync(): void {
@@ -132,6 +145,37 @@ function subscribeWithReconnect<TSchema extends ZodTypeAny>(
   };
 }
 
+// ── mock queue fixture (NEXT_PUBLIC_USE_MOCK) ────────────────────────────────
+// Shaped to QueueResultSchema. Mirrors the demo-booth scenarios so the table
+// shows the highlight states (needs_agent / fraud_suspected) and churn bar.
+function mockQueue(): QueueResult {
+  const rows: QueueRow[] = [
+    { callId: 'm1', customerId: 'cust-3010', customerName: '김영수', targetProduct: '대환대출',
+      state: 'IN_CALL', scenario: '금리인하 문의', highlight: null, highlightSince: null,
+      elapsedSec: 95, churnRisk: 38 },
+    { callId: 'm2', customerId: 'cust-3027', customerName: '이민정', targetProduct: '신용대출',
+      state: 'TRANSFER_PENDING', scenario: '한도 상향', highlight: 'needs_agent',
+      highlightSince: null, elapsedSec: 212, churnRisk: 81 },
+    { callId: 'm3', customerId: 'cust-3044', customerName: '박철수', targetProduct: '전세자금',
+      state: 'IN_CALL', scenario: '명의도용 의심', highlight: 'fraud_suspected',
+      highlightSince: null, elapsedSec: 47, churnRisk: 64 },
+    { callId: 'm4', customerId: 'cust-3051', customerName: '최유진', targetProduct: '카드론',
+      state: 'RINGING', scenario: '신규 상담', highlight: null, highlightSince: null,
+      elapsedSec: 8, churnRisk: null },
+    { callId: 'm5', customerId: 'cust-2998', customerName: '한지민', targetProduct: '대환대출',
+      state: 'ENDED', scenario: '상담 완료', highlight: null, highlightSince: null,
+      elapsedSec: 363, churnRisk: 22 },
+  ];
+  const summary: QueueSummary = {
+    waiting: 1,
+    inProgress: rows.filter((r) => r.state === 'IN_CALL').length,
+    needsAgent: rows.filter((r) => r.highlight === 'needs_agent').length,
+    fraudSuspected: rows.filter((r) => r.highlight === 'fraud_suspected').length,
+    ended: rows.filter((r) => r.state === 'ENDED').length,
+  };
+  return { summary, rows };
+}
+
 // ── queue (initial load) — API.md §1.1 ───────────────────────────────────────
 const QUEUE_QUERY = /* GraphQL */ `
   query Queue($highlightOnly: Boolean) {
@@ -146,6 +190,13 @@ const QUEUE_QUERY = /* GraphQL */ `
 `;
 
 export async function fetchQueue(highlightOnly = false): Promise<QueueResult> {
+  if (USE_MOCK) {
+    const result = mockQueue();
+    if (highlightOnly) {
+      return { ...result, rows: result.rows.filter((r) => r.highlight) };
+    }
+    return result;
+  }
   const res = await getClient().graphql({
     query: QUEUE_QUERY,
     variables: { highlightOnly },
@@ -179,6 +230,22 @@ export function subscribeQueueUpdates(
   onData: (result: QueueResult) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK) {
+    // Tick elapsed time every second so the demo feels live; no real socket
+    // (so no reconnect loop against the undeployed schema).
+    const base = mockQueue();
+    let tick = 0;
+    const timer = setInterval(() => {
+      tick += 1;
+      onData({
+        ...base,
+        rows: base.rows.map((r) =>
+          r.state === 'ENDED' ? r : { ...r, elapsedSec: r.elapsedSec + tick },
+        ),
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }
   return subscribeWithReconnect(
     { query: ON_QUEUE_UPDATE_SUB },
     (d) => (d as OnQueueUpdate | undefined)?.onQueueUpdate,
@@ -349,6 +416,36 @@ export function subscribeStrategyUpdate(
   );
 }
 
+// ── mots (initial load) — API.md §2.7 ────────────────────────────────────────
+// BACKEND-007 pending. Returns detected MOTs for a call (may be empty before any
+// MOT fires). Used by JourneyMap for initial hydration on mount.
+const MOTS_QUERY = /* GraphQL */ `
+  query Mots($callId: ID!) {
+    mots(callId: $callId) {
+      callId
+      seq
+      type
+      turnSeq
+      churnBefore
+      churnAfter
+      triggers
+      strategy { tactic headline }
+      outcome
+      narrative
+    }
+  }
+`;
+
+export async function fetchMots(callId: string): Promise<MotDetected[]> {
+  if (USE_MOCK) return [];
+  const res = await getClient().graphql({ query: MOTS_QUERY, variables: { callId } });
+  if ('data' in res && res.data) {
+    const raw = (res.data as { mots: unknown[] }).mots ?? [];
+    return raw.map((m) => MotDetectedSchema.parse(m));
+  }
+  throw new Error('mots 쿼리 응답을 받지 못했습니다.');
+}
+
 // ── onMotDetected (realtime) — API.md §2.7 ───────────────────────────────────
 // MOT 마커 (RISK/CONVERSION). Producer: AGENT (MOT 탐지 규칙).
 const ON_MOT_DETECTED_SUB = /* GraphQL */ `
@@ -383,6 +480,96 @@ export function subscribeMotDetected(
     onData,
     onError,
   );
+}
+
+// ── dialCall mutation — FRONTEND-002 / #31 (BACKEND-004 pending) ─────────────
+// Triggers an outbound call for an existing call record. Returns the callId and
+// new state (DIALING). Backend stub until BACKEND-004 ships.
+const DIAL_CALL_MUTATION = /* GraphQL */ `
+  mutation DialCall($callId: ID!) {
+    dialCall(callId: $callId) {
+      callId
+      state
+    }
+  }
+`;
+
+export type DialCallResult = { callId: string; state: string };
+
+export async function dialCall(callId: string): Promise<DialCallResult> {
+  if (USE_MOCK) return { callId, state: 'DIALING' };
+  const res = await getClient().graphql({
+    query: DIAL_CALL_MUTATION,
+    variables: { callId },
+  });
+  if ('data' in res && res.data) {
+    const d = (res.data as { dialCall: DialCallResult }).dialCall;
+    return d;
+  }
+  throw new Error('dialCall 응답을 받지 못했습니다.');
+}
+
+// ── createCall mutation — FRONTEND-003 / #32 (analysis-only, not dialing) ────
+// Creates a call record for pre-analysis. Does NOT dial. Returns callId.
+const CREATE_CALL_MUTATION = /* GraphQL */ `
+  mutation CreateCall($customerId: ID!) {
+    createCall(customerId: $customerId) {
+      callId
+      state
+    }
+  }
+`;
+
+export type CreateCallResult = { callId: string; state: string };
+
+export async function createCall(customerId: string): Promise<CreateCallResult> {
+  if (USE_MOCK) return { callId: `mock-${customerId}`, state: 'ANALYZING' };
+  const res = await getClient().graphql({
+    query: CREATE_CALL_MUTATION,
+    variables: { customerId },
+  });
+  if ('data' in res && res.data) {
+    const d = (res.data as { createCall: CreateCallResult }).createCall;
+    return d;
+  }
+  throw new Error('createCall 응답을 받지 못했습니다.');
+}
+
+// ── customer query — FRONTEND-003 / #32 ──────────────────────────────────────
+// Fetches basic customer info for the pre-analysis screen.
+const CUSTOMER_QUERY = /* GraphQL */ `
+  query Customer($customerId: ID!) {
+    customer(customerId: $customerId) {
+      customerId
+      name
+      age
+      phone
+      targetProduct
+    }
+  }
+`;
+
+export type Customer = {
+  customerId: string;
+  name: string;
+  age: number | null;
+  phone: string | null;
+  targetProduct: string | null;
+};
+
+export async function fetchCustomer(customerId: string): Promise<Customer> {
+  if (USE_MOCK) {
+    return { customerId, name: '박서준', age: 38, phone: '010-****-2840', targetProduct: '대환대출' };
+  }
+  const res = await getClient().graphql({
+    query: CUSTOMER_QUERY,
+    variables: { customerId },
+  });
+  if ('data' in res && res.data) {
+    const d = (res.data as { customer: Customer }).customer;
+    return d;
+  }
+  throw new Error('customer 쿼리 응답을 받지 못했습니다.');
 }
 
 // ── onCallEnded (realtime) — API.md §2.8 ─────────────────────────────────────

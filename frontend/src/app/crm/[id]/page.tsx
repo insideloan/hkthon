@@ -1,0 +1,234 @@
+'use client';
+
+// CRM 상담 요약 페이지 — SSOT: docs/consult_redesigned-3.html #view-summary (lines 1138-1190)
+// Next.js 15: params는 Promise — React use()로 언래핑.
+
+import { use } from 'react';
+import { ConsultFlow } from '@/components/crm/ConsultFlow';
+
+// ── 정적 목 데이터 ─────────────────────────────────────────────────────────────
+const MOCK_AGENTS = [
+  { id: 'a1', name: '김지수', status: '대기 중', statusOk: true },
+  { id: 'a2', name: '이태우', status: '대기 중', statusOk: true },
+  { id: 'a3', name: '박현아', status: '통화 중', statusOk: false },
+];
+
+// ── 고객 프로필 KV 데이터 ──────────────────────────────────────────────────────
+const PROFILE_KV = [
+  { label: '고객', value: '박서준 · 남 · 38세', variant: '' },
+  { label: '신용점수', value: 'KCB 744', variant: '' },
+  { label: '보유 대출', value: '주택담보대출 2.4억', variant: '' },
+  { label: '현 금리', value: '4.85%', variant: 'hot' },
+  { label: '자산', value: '아파트 5.2억', variant: '' },
+  { label: '이탈 위험', value: '낮음', variant: 'ok' },
+] as const;
+
+// ── 핵심 니즈 칩 데이터 ───────────────────────────────────────────────────────
+const NEED_CHIPS = [
+  { label: '금리 인하 요구권', variant: '' },
+  { label: '조기 상환 우려', variant: 'warn' },
+  { label: '타행 이관 검토 중', variant: 'warn' },
+  { label: '장기 고객 우대 희망', variant: 'ok' },
+] as const;
+
+// ── SVG 아이콘 모음 ───────────────────────────────────────────────────────────
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-[18px] h-[18px]">
+      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconFlow() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-[18px] h-[18px]">
+      <path
+        d="M4 18l5-5 4 3 6-7"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 9h4v4"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-[18px] h-[18px]">
+      <path
+        d="M5 12l4 4 10-10"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconAgents() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="w-[18px] h-[18px]">
+      <circle cx="9" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17 4.5a3.2 3.2 0 0 1 0 6.4M19 20c0-2.6-1-4.6-3-5.6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// ── 카드 헤더 ─────────────────────────────────────────────────────────────────
+function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-[9px] mb-[11px]">
+      <span className="flex items-center justify-center w-[28px] h-[28px] rounded-[8px] bg-[var(--badge-bg)] text-[var(--route)]">
+        {icon}
+      </span>
+      <h2 className="font-disp text-[14.5px] font-extrabold m-0 text-[var(--title)]">{title}</h2>
+    </div>
+  );
+}
+
+// ── 메인 페이지 컴포넌트 ──────────────────────────────────────────────────────
+export default function CrmDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+
+  return (
+    <main className="p-6 min-h-screen" data-testid="crm-page">
+      {/* .sum-head */}
+      <div className="flex items-baseline gap-3 mx-0.5 mb-3">
+        <h1 className="font-disp text-[22px] font-extrabold tracking-[-0.01em] m-0 text-[var(--ink)]">
+          상담 CRM
+        </h1>
+        <span className="font-mono text-[10px] font-bold text-[var(--go)] bg-[rgba(107,74,42,0.12)] rounded-full px-2.5 py-[3px]">
+          AI 상담 종료 · 상담사 연결 대기
+        </span>
+      </div>
+
+      {/* .sum-grid — 2-column layout */}
+      <div className="grid grid-cols-[1.6fr_1fr] gap-[14px] items-start max-[980px]:grid-cols-1">
+
+        {/* 좌: .sum-main */}
+        <div>
+          {/* 카드 1: 고객 프로필 */}
+          <div className="glass-card p-[14px_16px] mb-[14px]" data-testid="profile-card">
+            <CardHeader icon={<IconUser />} title="고객 프로필" />
+            {/* .sum-kv */}
+            <div className="grid grid-cols-2 gap-[8px_18px]">
+              {PROFILE_KV.map(({ label, value, variant }) => (
+                <div
+                  key={label}
+                  className="flex flex-col gap-[1px] border-b border-dashed border-[var(--hair)] pb-[6px]"
+                >
+                  <dt className="text-[10px] font-bold text-[var(--ink-faint)] m-0">{label}</dt>
+                  <dd
+                    className={[
+                      'text-[13px] font-bold m-0',
+                      variant === 'hot' ? 'text-[var(--danger)]' : '',
+                      variant === 'ok' ? 'text-[var(--go)]' : '',
+                      variant === '' ? 'text-[var(--ink)]' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 카드 2: 상담 흐름 요약 (ConsultFlow) */}
+          <div className="glass-card p-[14px_16px] mb-[14px]" data-testid="flow-card">
+            <CardHeader icon={<IconFlow />} title="상담 흐름 요약" />
+            <ConsultFlow callId={id} disableLiveData initialMots={[]} />
+          </div>
+
+          {/* 카드 3: 핵심 니즈 · 다음 액션 */}
+          <div className="glass-card p-[14px_16px] mb-[14px]" data-testid="needs-card">
+            <CardHeader icon={<IconCheck />} title="핵심 니즈 · 다음 액션" />
+            {/* .sum-chips */}
+            <div className="flex flex-wrap gap-[6px]">
+              {NEED_CHIPS.map(({ label, variant }) => (
+                <span
+                  key={label}
+                  className={[
+                    'text-xs font-bold rounded-full px-[11px] py-[4px]',
+                    variant === 'warn'
+                      ? 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]'
+                      : variant === 'ok'
+                        ? 'text-[var(--go)] bg-[rgba(107,74,42,0.12)]'
+                        : 'text-[var(--route)] bg-[var(--badge-bg)]',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            {/* .sum-next */}
+            <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(53,81,214,0.07)] rounded-[10px] px-[12px] py-[9px]">
+              ▶ 권장:{' '}
+              <b className="text-[var(--route)]">우대금리 0.3%p 적용 제안 → 금리 인하 요구권 안내</b>
+            </div>
+          </div>
+        </div>
+
+        {/* 우: .sum-side */}
+        <div>
+          {/* 카드: 대기 중 상담사 */}
+          <div className="glass-card p-[14px_16px]" data-testid="agents-card">
+            <CardHeader icon={<IconAgents />} title="대기 중 상담사" />
+            {/* .agent-list */}
+            <div className="flex flex-col gap-[9px]">
+              {MOCK_AGENTS.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center justify-between py-[6px] border-b border-dashed border-[var(--hair)] last:border-0"
+                  data-testid="agent-item"
+                >
+                  <span className="text-[13px] font-bold text-[var(--ink)]">{agent.name}</span>
+                  <span
+                    className={[
+                      'text-[10px] font-bold rounded-full px-2.5 py-[3px]',
+                      agent.statusOk
+                        ? 'text-[var(--go)] bg-[rgba(46,158,110,0.12)]'
+                        : 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]',
+                    ].join(' ')}
+                  >
+                    {agent.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

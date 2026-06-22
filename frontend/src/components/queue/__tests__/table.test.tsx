@@ -129,6 +129,15 @@ describe('OutboundQueueTable', () => {
     expect(screen.getByText('최유진')).toBeInTheDocument();
   });
 
+  it('shows an empty-state message (not a blank body) when there are no rows', async () => {
+    render(<OutboundQueueTable />);
+    // Initial fetchQueue resolves to an empty snapshot → status ready, 0 rows.
+    await act(async () => {});
+    expect(screen.queryAllByTestId(/^queue-row-/)).toHaveLength(0);
+    const empty = screen.getByTestId('queue-empty');
+    expect(empty).toHaveTextContent('현재 진행 중인 콜이 없습니다.');
+  });
+
   it('unsubscribes on unmount', () => {
     const { unmount } = render(<OutboundQueueTable />);
     unsubscribe.mockClear();

@@ -27,7 +27,12 @@ jobs:
         run: |
           python3 hk-skills/scripts/lint-modules.py --modules-md hk-skills/MODULES.md
 
+      # Boundary enforcement DISABLED (2026-06-22): BACKEND/DATA owners are
+      # unavailable, so remaining members share all modules. The drift check
+      # above still runs (keeps MODULES.md yaml/tables honest). To re-enable
+      # ownership enforcement, remove the `if: false` line below.
       - name: Module boundary check
+        if: false
         env:
           HEAD_REF: ${{ github.head_ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

@@ -1,7 +1,12 @@
 // Table wrapper (shared `*`). Tailwind lives here only (CONVENTIONS.md §6.1) so
 // templates can be swapped without touching feature components.
 import { clsx } from 'clsx';
-import type { HTMLAttributes, ReactNode, ThHTMLAttributes } from 'react';
+import type {
+  HTMLAttributes,
+  ReactNode,
+  TdHTMLAttributes,
+  ThHTMLAttributes,
+} from 'react';
 
 export function Table({ children, className, ...rest }: HTMLAttributes<HTMLTableElement>) {
   return (
@@ -56,7 +61,7 @@ export function TableCell({
   children,
   className,
   ...rest
-}: HTMLAttributes<HTMLTableCellElement>) {
+}: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td className={clsx('px-3 py-2 align-middle', className)} {...rest}>
       {children}

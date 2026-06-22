@@ -22,3 +22,6 @@ __pycache__/
 .claude/plans/
 .claude/transcripts/
 infra/layers/
+
+# run.sh local PID files + logs
+.run/
