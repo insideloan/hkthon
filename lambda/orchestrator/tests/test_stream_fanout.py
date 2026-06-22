@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
+import pytest
+
 from orchestrator.api import stream_fanout as sf
+
+
+@pytest.fixture(autouse=True)
+def _no_external_emit(monkeypatch):
+    """외부 AppSync 호출 차단 — 매핑 로직만 검증 (set_appsync_emit 미사용 경로)."""
+    monkeypatch.setattr(sf, "_DISABLE_EMIT", True)
+    monkeypatch.setattr(sf, "_appsync_emit", None)
 
 
 def _record(image: dict, event_name="INSERT") -> dict:
@@ -40,14 +49,16 @@ def test_mot_insert_emits_mot_new_shape():
 
 
 def test_compliance_emits_state_payload():
-    rec = _record({"PK": "CALL#c1", "SK": "CMPL#3#0", "state": "REDACTING",
-                   "draft": "초안", "violated_policies": ["과장광고"], "final": "수정본"})
+    # AGENT가 저장하는 실제 형상: 소문자 state, final_text.
+    rec = _record({"PK": "CALL#c1", "SK": "CMPL#3#0", "state": "redacting",
+                   "draft": "초안", "violated_policies": ["과장광고"],
+                   "final_text": "수정본"})
     out = sf.handler({"Records": [rec]})
     emit = next(e for e in out["emits"] if e["mutation"] == "_emitComplianceState")
     p = emit["payload"]
-    assert p["state"] == "REDACTING"
+    assert p["state"] == "REDACTING"          # 소문자 → wire 대문자 enum
     assert p["violatedPolicies"] == ["과장광고"]
-    assert p["finalDiff"] == "수정본"
+    assert p["finalDiff"] == "수정본"           # final_text → finalDiff
 
 
 def test_call_ended_and_queue_and_strategy():
