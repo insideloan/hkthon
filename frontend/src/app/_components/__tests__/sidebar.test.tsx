@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Sidebar } from '@/components/shell/Sidebar';
+import { Sidebar } from '@/app/_components/Sidebar';
 
 // Mock next/navigation so usePathname() works outside the Next.js runtime.
 vi.mock('next/navigation', () => ({
