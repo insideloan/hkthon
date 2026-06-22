@@ -4,23 +4,26 @@ AGENT 모듈. SSOT: hk-skills/reference/STACK.md §5(LLM), ARCHITECTURE.md §3.3
 
 - SDK: langchain-aws ChatBedrockConverse (**Bedrock 전용** — 다른 provider 금지).
 - Model: env LLM_MODEL (기본 global.anthropic.claude-sonnet-4-6).
-- 두 가지 호출:
+- 공개 API:
+    get_llm()           → ChatBedrockConverse 인스턴스 반환 (이슈 #15 수용 기준).
     classify_turn(...)  → structured output (CLASSIFY_SCHEMA) — nodes.classify
     converse(...)       → 자유 텍스트 생성 (스트리밍) — nodes.respond / compliance._redraft
 - 장애 시 LLM_TIMEOUT fallback (API.md §0.3) — 통화 흐름이 끊기지 않게 한국어 기본 문구 반환.
+- .astream 인터페이스: ChatBedrockConverse 네이티브 .astream으로 통일.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-_MODEL_ID = os.environ.get("LLM_MODEL", "global.anthropic.claude-sonnet-4-6")
+_DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 _FIRST_TOKEN_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "6"))
 
@@ -57,19 +60,36 @@ _chat = None
 
 
 def _client():
-    """ChatBedrockConverse 인스턴스 (lazy singleton)."""
+    """ChatBedrockConverse 인스턴스 (lazy singleton). 내부 전용."""
     global _chat
     if _chat is None:
         # 지연 import: langchain-aws 미설치 환경(스크립트 모드/유닛테스트)에서도 모듈 로드 가능
         from langchain_aws import ChatBedrockConverse
 
+        # 모델 ID는 클라이언트 생성 시점에 env에서 읽는다(모듈 로드 시점 고정 금지):
+        # Lambda 콜드스타트마다 최신 LLM_MODEL을 반영하고, 테스트가 env를 주입할 수 있게 한다.
+        model_id = os.environ.get("LLM_MODEL", _DEFAULT_MODEL_ID)
         _chat = ChatBedrockConverse(
-            model=_MODEL_ID,
+            model=model_id,
             region_name=_REGION,
             temperature=0.3,
             max_tokens=512,
         )
     return _chat
+
+
+def get_llm():
+    """ChatBedrockConverse 인스턴스를 반환하는 공개 팩토리 함수.
+
+    이슈 #15 수용 기준:
+    - LLM_MODEL 환경변수로 모델 지정 (기본 global.anthropic.claude-sonnet-4-6).
+    - Bedrock 전용: ChatBedrockConverse 인스턴스 반환.
+    - .astream 인터페이스 통일 (ChatBedrockConverse 네이티브 지원).
+
+    Returns:
+        ChatBedrockConverse: langchain-aws Bedrock Converse 인스턴스.
+    """
+    return _client()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +119,8 @@ def converse(system: str, user: str, *, stream: bool = True) -> str:
     """자유 텍스트 응답 생성. 첫 토큰 타임아웃/오류 시 FALLBACK_TEXT 반환.
 
     Args:
-        stream: True면 스트리밍(첫 토큰 지연 단축, TTS 파이프라인 친화). 본 스켈레톤은 결과 텍스트만 반환.
+        stream: True면 .stream() 스트리밍(첫 토큰 지연 단축, TTS 파이프라인 친화).
+                비동기 스트리밍은 astream_converse() 사용.
     """
     msgs = [
         {"role": "system", "content": system},
@@ -107,7 +128,6 @@ def converse(system: str, user: str, *, stream: bool = True) -> str:
     ]
     try:
         if stream:
-            # TODO: 첫 토큰 타임아웃 가드(_FIRST_TOKEN_TIMEOUT_S) + 청크 누적.
             chunks = [c.content for c in _client().stream(msgs)]
             text = "".join(_as_text(c) for c in chunks).strip()
         else:
@@ -116,6 +136,55 @@ def converse(system: str, user: str, *, stream: bool = True) -> str:
     except Exception:  # noqa: BLE001
         logger.exception("converse failed; returning fallback text")
         return FALLBACK_TEXT
+
+
+async def astream_converse(
+    system: str,
+    user: str,
+    *,
+    timeout_s: float = _FIRST_TOKEN_TIMEOUT_S,
+) -> AsyncIterator[str]:
+    """비동기 스트리밍 응답 생성. .astream 인터페이스 통일 (이슈 #15).
+
+    ChatBedrockConverse 네이티브 .astream()을 사용해 청크 단위로 텍스트를 yield.
+    첫 토큰 타임아웃 가드: timeout_s 내 첫 청크 미도착 시 FALLBACK_TEXT yield 후 종료.
+
+    Args:
+        system: 시스템 프롬프트.
+        user: 사용자 발화.
+        timeout_s: 첫 토큰 대기 최대 초 (기본 LLM_TIMEOUT_S 환경변수, 6초).
+
+    Yields:
+        str: 텍스트 청크.
+    """
+    msgs = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    try:
+        aiter = _client().astream(msgs)
+        # 첫 토큰 타임아웃 가드
+        try:
+            first_chunk = await asyncio.wait_for(aiter.__anext__(), timeout=timeout_s)
+        except TimeoutError:
+            logger.warning("astream_converse: 첫 토큰 타임아웃 (%.1fs); fallback 반환", timeout_s)
+            yield FALLBACK_TEXT
+            return
+        except StopAsyncIteration:
+            yield FALLBACK_TEXT
+            return
+
+        text = _as_text(first_chunk.content)
+        if text:
+            yield text
+
+        async for chunk in aiter:
+            chunk_text = _as_text(chunk.content)
+            if chunk_text:
+                yield chunk_text
+    except Exception:  # noqa: BLE001
+        logger.exception("astream_converse failed; returning fallback text")
+        yield FALLBACK_TEXT
 
 
 def _as_text(content) -> str:
