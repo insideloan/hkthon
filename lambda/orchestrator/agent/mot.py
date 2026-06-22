@@ -5,9 +5,11 @@ BACKEND #28 계약 기준 이벤트 shape 산출.
 
 위험 임계 (유지):
   - Δchurn ≥ +12  또는  churn_after ≥ 60 → 위험 MOT
+  - 이탈성 이용가능성 신호(signals.Usability._RISK_USABILITY) → 위험 MOT
 
 전환 트리거 (유지):
   - intent ∈ {TRANSFER_INTENT, BUYING_INTENT} → 전환 MOT
+  - 진행성 이용가능성 신호(signals.Usability._CONVERSION_USABILITY) → 전환 MOT
 
 마커 매핑 (SSOT-3 신규):
   rz-rate     → MOT_1  stageIndex=0  (TRUST:     대출 거부·경계)
@@ -29,6 +31,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .signals import Usability
 from .state import CallState, Intent, MotResult
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +92,21 @@ def _resolve_state(
 # 공개 API
 # ─────────────────────────────────────────────────────────────────────────────
 
+# 이용가능성(signals.Usability) 신호 → MOT 보강.
+# 진행성 신호는 전환의 순간, 이탈성 신호는 위험의 순간을 의미한다.
+_CONVERSION_USABILITY = {
+    Usability.PROCEED_NOW,      # "지금 바로 해볼게요"
+    Usability.CONDITIONAL,      # "금리 괜찮으면 진행할게요"
+    Usability.BENEFIT_DRIVEN,   # "확실히 더 유리하면 해볼 수 있죠"
+    Usability.URGENT_EXEC,      # "오늘 안 되면 의미 없어요"
+    Usability.NEEDS_AGENT,      # 상담원 연결 = 성공경로(TRANSFER_PENDING)
+}
+_RISK_USABILITY = {
+    Usability.LOAN_REFUSED,     # "대출은 안 할 거예요"
+    Usability.PRODUCT_MISMATCH, # "그런 상품은 필요 없어요"
+    Usability.COMPLIANCE_STOP,  # "무조건 승인되는 거죠?" — 컴플라이언스 리스크
+}
+
 
 def detect(state: CallState) -> Optional[MotResult]:
     """이번 턴의 MOT를 판정. 없으면 None.
@@ -101,9 +119,14 @@ def detect(state: CallState) -> Optional[MotResult]:
     churn_after: int = state.get("churn_after", churn_before)
     intent = state.get("intent")
     turn_seq: int = state.get("next_seq", 0)
+    usability = state.get("usability")
 
-    is_conversion = intent in _CONVERSION_INTENTS
-    is_risk = (churn_after - churn_before >= _RISK_DELTA) or (churn_after >= _RISK_ABS)
+    is_conversion = intent in _CONVERSION_INTENTS or usability in _CONVERSION_USABILITY
+    is_risk = (
+        (churn_after - churn_before >= _RISK_DELTA)
+        or (churn_after >= _RISK_ABS)
+        or (usability in _RISK_USABILITY)
+    )
 
     # 전환 또는 위험이 없으면 MOT 없음
     if not is_conversion and not is_risk:
@@ -112,15 +135,20 @@ def detect(state: CallState) -> Optional[MotResult]:
     mot_id, stage_index = _resolve_mot_id(turn_seq)
     mot_state = _resolve_state(is_conversion, churn_after)
 
-    # 전환 시: 모든 churn_tokens, 위험 시: CONS 토큰만
+    # 전환 시: 모든 churn_tokens; 위험 시: CONS 토큰만
+    # Usability 신호가 있으면 triggers에 추가
     if is_conversion:
         triggers = [t["text"] for t in state.get("churn_tokens", [])]
+        if usability in _CONVERSION_USABILITY:
+            triggers.append(usability.value)
     else:
         triggers = [
             t["text"]
             for t in state.get("churn_tokens", [])
             if t.get("polarity") == "CONS"
         ]
+        if usability in _RISK_USABILITY:
+            triggers.append(usability.value)
 
     return MotResult(
         motId=mot_id,

@@ -21,3 +21,4 @@ __pycache__/
 # Claude Code transient state
 .claude/plans/
 .claude/transcripts/
+infra/layers/

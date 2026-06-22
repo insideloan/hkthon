@@ -59,13 +59,14 @@
   <text x="220" y="568" class="ts" text-anchor="middle">call · turn · MOT · compliance</text>
   <rect class="data" x="56" y="588" width="328" height="44"/>
   <text x="220" y="608" class="t" text-anchor="middle">S3</text>
-  <text x="220" y="623" class="ts" text-anchor="middle">scenario.json · 렉시콘 · mp3</text>
+  <text x="220" y="623" class="ts" text-anchor="middle">scenario.json · TTS mp3</text>
 
   <!-- ── Layer: 오케스트레이션 ── -->
   <rect class="lyr" x="600" y="372" width="440" height="160"/>
   <text x="616" y="394" class="lyrlbl">오케스트레이션</text>
   <rect class="accent" x="616" y="404" width="408" height="36"/>
-  <text x="820" y="426" class="t" text-anchor="middle">Lambda “orchestrator”</text>
+  <text x="820" y="421" class="t" text-anchor="middle">Lambda “orchestrator”</text>
+  <text x="820" y="434" class="ts" text-anchor="middle">+ deps Layer (langchain/langgraph) · 렉시콘 번들</text>
   <rect class="node" x="616" y="450" width="196" height="68"/>
   <text x="714" y="473" class="t" text-anchor="middle">스크립트 모드</text>
   <text x="714" y="490" class="ts" text-anchor="middle">scenario.json</text>
@@ -91,9 +92,9 @@
   <!-- ── 공통 / 비고 ── -->
   <rect class="lyr" x="600" y="84" width="440" height="96"/>
   <text x="616" y="106" class="lyrlbl">공통 · 비고</text>
-  <text x="616" y="132" class="ts">· 공통(경량): IAM · CloudWatch</text>
-  <text x="616" y="152" class="ts">· TTS Typecast는 AWS 외부 서비스 (X-API-KEY REST)</text>
-  <text x="616" y="172" class="ts">· 운영 헤비 자원(Fargate/Aurora/Cognito 등)은 부스 범위 외</text>
+  <text x="616" y="130" class="ts">· 공통(경량): IAM · CloudWatch · Secrets Manager(Typecast 키)</text>
+  <text x="616" y="150" class="ts">· TTS Typecast는 AWS 외부 서비스 (X-API-KEY REST)</text>
+  <text x="616" y="170" class="ts">· 운영 헤비 자원(Fargate/Aurora/Cognito 등)은 부스 범위 외</text>
 
   <!-- ── Edges ── -->
   <!-- 브라우저 → CloudFront -->
@@ -122,9 +123,10 @@
   <!-- orchestrator → DynamoDB (write) -->
   <path class="edge" marker-end="url(#arr)" d="M616 432 C470 470, 400 510, 384 546"/>
   <text x="430" y="486" class="el">write</text>
-  <!-- DynamoDB Streams → AppSync (팬아웃) -->
-  <path class="edge" marker-end="url(#arr)" d="M70 532 C30 480, 30 460, 56 440"/>
-  <text x="2" y="500" class="el">Streams → 팬아웃</text>
+  <!-- DynamoDB Streams → AppSync (팬아웃 — 소비자 미구현) -->
+  <path class="edged" marker-end="url(#arrg)" d="M70 532 C30 480, 30 460, 56 440"/>
+  <text x="2" y="556" class="el">⏳ Streams 팬아웃</text>
+  <text x="2" y="570" class="el">(소비자 미구현 #28)</text>
   <!-- 라이브 모드 → AI 4종 -->
   <path class="edge" marker-end="url(#arr)" d="M880 518 C840 560, 760 580, 730 596"/>
   <path class="edge" marker-end="url(#arr)" d="M926 518 L926 596"/>

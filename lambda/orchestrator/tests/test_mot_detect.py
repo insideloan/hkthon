@@ -5,6 +5,7 @@ SSOT: docs/consult_redesigned-3.html. BACKEND #28 wire 계약.
 검증 항목:
   - 위험 임계: Δchurn≥+12 또는 churn≥60
   - 전환 트리거: TRANSFER_INTENT/BUYING_INTENT
+  - Usability 신호 보강: 진행성→전환, 이탈성→위험
   - motId: MOT_1~MOT_5 (enum)
   - state: SHOW|ALERT|BLOCKED (대문자)
   - stageIndex: 0~3
@@ -17,6 +18,7 @@ SSOT: docs/consult_redesigned-3.html. BACKEND #28 wire 계약.
 from unittest.mock import MagicMock
 
 from orchestrator.agent import mot
+from orchestrator.agent.signals import Usability
 from orchestrator.agent.state import Intent
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +127,42 @@ def test_limit_inquiry_not_conversion_without_churn():
     """LIMIT_INQUIRY는 SSOT-3 전환 트리거 아님 — churn 임계 없으면 None."""
     m = mot.detect(_state(intent=Intent.LIMIT_INQUIRY, churn_before=50, churn_after=52))
     assert m is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Usability 신호 보강 테스트 (dev에서 통합)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_conversion_by_usability_signal():
+    """진행성 이용가능성 신호 → intent가 평범해도 전환 MOT."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.PROCEED_NOW, churn_after=45))
+    _assert_valid_mot(m)
+    assert m["is_conversion"] is True
+    assert m["state"] == "BLOCKED"
+    assert Usability.PROCEED_NOW.value in m["triggers"]
+
+
+def test_needs_agent_usability_is_conversion():
+    """상담원 연결 필요 신호도 성공경로(전환 MOT)."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.NEEDS_AGENT, churn_after=45))
+    _assert_valid_mot(m)
+    assert m["is_conversion"] is True
+
+
+def test_risk_by_usability_signal():
+    """이탈성 이용가능성 신호 → churn이 낮아도 위험 MOT."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.LOAN_REFUSED, churn_after=45))
+    _assert_valid_mot(m)
+    assert m["is_conversion"] is False
+    assert Usability.LOAN_REFUSED.value in m["triggers"]
+
+
+def test_compliance_stop_usability_is_risk():
+    """컴플라이언스 중단 신호 → 위험 MOT."""
+    m = mot.detect(_state(intent=Intent.QUESTION_TERMS, usability=Usability.COMPLIANCE_STOP, churn_after=45))
+    _assert_valid_mot(m)
+    assert m["is_conversion"] is False
 
 
 # ─────────────────────────────────────────────────────────────────────────────

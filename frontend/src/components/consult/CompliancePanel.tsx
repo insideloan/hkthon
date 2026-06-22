@@ -192,7 +192,7 @@ export function CompliancePanel({
       data-testid="compliance-panel"
       data-phase={phase}
     >
-      <h2 className="text-sm font-semibold text-ink">next action · 컴플라이언스 체크</h2>
+      <h2 className="text-sm font-semibold text-ink">컴플라이언스 체크</h2>
 
       {/* 가안 발화 (1+2 기반) */}
       <div>

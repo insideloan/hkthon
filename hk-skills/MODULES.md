@@ -104,6 +104,7 @@ modules:
       - frontend/next.config.mjs
       - .github/workflows/*
       - docs/cloud/*
+      - docs/architecture-diagram.*
       - hk-skills/scripts/*
       - initialize.sh
 

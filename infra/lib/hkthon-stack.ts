@@ -68,9 +68,31 @@ export class HkthonStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // Runtime dependency layer (#83 block 5 / #50 precursor).
+    // langchain/langgraph/langchain-aws/pydantic/httpx for the real orchestrator.
+    // Built out-of-band into infra/layers/orchestrator-deps/ (gitignored — 110MB)
+    // by scripts/build-layer.sh, using x86_64-manylinux wheels to match the
+    // x86_64 Lambda. boto3/botocore omitted (in the runtime); amazon-transcribe
+    // omitted until the STT bridge (AGENT-008) lands. Synth fails if the dir is
+    // missing → run scripts/build-layer.sh first.
+    const depsLayer = new lambda.LayerVersion(this, 'OrchestratorDeps', {
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', 'layers', 'orchestrator-deps')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_13],
+      compatibleArchitectures: [lambda.Architecture.X86_64],
+      description: 'orchestrator runtime deps (langchain/langgraph/langchain-aws/pydantic/httpx)',
+    });
+
     const orchestrator = new lambda.Function(this, 'Orchestrator', {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'handler.handler',
+      layers: [depsLayer],
+      // Bundle includes churn_risk_lexicon.json (copied from the SSOT at
+      // hk-skills/reference/) so churn_risk.py loads it from /var/task at
+      // runtime via LEXICON_LOCAL_PATH (#83 block 3).
+      // ⚠️ #50 (CLOUD-008): when this asset is swapped to the real orchestrator
+      // bundle (lambda/orchestrator/), carry the lexicon copy forward and keep
+      // LEXICON_LOCAL_PATH pointing at it — the file must ship inside the asset.
+      // The bundle copy is a build artifact of the SSOT; re-sync if the SSOT changes.
       code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambda-placeholder')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
@@ -79,8 +101,15 @@ export class HkthonStack extends cdk.Stack {
         ASSETS_BUCKET: bucket.bucketName,
         SCENARIO_KEY: 'scenarios/scenario.json',
         LEXICON_KEY: 'lexicon/churn_risk_lexicon.json',
+        // churn_risk.py reads LEXICON_LOCAL_PATH (a real on-disk file), not S3.
+        // The lexicon SSOT is bundled into the Lambda asset (see lambda asset
+        // dir); at runtime the bundle unzips to /var/task. Missing file →
+        // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
+        LEXICON_LOCAL_PATH: '/var/task/churn_risk_lexicon.json',
         ORCHESTRATOR_MODE: 'script',
         LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
+        // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
+        LLM_TIMEOUT_S: '6',
         TRANSCRIBE_LANGUAGE: 'ko-KR',
         TYPECAST_SECRET_ARN: typecastSecret.secretArn,
         TYPECAST_MODEL: 'ssfm-v30',
@@ -184,8 +213,10 @@ export class HkthonStack extends cdk.Stack {
     });
 
     // Let the orchestrator apply this specific guardrail.
-    orchestrator.addEnvironment('GUARDRAIL_ID', guardrail.attrGuardrailId);
-    orchestrator.addEnvironment('GUARDRAIL_VERSION', guardrail.attrVersion);
+    // Names must match what compliance.py reads (BEDROCK_GUARDRAIL_ID /
+    // BEDROCK_GUARDRAIL_VERSION) — otherwise compliance silently rule-falls-back.
+    orchestrator.addEnvironment('BEDROCK_GUARDRAIL_ID', guardrail.attrGuardrailId);
+    orchestrator.addEnvironment('BEDROCK_GUARDRAIL_VERSION', guardrail.attrVersion);
 
     // ── Amplify Hosting (monorepo: frontend/) ───────────────────────────
     // App + build spec + env slot. Repo connection (GitHub App) + branch

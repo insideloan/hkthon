@@ -11,6 +11,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal, Optional, TypedDict
 
+from .signals import Emotion, Need, Usability
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Enums — 단계 / 의도 / 라우팅
@@ -57,6 +59,20 @@ class Route(str, Enum):
     NEEDS_LLM = "NEEDS_LLM"    # fast_route가 판단 못 함 → classify 노드로
 
 
+class CallStatus(str, Enum):
+    """통화 수명주기 상태 (persist가 Call 아이템에 반영). 라우팅(Route)과 별개의 축이다.
+
+    - ACTIVE: 통화 진행 중 (기본값)
+    - TRANSFER_PENDING: 상담원 이관 대기 (transfer_node 진입 → 성공경로)
+    - ENDED: 통화 종료 (close_node / silence 2회↑)
+    fraud_suspected는 상태가 아니라 플래그(통화를 종료/전이시키지 않음).
+    """
+
+    ACTIVE = "ACTIVE"
+    TRANSFER_PENDING = "TRANSFER_PENDING"
+    ENDED = "ENDED"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 보조 구조체 (TypedDict)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -86,10 +102,14 @@ class TurnMsg(TypedDict):
 
 
 class Token(TypedDict):
-    """SpeechAnalysis 카드용 키워드 토큰 (churn 매칭 결과)."""
+    """SpeechAnalysis 카드용 발화 토큰.
+
+    churn 매칭 키워드는 polarity=PRO/CONS + reason(카테고리), 비키워드 토큰은
+    polarity=None + reason="" (AGENT-011 발화 분석). onSpeechAnalysis 팬아웃용.
+    """
 
     text: str
-    polarity: Literal["PRO", "CONS"]
+    polarity: Optional[Literal["PRO", "CONS"]]
     reason: str
 
 
@@ -104,9 +124,9 @@ class ComplianceStep(TypedDict):
 
 
 class Strategy(TypedDict, total=False):
-    """StrategyPanel용 전략."""
+    """StrategyPanel용 전략. tactic은 signals.Tactic 라벨(20종 정규값)."""
 
-    tactic: str
+    tactic: str       # signals.Tactic.value (카탈로그 밖이면 분류 폴백)
     headline: str
 
 
@@ -149,12 +169,15 @@ class CallState(TypedDict, total=False):
     customer_text: str
     churn_before: int
     next_seq: int
+    call_status: CallStatus   # 통화 수명주기 (기본 ACTIVE; transfer→TRANSFER_PENDING, 종단→ENDED)
 
     # fast_route / classify
     intent: Intent
     route: Route
     classified_by: Literal["rule", "llm"]
-    emotion: str
+    emotion: Optional[Emotion]       # 신호축1 (signals.Emotion, 15종)
+    need: Optional[Need]             # 신호축2 (signals.Need, 15종)
+    usability: Optional[Usability]   # 신호축3 (signals.Usability, 20종)
     fraud_suspected: bool
     strategy: Strategy
     rationale: str
