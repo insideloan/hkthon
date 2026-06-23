@@ -1,64 +1,155 @@
 {
   "scenario_id": "s1",
   "title": "S1 — 대환대출 아웃바운드 (박서준, 차량보유)",
-  "description": "SSOT-3(docs/consult_redesigned-3.html const S) 18턴 직렬화. 이탈위험 5회(rz-rate/compare/pay/security/avoid) 전부 방어 후 상담원 전환 성공.",
+  "description": "SSOT-3(docs/consult_redesigned-3.html const S) 직렬화 + 아웃바운드 고객 인사(여보세요?) 턴. 19턴. 이탈위험 5회(rz-rate/compare/pay/security/avoid) 전부 방어 후 상담원 전환 성공.",
   "_notes": "token.polarity(PRO|CONS|null)는 키워드 색상용이 아니라 턴 레벨 flag('risk'|'def'|null) 배지 분기 신호다(DATA-003). mot/compliance/strategy 필드는 DATA-004/005/006 모델과 정합.",
   "customer_id": "cust-001",
+  "expected_turns": 19,
   "turns": [
     {
-      "seq": 0, "speaker": "bot", "node": "IDENTIFY",
+      "seq": 0,
+      "speaker": "customer",
+      "node": "IDENTIFY",
+      "text": "여보세요?",
+      "tokens": [],
+      "churn_after": 8,
+      "flag": null,
+      "greet": true,
+      "_notes": "아웃바운드 발신 — 연결 시 고객이 먼저 받는 인사. 분석/MOT 트리거 안 함."
+    },
+    {
+      "seq": 1,
+      "speaker": "bot",
+      "node": "IDENTIFY",
       "text": "안녕하세요, 현대캐피탈 AI 상담원입니다. 통화는 녹음되고요, 박서준 고객님 맞으실까요?",
       "tokens": [
-        {"text": "현대캐피탈", "polarity": null, "reason": ""},
-        {"text": "맞으실까요?", "polarity": null, "reason": ""}
+        {
+          "text": "현대캐피탈",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "맞으실까요?",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 8, "flag": "def",
+      "churn_after": 8,
+      "flag": "def",
       "strategy_headline": "본인 확인 · 용건 진입",
       "strategy_lead": "초반 구간 진입 — 본인 확인"
     },
     {
-      "seq": 1, "speaker": "customer", "node": "IDENTIFY",
+      "seq": 2,
+      "speaker": "customer",
+      "node": "IDENTIFY",
       "text": "네 맞는데요. 근데 대출 전화면 안 받아요.",
       "tokens": [
-        {"text": "대출", "polarity": "CONS", "reason": "거부"},
-        {"text": "전화면", "polarity": "CONS", "reason": "거부"},
-        {"text": "안", "polarity": "CONS", "reason": "거부"},
-        {"text": "받아요.", "polarity": "CONS", "reason": "거부"}
+        {
+          "text": "대출",
+          "polarity": "CONS",
+          "reason": "거부"
+        },
+        {
+          "text": "전화면",
+          "polarity": "CONS",
+          "reason": "거부"
+        },
+        {
+          "text": "안",
+          "polarity": "CONS",
+          "reason": "거부"
+        },
+        {
+          "text": "받아요.",
+          "polarity": "CONS",
+          "reason": "거부"
+        }
       ],
-      "churn_after": 34, "flag": "risk",
-      "mot": {"marker_id": "rz-rate", "state": "show", "crm_stage": "신뢰 쌓기"}
+      "churn_after": 34,
+      "flag": "risk",
+      "mot": {
+        "marker_id": "rz-rate",
+        "state": "show",
+        "crm_stage": "신뢰 쌓기"
+      }
     },
     {
-      "seq": 2, "speaker": "bot", "node": "CONSENT",
+      "seq": 3,
+      "speaker": "bot",
+      "node": "CONSENT",
       "text": "요즘 대출 전화 피로감 크시죠. 오늘은 신청이 아니라 유지가 나은지 비교만 도와드리려는 거예요. 잠깐 괜찮으실까요?",
       "tokens": [
-        {"text": "신청이", "polarity": "PRO", "reason": "전환"},
-        {"text": "아니라", "polarity": "PRO", "reason": "전환"},
-        {"text": "비교만", "polarity": "PRO", "reason": "전환"}
+        {
+          "text": "신청이",
+          "polarity": "PRO",
+          "reason": "전환"
+        },
+        {
+          "text": "아니라",
+          "polarity": "PRO",
+          "reason": "전환"
+        },
+        {
+          "text": "비교만",
+          "polarity": "PRO",
+          "reason": "전환"
+        }
       ],
-      "churn_after": 21, "flag": "def",
+      "churn_after": 21,
+      "flag": "def",
       "strategy_headline": "프레임 해제 · 비교 포지셔닝",
       "strategy_lead": "비교 포지셔닝으로 금리부담 우회"
     },
     {
-      "seq": 3, "speaker": "customer", "node": "CONSENT",
+      "seq": 4,
+      "speaker": "customer",
+      "node": "CONSENT",
       "text": "결국 갈아타라는 거잖아요. 막상 해보면 조건 다를 수도 있고요.",
       "tokens": [
-        {"text": "갈아타라는", "polarity": "CONS", "reason": "불신"},
-        {"text": "조건", "polarity": "CONS", "reason": "불신"},
-        {"text": "다를", "polarity": "CONS", "reason": "불신"}
+        {
+          "text": "갈아타라는",
+          "polarity": "CONS",
+          "reason": "불신"
+        },
+        {
+          "text": "조건",
+          "polarity": "CONS",
+          "reason": "불신"
+        },
+        {
+          "text": "다를",
+          "polarity": "CONS",
+          "reason": "불신"
+        }
       ],
-      "churn_after": 41, "flag": "risk",
-      "mot": {"marker_id": "rz-compare", "state": "alert", "crm_stage": "신뢰 쌓기"}
+      "churn_after": 41,
+      "flag": "risk",
+      "mot": {
+        "marker_id": "rz-compare",
+        "state": "alert",
+        "crm_stage": "신뢰 쌓기"
+      }
     },
     {
-      "seq": 4, "speaker": "bot", "node": "PROPOSE",
+      "seq": 5,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "맞습니다. 조건은 실제로 확인하셔야 해요. 10% 넘는 금리면 비교해볼 만하고, 중도상환수수료까지 같이 봐드릴게요.",
       "tokens": [
-        {"text": "확인하셔야", "polarity": "PRO", "reason": "신뢰"},
-        {"text": "중도상환수수료까지", "polarity": null, "reason": ""}
+        {
+          "text": "확인하셔야",
+          "polarity": "PRO",
+          "reason": "신뢰"
+        },
+        {
+          "text": "중도상환수수료까지",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 26, "flag": "def",
+      "churn_after": 26,
+      "flag": "def",
       "strategy_headline": "불신 인정 · 공감",
       "strategy_lead": "신뢰확보 — 불신 우회 완료",
       "compliance": {
@@ -69,107 +160,248 @@
       }
     },
     {
-      "seq": 5, "speaker": "customer", "node": "PROPOSE",
+      "seq": 6,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "지금 13%대 쓰고 있긴 한데, 그거보다 더 낮아질 수 있어요?",
       "tokens": [
-        {"text": "13%대", "polarity": null, "reason": ""},
-        {"text": "낮아질", "polarity": "PRO", "reason": "관심"}
+        {
+          "text": "13%대",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "낮아질",
+          "polarity": "PRO",
+          "reason": "관심"
+        }
       ],
-      "churn_after": 22, "flag": "def"
+      "churn_after": 22,
+      "flag": "def"
     },
     {
-      "seq": 6, "speaker": "bot", "node": "PROPOSE",
+      "seq": 7,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "신용대환이면 12%대도 가능하실 수 있어요. 다만 확정은 아니고 심사 후 결정됩니다.",
       "tokens": [
-        {"text": "12%대도", "polarity": "PRO", "reason": "관심"},
-        {"text": "심사", "polarity": null, "reason": ""}
+        {
+          "text": "12%대도",
+          "polarity": "PRO",
+          "reason": "관심"
+        },
+        {
+          "text": "심사",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 19, "flag": "def",
+      "churn_after": 19,
+      "flag": "def",
       "compliance": {
         "draft": "신용대환이면 12%대도 가능합니다.",
-        "violated_policies": ["FIXED_FIGURE"],
+        "violated_policies": [
+          "FIXED_FIGURE"
+        ],
         "final": "신용대환이면 12%대도 가능하실 수 있어요. 다만 확정은 아니고 심사 후 결정됩니다.",
         "state": "approved"
       }
     },
     {
-      "seq": 7, "speaker": "customer", "node": "PROPOSE",
+      "seq": 8,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "낮아지긴 하는데… 생각보다 큰 차이는 아니네요.",
       "tokens": [
-        {"text": "큰", "polarity": "CONS", "reason": "가격저항"},
-        {"text": "차이는", "polarity": "CONS", "reason": "가격저항"},
-        {"text": "아니네요.", "polarity": "CONS", "reason": "가격저항"}
+        {
+          "text": "큰",
+          "polarity": "CONS",
+          "reason": "가격저항"
+        },
+        {
+          "text": "차이는",
+          "polarity": "CONS",
+          "reason": "가격저항"
+        },
+        {
+          "text": "아니네요.",
+          "polarity": "CONS",
+          "reason": "가격저항"
+        }
       ],
-      "churn_after": 44, "flag": "risk",
-      "mot": {"marker_id": "rz-pay", "state": "alert", "crm_stage": "우려 풀기"}
+      "churn_after": 44,
+      "flag": "risk",
+      "mot": {
+        "marker_id": "rz-pay",
+        "state": "alert",
+        "crm_stage": "우려 풀기"
+      }
     },
     {
-      "seq": 8, "speaker": "bot", "node": "PROPOSE",
+      "seq": 9,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "숫자만 보면 작게 느껴지실 수 있어요. 우대 적용되면 10%대까지 내려갈 가능성도 있습니다.",
       "tokens": [
-        {"text": "우대", "polarity": null, "reason": ""},
-        {"text": "10%대까지", "polarity": "PRO", "reason": "관심"}
+        {
+          "text": "우대",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "10%대까지",
+          "polarity": "PRO",
+          "reason": "관심"
+        }
       ],
-      "churn_after": 29, "flag": "def",
+      "churn_after": 29,
+      "flag": "def",
       "strategy_headline": "우대 금리 제시",
       "strategy_lead": "우대 금리로 월납입 우회"
     },
     {
-      "seq": 9, "speaker": "bot", "node": "PROPOSE",
+      "seq": 10,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "혹시 명의 차량 있으시면 차량담보도 함께 보실 수 있어요. 담보가 잡히는 만큼 더 낮은 금리가 검토됩니다.",
       "tokens": [
-        {"text": "차량담보도", "polarity": null, "reason": ""},
-        {"text": "낮은", "polarity": "PRO", "reason": "관심"},
-        {"text": "금리가", "polarity": "PRO", "reason": "관심"}
+        {
+          "text": "차량담보도",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "낮은",
+          "polarity": "PRO",
+          "reason": "관심"
+        },
+        {
+          "text": "금리가",
+          "polarity": "PRO",
+          "reason": "관심"
+        }
       ],
-      "churn_after": 31, "flag": "def",
+      "churn_after": 31,
+      "flag": "def",
       "strategy_headline": "담보 옵션 안내",
       "strategy_lead": "한도조회 — 차량담보 옵션 제시"
     },
     {
-      "seq": 10, "speaker": "customer", "node": "PROPOSE",
+      "seq": 11,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "차량담보요? 차 할부도 남았는데, 그럼 차 못 쓰는 거 아니에요?",
       "tokens": [
-        {"text": "할부도", "polarity": "CONS", "reason": "담보오해"},
-        {"text": "못", "polarity": "CONS", "reason": "담보오해"},
-        {"text": "쓰는", "polarity": "CONS", "reason": "담보오해"}
+        {
+          "text": "할부도",
+          "polarity": "CONS",
+          "reason": "담보오해"
+        },
+        {
+          "text": "못",
+          "polarity": "CONS",
+          "reason": "담보오해"
+        },
+        {
+          "text": "쓰는",
+          "polarity": "CONS",
+          "reason": "담보오해"
+        }
       ],
-      "churn_after": 48, "flag": "risk",
-      "mot": {"marker_id": "rz-security", "state": "alert", "crm_stage": "담보 오해"}
+      "churn_after": 48,
+      "flag": "risk",
+      "mot": {
+        "marker_id": "rz-security",
+        "state": "alert",
+        "crm_stage": "담보 오해"
+      }
     },
     {
-      "seq": 11, "speaker": "bot", "node": "PROPOSE",
+      "seq": 12,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "일반적으로 운행은 그대로 가능하세요. 그 부분은 걱정 안 하셔도 됩니다.",
       "tokens": [
-        {"text": "운행은", "polarity": "PRO", "reason": "안심"},
-        {"text": "그대로", "polarity": "PRO", "reason": "안심"},
-        {"text": "가능하세요.", "polarity": "PRO", "reason": "안심"}
+        {
+          "text": "운행은",
+          "polarity": "PRO",
+          "reason": "안심"
+        },
+        {
+          "text": "그대로",
+          "polarity": "PRO",
+          "reason": "안심"
+        },
+        {
+          "text": "가능하세요.",
+          "polarity": "PRO",
+          "reason": "안심"
+        }
       ],
-      "churn_after": 38, "flag": "def",
+      "churn_after": 38,
+      "flag": "def",
       "strategy_headline": "팩트 기반 안심",
       "strategy_lead": "운행 가능 안내로 오해 우회"
     },
     {
-      "seq": 12, "speaker": "customer", "node": "PROPOSE",
+      "seq": 13,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "괜히 담보 잡혔다가 불편해지는 건 싫은데요.",
       "tokens": [
-        {"text": "담보", "polarity": "CONS", "reason": "담보거부"},
-        {"text": "불편해지는", "polarity": "CONS", "reason": "담보거부"},
-        {"text": "싫은데요.", "polarity": "CONS", "reason": "담보거부"}
+        {
+          "text": "담보",
+          "polarity": "CONS",
+          "reason": "담보거부"
+        },
+        {
+          "text": "불편해지는",
+          "polarity": "CONS",
+          "reason": "담보거부"
+        },
+        {
+          "text": "싫은데요.",
+          "polarity": "CONS",
+          "reason": "담보거부"
+        }
       ],
-      "churn_after": 62, "flag": "risk",
-      "mot": {"marker_id": "rz-avoid", "state": "blocked", "crm_stage": "전환 맺기"}
+      "churn_after": 62,
+      "flag": "risk",
+      "mot": {
+        "marker_id": "rz-avoid",
+        "state": "blocked",
+        "crm_stage": "전환 맺기"
+      }
     },
     {
-      "seq": 13, "speaker": "bot", "node": "CHANNEL",
+      "seq": 14,
+      "speaker": "bot",
+      "node": "CHANNEL",
       "text": "그 마음 당연하세요. 강요 안 드려요. 신청 말고 조건만 비교해보는 것도 가능합니다. 결정은 고객님이 하시면 돼요.",
       "tokens": [
-        {"text": "강요", "polarity": "PRO", "reason": "자율성"},
-        {"text": "안", "polarity": "PRO", "reason": "자율성"},
-        {"text": "조건만", "polarity": "PRO", "reason": "자율성"},
-        {"text": "결정은", "polarity": "PRO", "reason": "자율성"}
+        {
+          "text": "강요",
+          "polarity": "PRO",
+          "reason": "자율성"
+        },
+        {
+          "text": "안",
+          "polarity": "PRO",
+          "reason": "자율성"
+        },
+        {
+          "text": "조건만",
+          "polarity": "PRO",
+          "reason": "자율성"
+        },
+        {
+          "text": "결정은",
+          "polarity": "PRO",
+          "reason": "자율성"
+        }
       ],
-      "churn_after": 33, "flag": "def",
+      "churn_after": 33,
+      "flag": "def",
       "strategy_headline": "공감 + 자율성 부여",
       "strategy_lead": "자율성 부여로 신청회피 우회",
       "compliance": {
@@ -180,41 +412,89 @@
       }
     },
     {
-      "seq": 14, "speaker": "customer", "node": "CHANNEL",
+      "seq": 15,
+      "speaker": "customer",
+      "node": "CHANNEL",
       "text": "그럼 신청 말고 조건만 비교해볼 수 있어요?",
       "tokens": [
-        {"text": "조건만", "polarity": "PRO", "reason": "진행의향"},
-        {"text": "비교해볼", "polarity": "PRO", "reason": "진행의향"}
+        {
+          "text": "조건만",
+          "polarity": "PRO",
+          "reason": "진행의향"
+        },
+        {
+          "text": "비교해볼",
+          "polarity": "PRO",
+          "reason": "진행의향"
+        }
       ],
-      "churn_after": 18, "flag": "def"
+      "churn_after": 18,
+      "flag": "def"
     },
     {
-      "seq": 15, "speaker": "bot", "node": "CHANNEL",
+      "seq": 16,
+      "speaker": "bot",
+      "node": "CHANNEL",
       "text": "네, 가능합니다. 최종 금리·한도는 심사로 정해지고, 진행은 다 들어보신 뒤 직접 결정하시면 돼요.",
       "tokens": [
-        {"text": "가능합니다.", "polarity": "PRO", "reason": "진행"},
-        {"text": "직접", "polarity": "PRO", "reason": "진행"},
-        {"text": "결정하시면", "polarity": "PRO", "reason": "진행"}
+        {
+          "text": "가능합니다.",
+          "polarity": "PRO",
+          "reason": "진행"
+        },
+        {
+          "text": "직접",
+          "polarity": "PRO",
+          "reason": "진행"
+        },
+        {
+          "text": "결정하시면",
+          "polarity": "PRO",
+          "reason": "진행"
+        }
       ],
-      "churn_after": 12, "flag": "def"
+      "churn_after": 12,
+      "flag": "def"
     },
     {
-      "seq": 16, "speaker": "customer", "node": "CHANNEL",
+      "seq": 17,
+      "speaker": "customer",
+      "node": "CHANNEL",
       "text": "그럼 상담원 연결해주세요.",
       "tokens": [
-        {"text": "상담원", "polarity": "PRO", "reason": "전환"},
-        {"text": "연결해주세요.", "polarity": "PRO", "reason": "전환"}
+        {
+          "text": "상담원",
+          "polarity": "PRO",
+          "reason": "전환"
+        },
+        {
+          "text": "연결해주세요.",
+          "polarity": "PRO",
+          "reason": "전환"
+        }
       ],
-      "churn_after": 6, "flag": "def"
+      "churn_after": 6,
+      "flag": "def"
     },
     {
-      "seq": 17, "speaker": "bot", "node": "CLOSING",
+      "seq": 18,
+      "speaker": "bot",
+      "node": "CLOSING",
       "text": "네, 잠시만요. 담당 상담원에게 바로 연결해 드릴게요.",
       "tokens": [
-        {"text": "바로", "polarity": "PRO", "reason": "전환"},
-        {"text": "연결해", "polarity": "PRO", "reason": "전환"}
+        {
+          "text": "바로",
+          "polarity": "PRO",
+          "reason": "전환"
+        },
+        {
+          "text": "연결해",
+          "polarity": "PRO",
+          "reason": "전환"
+        }
       ],
-      "churn_after": 4, "flag": "def",
+      "churn_after": 4,
+      "flag": "def",
       "strategy_headline": "핸드오프 완료",
       "strategy_lead": "전환 성공 — 상담원 연결"
     }
