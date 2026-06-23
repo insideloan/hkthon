@@ -259,7 +259,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>1</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>고객발화분석</span>
                 </div>
-                <SpeechAnalysis callId={callId} engineMode />
+                {/* 라이브: AppSync 구독(onSpeechAnalysis/onStrategyUpdate/onIndexUpdate).
+                    데모: 시나리오 엔진(card1Store) 기반 engineMode. */}
+                <SpeechAnalysis callId={callId} engineMode={!isLive} />
               </div>
 
               {/* 카드② DB 분석 */}
@@ -268,7 +270,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>DB 분석</span>
                 </div>
-                <DbCard />
+                <DbCard live={isLive} />
               </div>
 
               {/* 카드③ 컴플라이언스 체크 */}
@@ -278,7 +280,8 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__t font-disp" style={CARD_T_STYLE}>컴플라이언스 체크</span>
                 </div>
                 <div className="card-scroll">
-                  <CompliancePanel callId={callId} engineMode />
+                  {/* 라이브: onComplianceState 구독. 데모: engineMode. */}
+                  <CompliancePanel callId={callId} engineMode={!isLive} />
                 </div>
               </div>
             </div>
