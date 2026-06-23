@@ -41,6 +41,69 @@ const CARD_NO_STYLE: React.CSSProperties = {
 };
 const CARD_T_STYLE: React.CSSProperties = { fontSize: '14px', fontWeight: 800, color: 'var(--title)', lineHeight: 1.1 };
 
+// ── 중앙 원형 재생/일시정지 버튼 ────────────────────────────────────────────
+// 발화 진행 컨트롤. 미디어 플레이어 메타포: 클릭 가능하면 ▶(play), 재생 중이면
+// ❚❚(pause, dim), 종료면 ✓(check, disabled). 회색 원형 — SSOT 토큰 사용.
+type PlayPauseButtonProps = {
+  /** 시나리오 종료(모든 턴 소진). */
+  ended: boolean;
+  /** 재생/애니메이션 진행 중(클릭 비활성). */
+  busy: boolean;
+  /** 접근성 라벨(engine.btnLabel — 상담 시작/다음 발화/재생 중/상담 종료). */
+  label: string;
+  onClick: () => void;
+};
+
+function PlayPauseButton({ ended, busy, label, onClick }: PlayPauseButtonProps) {
+  const disabled = ended || busy;
+  const icon: 'play' | 'pause' | 'check' = ended ? 'check' : busy ? 'pause' : 'play';
+  return (
+    <button
+      type="button"
+      id="next"
+      className={clsx(
+        'pointer-events-auto inline-grid place-items-center rounded-full cursor-pointer',
+        'transition-all duration-200',
+        !disabled && 'hover:scale-105 active:scale-95',
+        disabled && 'cursor-default',
+      )}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      data-state={icon}
+      style={{
+        width: '64px', height: '64px',
+        // 회색 원형 — 살짝 떠 보이도록 soft shadow + 반투명 배경.
+        background: ended ? 'rgba(120,126,138,.18)' : 'rgba(120,126,138,.92)',
+        color: ended ? 'var(--ink-faint)' : '#fff',
+        border: '1px solid rgba(255,255,255,.5)',
+        boxShadow: disabled ? '0 2px 8px -3px rgba(0,0,0,.25)' : '0 8px 20px -6px rgba(0,0,0,.4)',
+        opacity: busy ? 0.6 : 1,
+        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+      }}
+    >
+      {icon === 'play' && (
+        // ▶ — 시각 중심을 맞추려 살짝 오른쪽 이동.
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '26px', height: '26px', marginLeft: '3px' }} aria-hidden>
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      )}
+      {icon === 'pause' && (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '24px', height: '24px' }} aria-hidden>
+          <rect x="6" y="5" width="4" height="14" rx="1" />
+          <rect x="14" y="5" width="4" height="14" rx="1" />
+        </svg>
+      )}
+      {icon === 'check' && (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '26px', height: '26px' }} aria-hidden>
+          <path d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export default function ConsultCockpitPage({ params }: PageProps) {
   const { id: callId } = use(params);
 
@@ -92,10 +155,23 @@ export default function ConsultCockpitPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* STT body — steps-wrap에 엔진이 말풍선 주입 */}
-        <div className="stt__body flex flex-col flex-1 overflow-y-auto" id="chat" style={{ padding: '10px 10px 6px', scrollBehavior: 'smooth' }}>
-          <div ref={chatRef}>
-            <SttTranscript />
+        {/* STT body — steps-wrap에 엔진이 말풍선 주입. 중앙의 원형 재생/일시정지
+            버튼이 발화 진행 컨트롤(engine.advance)을 담당한다(미디어 플레이어 메타포). */}
+        <div className="stt__chat relative flex flex-1 min-h-0">
+          <div className="stt__body flex flex-col flex-1 overflow-y-auto" id="chat" style={{ padding: '10px 10px 6px', scrollBehavior: 'smooth' }}>
+            <div ref={chatRef}>
+              <SttTranscript />
+            </div>
+          </div>
+          {/* 중앙 원형 버튼 — 채팅 영역 정중앙에 오버레이. 오버레이 자체는 클릭을
+              통과(pointer-events-none)시키고 버튼만 클릭 가능(pointer-events-auto). */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <PlayPauseButton
+              ended={engine.ended}
+              busy={engine.btnDisabled && !engine.ended}
+              label={engine.btnLabel}
+              onClick={engine.advance}
+            />
           </div>
         </div>
 
@@ -108,16 +184,6 @@ export default function ConsultCockpitPage({ params }: PageProps) {
             style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-faint)', background: 'none', border: '1px solid var(--line)', borderRadius: '8px', padding: '7px 10px' }}
           >
             ↻ 처음부터
-          </button>
-          <button
-            className={clsx('next-btn font-disp ml-auto flex items-center cursor-pointer', engine.ended && 'done')}
-            id="next"
-            onClick={engine.advance}
-            disabled={engine.btnDisabled}
-            style={{ fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--route)', border: 'none', borderRadius: '9px', padding: '9px 16px', gap: '7px', boxShadow: '0 4px 12px -3px rgba(44,91,214,.5)', opacity: engine.btnDisabled ? 0.7 : 1 }}
-          >
-            {engine.btnLabel}
-            <span className="kbd font-mono" style={{ fontSize: '9px', fontWeight: 700, opacity: 0.7, border: '1px solid rgba(255,255,255,.5)', borderRadius: '4px', padding: '0 4px' }}>↵</span>
           </button>
         </div>
       </div>
