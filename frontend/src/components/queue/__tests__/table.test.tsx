@@ -4,7 +4,7 @@
 // vitest setup file.
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within, act } from '@testing-library/react';
+import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
 import { BADGE_TONE_CLASS } from '@/components/ui/Badge';
 import { useQueueStore } from '@/stores/queueStore';
@@ -25,6 +25,12 @@ vi.mock('@/lib/appsync', () => ({
     emitQueueUpdate = onData;
     return unsubscribe;
   },
+}));
+
+// Rows navigate via the app router on click — mock it so we can assert pushes.
+const push = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push }),
 }));
 
 function makeRow(over: Partial<QueueRow> = {}): QueueRow {
@@ -54,6 +60,7 @@ afterEach(() => {
   fetchQueue.mockReset();
   fetchQueue.mockResolvedValue(emptyResult);
   unsubscribe.mockReset();
+  push.mockReset();
   emitQueueUpdate = null;
 });
 
@@ -142,5 +149,59 @@ describe('OutboundQueueTable', () => {
     unsubscribe.mockClear();
     unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  // ── row → screen navigation (state-keyed drill-in) ─────────────────────────
+  describe('row navigation', () => {
+    it('routes the 박서준 pre-analysis row to the segment screen', () => {
+      seed([
+        makeRow({
+          callId: 'c-demo-01',
+          customerName: '박서준',
+          state: 'DIALING',
+          stage: '사전 고객분석',
+        }),
+      ]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.click(screen.getByTestId('queue-row-c-demo-01'));
+      expect(push).toHaveBeenCalledWith('/segment/cust-001');
+    });
+
+    it('routes an ENDED row to its CRM summary', () => {
+      seed([makeRow({ callId: 'c5', customerName: '한지민', state: 'ENDED', stage: '상담 완료' })]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.click(screen.getByTestId('queue-row-c5'));
+      expect(push).toHaveBeenCalledWith('/crm/c5');
+    });
+
+    it('routes IN_CALL and DIALING rows to the consult screen', () => {
+      seed([
+        makeRow({ callId: 'c1', state: 'IN_CALL', stage: '우려 풀기' }),
+        makeRow({ callId: 'c2', state: 'DIALING', stage: '신규 상담' }),
+      ]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.click(screen.getByTestId('queue-row-c1'));
+      fireEvent.click(screen.getByTestId('queue-row-c2'));
+      expect(push).toHaveBeenCalledWith('/calls/c1');
+      expect(push).toHaveBeenCalledWith('/calls/c2');
+    });
+
+    it('does not navigate a TRANSFER_PENDING (상담원 연결 대기) row', () => {
+      seed([
+        makeRow({ callId: 'c4', state: 'TRANSFER_PENDING', stage: '연결 대기' }),
+      ]);
+      render(<OutboundQueueTable disableLiveData />);
+      const row = screen.getByTestId('queue-row-c4');
+      expect(row).toHaveAttribute('data-navigable', 'false');
+      fireEvent.click(row);
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it('navigates on Enter key for an accessible row', () => {
+      seed([makeRow({ callId: 'c5', state: 'ENDED', stage: '상담 완료' })]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.keyDown(screen.getByTestId('queue-row-c5'), { key: 'Enter' });
+      expect(push).toHaveBeenCalledWith('/crm/c5');
+    });
   });
 });
