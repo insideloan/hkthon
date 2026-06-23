@@ -6,7 +6,7 @@ name: module-boundary
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 jobs:
   boundary:
