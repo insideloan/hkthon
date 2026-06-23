@@ -168,9 +168,13 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               <SttTranscript />
             </div>
           </div>
-          {/* 중앙 원형 버튼 — 채팅 영역 정중앙에 오버레이. 오버레이 자체는 클릭을
-              통과(pointer-events-none)시키고 버튼만 클릭 가능(pointer-events-auto). */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          {/* 원형 버튼 — 채팅 영역 상단(첫 "여보세요?" 말풍선과 같은 높이)에 가로
+              중앙 오버레이. 오버레이 자체는 클릭을 통과(pointer-events-none)시키고
+              버튼만 클릭 가능(pointer-events-auto). */}
+          <div
+            className="pointer-events-none absolute inset-0 flex items-start justify-center"
+            style={{ paddingTop: '10px' }}
+          >
             <PlayPauseButton
               ended={engine.ended}
               busy={engine.btnDisabled && !engine.ended}
