@@ -1,4 +1,4 @@
-"""S1 시나리오 로더 (DATA-008 / #8).
+"""시나리오 로더 (DATA-008 / #8).
 
 스크립트 모드 재생의 원천. S3에 올린 `scenario.json`(SSOT-3 구조)을 boto3 S3
 GetObject로 읽어 파싱·스키마 검증한다. 검증은 SSOT-3 신규 필드(턴 레벨 `flag`,
@@ -10,12 +10,32 @@ strategy) 모델과 enum 값이 정합한다.
 
 ⚠️ token `polarity`(PRO|CONS|null)는 키워드 색상용이 아니라 턴 레벨 `flag` 배지
 분기 신호다(SSOT-3).
+
+시나리오 종류:
+  - s1 (대환): 이탈위험 5회(rz-*) 방어 → 상담원 전환. 18턴.
+  - s2 (보이스피싱): 사기 의도 감지. MOT(이탈위험) 대신 턴 레벨 `fraud_suspected`
+    플래그를 쓴다 — `agent/nodes.py:detect_fraud`/`fraud_suspected` 계약과 정합
+    (사기 감지는 통화를 끊지 않고 대시보드 표시 전용). 15턴.
+
+턴 수는 시나리오마다 다르다. JSON 최상위 `expected_turns`로 선언하면 그 값으로
+검증하고, 없으면 하위호환을 위해 EXPECTED_TURNS(=18, S1)로 검증한다.
 """
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Optional
+
+# 번들된 로컬 시나리오 디렉토리 (repo-root/data/scenarios). 이 파일 기준
+# models → orchestrator → lambda → repo root → data/scenarios.
+_LOCAL_SCENARIO_DIR = Path(__file__).resolve().parents[3] / "data" / "scenarios"
+
+# S3 오브젝트 키 규약: scenarios/{id}.json (config.py:scenario_key 기본 prefix와 정합).
+_S3_KEY_PREFIX = "scenarios"
+
+# 알려진 시나리오 ID (등록된 대화 스크립트). 신규 추가 시 여기 등록.
+KNOWN_SCENARIOS = ("s1", "s2")
 
 # SSOT-3 enum 허용값 (DATA-003/004/005 모델과 일치)
 _SPEAKERS = {"bot", "customer", "agent"}
@@ -61,20 +81,67 @@ def load_from_str(raw: str) -> dict:
     return data
 
 
-def validate_scenario(data: dict, *, expected_turns: int = EXPECTED_TURNS) -> dict:
+def s3_key_for(scenario_id: str) -> str:
+    """시나리오 ID → S3 오브젝트 키 (scenarios/{id}.json)."""
+    return f"{_S3_KEY_PREFIX}/{scenario_id}.json"
+
+
+def _check_scenario_id(data: dict, scenario_id: str) -> dict:
+    """로드한 데이터의 scenario_id가 요청한 ID와 일치하는지 확인."""
+    actual = data.get("scenario_id")
+    if actual != scenario_id:
+        raise ScenarioValidationError(
+            f"scenario_id mismatch: requested {scenario_id!r}, file has {actual!r}")
+    return data
+
+
+def load_scenario(scenario_id: str, *, bucket: str | None = None,
+                  s3_client: Any = None) -> dict:
+    """시나리오를 ID로 선택 로드·검증한다.
+
+    `bucket`이 주어지면 S3 `scenarios/{id}.json`에서, 아니면 번들된 로컬
+    `data/scenarios/{id}.json`에서 읽는다. 어느 경로든 로드한 파일의
+    `scenario_id`가 요청한 ID와 일치하는지 검증한다.
+
+    Args:
+        scenario_id: 시나리오 식별자 (예: "s1", "s2").
+        bucket: S3 버킷명. None이면 로컬 번들에서 로드.
+        s3_client: 주입용 boto3 S3 클라이언트(테스트).
+    """
+    if bucket is not None:
+        data = load_from_s3(bucket, s3_key_for(scenario_id), s3_client=s3_client)
+        return _check_scenario_id(data, scenario_id)
+
+    path = _LOCAL_SCENARIO_DIR / f"{scenario_id}.json"
+    if not path.exists():
+        raise ScenarioValidationError(
+            f"unknown scenario {scenario_id!r}: {path} not found")
+    data = load_from_str(path.read_text(encoding="utf-8"))
+    return _check_scenario_id(data, scenario_id)
+
+
+def validate_scenario(data: dict, *, expected_turns: int | None = None) -> dict:
     """시나리오 스키마 검증. 실패 시 ScenarioValidationError.
 
     검증 항목:
-      - turns 18개, seq 0..n 순서
+      - turns 수: expected_turns(인자) > data['expected_turns'](JSON 선언) >
+        EXPECTED_TURNS(=18, 하위호환) 순으로 결정, seq 0..n 순서
       - speaker bot/customer 교대(연속 같은 화자 bot은 허용 — AI 연속 안내 가능)
       - 각 턴 필수 필드(speaker/text/tokens/churn_after/node/flag)
-      - flag/polarity/mot/compliance/strategy enum 유효성
+      - flag/polarity/mot/compliance/strategy enum 유효성 + fraud_suspected(bool)
     """
     if not isinstance(data, dict):
         raise ScenarioValidationError("scenario must be a JSON object")
     turns = data.get("turns")
     if not isinstance(turns, list):
         raise ScenarioValidationError("scenario.turns must be a list")
+    # 턴 수 기대값: 명시 인자 > JSON 선언 > 기본(18). JSON 선언은 정수여야 함.
+    if expected_turns is None:
+        declared = data.get("expected_turns", EXPECTED_TURNS)
+        if not isinstance(declared, int) or isinstance(declared, bool):
+            raise ScenarioValidationError(
+                f"scenario.expected_turns must be an int, got {declared!r}")
+        expected_turns = declared
     if len(turns) != expected_turns:
         raise ScenarioValidationError(
             f"expected {expected_turns} turns, got {len(turns)}")
@@ -122,6 +189,12 @@ def _validate_turn(turn: dict, index: int) -> None:
         if tok.get("polarity") not in _POLARITIES:
             raise ScenarioValidationError(
                 f"turn {index} token {j}: invalid polarity {tok.get('polarity')!r}")
+
+    # fraud_suspected (선택) — 사기 의심 시나리오(s2)용 턴 레벨 플래그.
+    # agent/nodes.py:detect_fraud 계약과 정합(통화 종료·라우팅 영향 없음, 표시 전용).
+    if "fraud_suspected" in turn and not isinstance(turn["fraud_suspected"], bool):
+        raise ScenarioValidationError(
+            f"turn {index}: fraud_suspected must be a boolean")
 
     # mot (선택) — 있으면 enum 검증
     if "mot" in turn:
