@@ -49,7 +49,7 @@ def _deserialize(image: dict) -> dict:
 
 def _turn_payload(item: dict) -> dict:
     call_id = (item.get("PK") or "").removeprefix("CALL#")
-    return {
+    payload = {
         "callId": call_id,
         "seq": item.get("seq"),
         "speaker": item.get("speaker"),
@@ -58,6 +58,11 @@ def _turn_payload(item: dict) -> dict:
         "flag": _TURN_FLAG.get(item.get("flag"), "NEUTRAL"),
         "tokens": item.get("tokens") or [],
     }
+    # 봇 발화 TTS mp3 presigned URL(persist가 기록). bot Turn에만 있고 customer Turn엔 없다.
+    audio_url = item.get("audio_url")
+    if audio_url:
+        payload["audioUrl"] = audio_url
+    return payload
 
 
 def _mot_payload(item: dict) -> dict:

@@ -322,6 +322,12 @@ def persist(state: CallState) -> CallState:
     emotion = _enum_value(state.get("emotion"))
     if emotion is not None:
         item["emotion"] = emotion
+    # 봇 발화 TTS: bot_text → Typecast mp3 → S3 → presigned URL. Turn 아이템에 audio_url로
+    # 실어 stream_fanout이 _emitTurn(audioUrl)로 팬아웃 → 프론트 재생. 실패해도 텍스트는 남는다.
+    audio_url = _synthesize_bot_audio(bot_text, call_id, seq)
+    if audio_url:
+        item["audio_url"] = audio_url
+        state["audio_url"] = audio_url  # nextTurn 동기 응답(runner)에서 노출
     _safe_write(dynamo, item, "Turn")
 
     # 3) MOT — RISK/CONVERSION 판정이 있으면 기록. onMotDetected 발화.
@@ -338,6 +344,34 @@ def persist(state: CallState) -> CallState:
 # ─────────────────────────────────────────────────────────────────────────────
 # 보조 함수
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _synthesize_bot_audio(text: str, call_id: str, seq: int) -> str | None:
+    """봇 발화 텍스트 → Typecast TTS mp3 → S3 업로드 → presigned URL. 실패/미설정 시 None.
+
+    best-effort: TTS는 데모 부가 기능이므로 어떤 실패(API 키 없음, 네트워크, S3)도
+    삼키고 None을 돌려 텍스트 파이프라인을 막지 않는다(라이브 응답 지연/장애 격리).
+    빈 텍스트/LLM fallback 문구는 합성 생략(불필요한 비용·지연 방지).
+    """
+    import logging
+    import os
+
+    if not text or not text.strip():
+        return None
+    # API 키 미설정이면 합성 자체를 시도하지 않는다(로컬/스크립트/CI 무비용 경로).
+    if not os.environ.get("TYPECAST_API_KEY"):
+        return None
+
+    try:
+        from ..tts import typecast_tts
+
+        voice = os.environ.get("TTS_VOICE_NAME", "혜라")
+        key = f"tts/{call_id}/{seq:04d}.mp3"
+        _bytes, url = typecast_tts.synthesize(text, voice, s3_key=key)
+        return url
+    except Exception:  # noqa: BLE001 — TTS 실패가 통화/텍스트 파이프라인을 막지 않게
+        logging.getLogger(__name__).exception("TTS synthesize failed (call=%s seq=%s)", call_id, seq)
+        return None
 
 
 def _now_iso() -> str:
