@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { clsx } from 'clsx';
 import { subscribeComplianceState } from '@/lib/appsync';
+import { useConsultStore } from '@/stores/consultStore';
 import type {
   ComplianceCheck,
   CompliancePhase,
@@ -151,9 +152,30 @@ type CompliancePanelProps = {
   /** Tests/Storybook seed state directly and skip the live subscription. */
   initialState?: ComplianceState;
   disableLiveData?: boolean;
+  /** 시나리오 엔진 모드: consultStore.compliance 구독. */
+  engineMode?: boolean;
 };
 
-export function CompliancePanel({
+export function CompliancePanel(props: CompliancePanelProps) {
+  // 엔진 모드는 store 구독, 일반 모드는 AppSync 구독 — hooks 규칙 위해 분기.
+  if (props.engineMode) return <EngineCompliancePanel />;
+  return <LiveCompliancePanel {...props} />;
+}
+
+// 엔진 모드: consultStore.compliance를 그대로 렌더.
+function EngineCompliancePanel() {
+  const state = useConsultStore((s) => s.compliance);
+  if (!state) {
+    return (
+      <section aria-label="컴플라이언스 체크">
+        <p className="text-xs text-ink-faint">상담 시작 대기</p>
+      </section>
+    );
+  }
+  return <ComplianceView state={state} />;
+}
+
+function LiveCompliancePanel({
   callId,
   initialState,
   disableLiveData = false,
@@ -178,6 +200,11 @@ export function CompliancePanel({
     );
   }
 
+  return <ComplianceView state={state} />;
+}
+
+// 공유 렌더 — Live/Engine 양쪽이 사용.
+function ComplianceView({ state }: { state: ComplianceState }) {
   const { phase, draft, violations, checks, violatedPolicies, final } = state;
   const redacted = REDACTED_PHASES.has(phase);
   const showChecks = phase !== 'drafting' && checks.length > 0;

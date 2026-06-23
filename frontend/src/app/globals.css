@@ -244,3 +244,192 @@
   #view-segment .ln path,
   #view-segment .ln line { transition: none; animation: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   AI 상담 화면 애니메이션 — SSOT consult_redesigned-3.html <style>에서 그대로 이식.
+   엔진(useConsultEngine)이 state/class를 토글하면 아래 keyframes로 SSOT 연출을 재현.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* 채팅 버블 등장 (SSOT 163) */
+@keyframes chatIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+/* 키워드 첫 등장 바운스 (SSOT 375) */
+@keyframes kwpop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* orb 통으로 떨어짐 (SSOT 713) */
+@keyframes orbDrop {
+  0% { opacity: 0; transform: translateY(-46px) scale(.6); }
+  55% { opacity: 1; transform: translateY(4px) scale(1.04); }
+  72% { transform: translateY(-5px) scale(.99); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 전략 카드 트랙 좌측 스와이프 (SSOT 748) */
+@keyframes stratSwipe { 0% { transform: translateX(0); } 100% { transform: translateX(-58%); } }
+
+/* 선택 전략 카드 팝인 (SSOT 293) */
+@keyframes cellpop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1.04); } }
+
+/* solveArrow / usedivider 화살표 bob (SSOT 728) */
+@keyframes arrbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+
+/* 다이어그램 노드 팝인 (SSOT 802 — 다이어그램용; dial용 dpop과 별개) */
+@keyframes dpop { 0% { transform: scale(.5); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* 컴플라이언스 draft/final 세그먼트 rise-in (SSOT 373) */
+@keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 컴플라이언스 체크 진행 펄스 (SSOT 370) */
+@keyframes cpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(224,162,28,.35); } 50% { box-shadow: 0 0 0 4px rgba(224,162,28,.1); } }
+
+/* 푸터 컴플라이언스 버튼 armed 펄스 (SSOT 216) */
+@keyframes cbtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(224,162,28,.55); } 50% { box-shadow: 0 0 0 7px rgba(224,162,28,0); } }
+
+/* 카드 채움 시 1회 블링크 (SSOT 295) */
+@keyframes blinkCard { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* AI 발화 직전 버블 핸드오프 펄스 (SSOT 229) */
+@keyframes bubbleHandoff {
+  0% { box-shadow: 0 0 0 0 rgba(53,81,214,0); }
+  35% { box-shadow: 0 6px 22px -4px rgba(53,81,214,.55); transform: scale(1.04); }
+  60% { box-shadow: 0 6px 22px -4px rgba(53,81,214,.2); transform: scale(1); }
+  100% { box-shadow: 0 8px 24px -4px rgba(53,81,214,.5); transform: scale(1.02); }
+}
+
+/* 타이핑 점 bounce (SSOT 374) */
+@keyframes td { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+/* 체크포인트 .now 링 펄스 (SSOT 440) */
+@keyframes nowring { 0% { r: 50; opacity: .5; } 80% { r: 64; opacity: 0; } 100% { opacity: 0; } }
+
+/* 위험노드 spawn (SSOT 441) */
+@keyframes rzspawn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+
+/* 위험노드 alert 글로우 (SSOT 442) */
+@keyframes rzalert { 0%, 100% { filter: drop-shadow(0 0 2px rgba(229,72,77,.35)); } 50% { filter: drop-shadow(0 0 14px rgba(229,72,77,.95)); } }
+
+/* cautionPop bob (SSOT 443) */
+@keyframes cbob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+
+/* 차량 shake (SSOT 444) */
+@keyframes shake { 0%, 100% { transform: translate(0,0); } 20% { transform: translate(-1.6px,.6px); } 60% { transform: translate(1.6px,-.4px); } }
+
+/* 경로 흐름 dash (SSOT 439) */
+@keyframes flow { to { stroke-dashoffset: -30; } }
+
+/* ── 지원 클래스 (SSOT 대응) ── */
+.orb.drop { animation: orbDrop .72s cubic-bezier(.34,1.5,.5,1); }
+.bubble.handoff { animation: bubbleHandoff .9s ease-in-out both; }
+.blink-once { animation: blinkCard 1s ease-in-out 1; }
+.stratg.swiping .strat-track { animation: stratSwipe 1.1s linear forwards; }
+.dnode.on { animation: dpop .42s cubic-bezier(.2,1.4,.4,1) forwards; }
+.cmp-utter.appear { opacity: 0; transform: translateY(5px); animation: rise .4s ease forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orb.drop, .bubble.handoff, .blink-once, .stratg.swiping .strat-track,
+  .dnode.on, .cmp-utter.appear { animation: none; }
+}
+
+/* ── 카드 공통 섹션 라벨 (SSOT 676–681) ── */
+.cseclbl { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin: 2px 0 1px; }
+.cseclbl span:not(.ln) { font-size: 12.5px; font-weight: 900; color: #4A515E; }
+.cseclbl .ln { flex: 1; height: 1px; background: var(--hair); }
+
+/* ── 카드② DB 분석 (SSOT 769–838) ── */
+.usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
+.usecard { display: inline-flex; align-items: center; gap: 6px; border: 1.4px solid #C9D3E8; border-radius: 999px; background: rgba(255,255,255,.72); padding: 4px 10px; width: auto; max-width: 100%; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s, background .3s; }
+.usecard.on { opacity: 1; transform: none; }
+.usecard .di { width: 14px; height: 14px; flex: none; color: var(--route); }
+.usecard b { font-family: var(--disp); font-size: 10px; font-weight: 800; color: var(--title); letter-spacing: -.01em; line-height: 1.2; word-break: keep-all; }
+.usecard.flash { border-color: var(--route); background: #EAF0FF; box-shadow: 0 0 0 3px rgba(53,81,214,.16); }
+.usedivider { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-3px); transition: opacity .3s, transform .3s; }
+.usedivider.on { opacity: 1; transform: none; }
+.usedivider .dn { font-size: 11px; animation: arrbob 1s ease-in-out infinite; }
+.resbox { display: flex; flex-direction: column; gap: 4px; }
+
+.diag { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
+.diag-row { display: flex; align-items: flex-start; justify-content: center; gap: 0; }
+.dnode { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1 1 0; min-width: 0; opacity: 0; transform: scale(.6); transition: opacity .3s; }
+.dnode + .dnode { margin-left: -12px; }
+.dnode.on { opacity: 1; animation: dpop .42s cubic-bezier(.2,1.4,.4,1) forwards; }
+.dcirc { width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: none; background: #EAF0FF; box-shadow: 0 0 14px -2px rgba(0,75,145,.45); }
+.dcirc .dic { font-size: 12.5px; line-height: 1.1; font-weight: 700; color: var(--ink-dim); text-align: center; word-break: keep-all; padding: 0 3px; }
+.dcirc .dval { font-family: var(--mono); font-size: 12.5px; font-weight: 900; color: #1d3a8f; line-height: 1.02; text-align: center; letter-spacing: -.02em; word-break: keep-all; padding: 0 2px; }
+.dlabel { font-size: 8px; font-weight: 700; color: var(--ink-dim); text-align: center; line-height: 1.15; word-break: keep-all; }
+.dbanner { display: flex; align-items: center; gap: 7px; border-radius: 10px; padding: 7px 11px; font-size: 9.5px; font-weight: 800; line-height: 1.3; word-break: keep-all; color: #000; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+.dbanner.on { opacity: 1; transform: none; }
+.dbanner span:not(.dbic) { font-size: 12.5px; }
+.dbanner .dbic { flex: none; width: 17px; height: 17px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
+.dbanner.ok { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
+.dbanner.ok .dbic { background: #2E9E6E; color: #fff; }
+.dbanner.alert { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
+.dbanner.alert .dbic { background: rgba(255,255,255,.22); }
+@media (prefers-reduced-motion: reduce) { .dnode.on { animation: none; } }
+
+/* ── 좌측 STT 트랜스크립트 (SSOT 128–187) ── */
+.jov-title { font-size: 9.5px; font-weight: 800; color: var(--route); letter-spacing: .9px; text-transform: uppercase; margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1.5px solid #E8F0FE; }
+#steps-wrap { display: flex; flex-direction: column; }
+.mini-chats { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+
+/* 메시지 버블 — 콜봇 통화중 mini-chat 스타일 */
+.msg { display: flex; flex-direction: column; gap: 2px; align-self: stretch; max-width: 100%; animation: chatIn .45s ease both; transition: opacity .4s, filter .4s; }
+.msg .nm { font-size: 8px; font-weight: 700; color: var(--ink-faint); padding: 0 3px; letter-spacing: .04em; }
+.msg--ai .nm { color: #3a6ab0; }
+.bubble { min-width: 0; max-width: 88%; font-size: 11px; line-height: 1.45; padding: 6px 9px; border-radius: 9px; font-weight: 450; }
+.msg--cust { align-items: flex-start; }
+.msg--cust .nm { padding-left: 5px; }
+.msg--cust .bubble { align-self: flex-start; background: #fff; border: 1px solid #E0E0E0; color: #333; border-top-left-radius: 3px; }
+.msg--ai { align-items: flex-end; }
+.msg--ai .nm { padding-right: 5px; }
+.msg--ai .bubble { align-self: flex-end; background: linear-gradient(135deg,#E6EFFB,#C3D6F2); color: #23293A; border-top-right-radius: 3px; }
+
+/* 단어별 reveal — .w는 숨김, 엔진이 .on 토글 */
+.bubble .w { opacity: 0; transition: opacity .18s ease; }
+.bubble .w.on { opacity: 1; }
+.bubble .kw { font-weight: 800; font-size: 1.18em; letter-spacing: -.01em; }
+.msg--ai .bubble .kw { font-weight: inherit; font-size: inherit; color: inherit; background: none; }
+.msg--cust .bubble .kw, .msg--cust .bubble .kw.k-go, .msg--cust .bubble .kw.k-risk { color: inherit; background: none; }
+.bubble .kw.pop { animation: kwpop .34s cubic-bezier(.2,1.5,.4,1); }
+
+/* 타이핑 인디케이터 */
+.typing .bubble { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-faint); font-style: normal; }
+.dots { display: inline-flex; gap: 3px; }
+.dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .5; animation: td 1s infinite; }
+.dots i:nth-child(2) { animation-delay: .15s; }
+.dots i:nth-child(3) { animation-delay: .3s; }
+.hint { font-size: 11px; }
+
+/* fly-bubble: 고객 발화 → 카드① 날아가는 클론 (SSOT) */
+.fly-bubble { position: fixed; z-index: 9999; pointer-events: none; font-size: 11px; line-height: 1.45; padding: 6px 9px; border-radius: 9px; background: #fff; border: 1px solid #E0E0E0; color: #333; max-width: 240px; transition: transform 1.1s cubic-bezier(.45,0,.25,1), opacity 1.1s; }
+
+/* ── 카드① 발화분석: orb bins + 전략 그리드 (SSOT 684–766) ── */
+.bins { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; position: relative; }
+.bin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 11px 11px 13px 13px; padding: 4px 4px 9px; height: 104px; flex: none; min-width: 0; border: none; background: #EAF0FF; box-shadow: 0 0 14px -2px rgba(0,75,145,.4); }
+.bin__h { display: flex; flex-direction: column; align-items: center; line-height: 1.05; text-align: center; }
+.bin__h b { font-family: var(--disp); font-size: 12px; font-weight: 800; letter-spacing: -.01em; color: #5E6678; }
+.bin__h i { font-style: normal; font-family: var(--mono); font-size: 6.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin-top: 1px; }
+.bin__slot { flex: 1; width: 100%; min-width: 0; display: flex; align-items: stretch; justify-content: center; }
+.orb { position: relative; width: 100%; max-width: 100%; height: 100%; border-radius: 13px; padding: 9px 7px 8px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; opacity: 0; background: #EAF0FF; box-shadow: 0 0 14px -2px rgba(0,75,145,.4); border: none; }
+.orb.drop { animation: orbDrop .72s cubic-bezier(.34,1.5,.5,1) forwards; }
+.orb .otag { font-family: var(--disp); font-size: 12.5px; font-weight: 800; line-height: 1.18; letter-spacing: -.02em; padding: 2px 1px; width: 100%; text-align: center; word-break: keep-all; color: #1d3a8f; }
+.orb.eased .otag { color: #1d3a8f; }
+
+.solvearrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
+.solvearrow.on { opacity: 1; transform: none; }
+.solvearrow .dn { font-size: 11px; animation: arrbob 1s ease-in-out infinite; }
+
+.stratg { position: relative; overflow: hidden; border-radius: 10px; padding: 2px 0; }
+.strat-track { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3,auto); align-content: start; gap: 5px; width: max-content; transition: transform .9s cubic-bezier(.22,.61,.36,1); }
+.scard { position: relative; width: 124px; border: 1px solid var(--hair); border-radius: 9px; background: rgba(255,255,255,.6); display: flex; flex-direction: column; gap: 1px; padding: 4px 7px; text-align: left; transition: opacity .4s, border-color .4s, box-shadow .4s, background .4s, transform .45s; }
+.scard .sno { font-family: var(--mono); font-size: 7px; font-weight: 700; color: var(--ink-faint); }
+.scard .stx { font-size: 11.5px; font-weight: 800; color: var(--ink); line-height: 1.1; letter-spacing: -.02em; }
+.scard .slead { font-size: 7.5px; font-weight: 600; color: var(--ink-dim); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stratg.swiping .strat-track { animation: stratSwipe 1.1s linear forwards; }
+.stratg.resolved { flex: 1; min-height: 0; height: 100%; overflow: hidden; display: flex; padding: 2px 0; }
+.stratg.resolved .strat-track { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; grid-template-rows: none; grid-template-columns: none; transform: none !important; animation: none; }
+.stratg.resolved .scard { display: none; }
+.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: 1.5px solid #3551D6; background: #fff; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
+.stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.stratg.resolved .scard.sel .stx { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.stratg.resolved .scard.sel .slead { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; -webkit-line-clamp: 3; line-clamp: 3; margin-top: 3px; }
+.stratg.resolved.one .scard.sel .slead { -webkit-line-clamp: 4; line-clamp: 4; }
