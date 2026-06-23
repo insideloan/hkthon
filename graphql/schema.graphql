@@ -71,6 +71,7 @@ type Turn {
   churnAfter: Int
   flag: TurnFlag
   tokens: [Token!]
+  audioUrl: String        # 봇 발화 TTS mp3 presigned URL (라이브 모드, bot Turn만). 없으면 null.
 }
 
 # call 스냅샷의 analysis (SSOT-3): aiAction/data 폐기, 4필드만.
@@ -150,6 +151,7 @@ type TurnPayload @aws_iam @aws_api_key {
   text: String
   flag: TurnFlag
   tokens: [Token!]
+  audioUrl: String        # 봇 발화 TTS mp3 presigned URL (라이브 모드, bot Turn만). 없으면 null.
 }
 
 type IndexUpdatePayload @aws_iam @aws_api_key { callId: ID!, churnRisk: Int, emotion: String }
@@ -214,7 +216,7 @@ type Mutation {
   audioChunk(callId: ID!, data: String!): Boolean
 
   # 내부 _emit* — Streams 팬아웃이 호출, 구독이 @aws_subscribe로 연결.
-  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag): TurnPayload @aws_iam
+  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag, audioUrl: String): TurnPayload @aws_iam
   _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload @aws_iam
   _emitSpeechAnalysis(callId: ID!, turnId: ID, polarity: Polarity, reason: String, turnFlag: TurnFlag): SpeechAnalysisPayload @aws_iam
   _emitStrategyUpdate(callId: ID!, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload @aws_iam

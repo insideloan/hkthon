@@ -60,6 +60,7 @@ def _bot_turn_out(state: dict) -> dict:
         "churnAfter": state.get("churn_after"),
         "flag": _wire_flag(state),
         "tokens": tokens,
+        "audioUrl": state.get("audio_url"),  # TTS mp3 presigned URL (없으면 None)
     }
 
 
