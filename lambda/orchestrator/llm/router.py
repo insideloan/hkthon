@@ -3,7 +3,7 @@
 AGENT 모듈. SSOT: hk-skills/reference/STACK.md §5(LLM), ARCHITECTURE.md §3.3.
 
 - SDK: langchain-aws ChatBedrockConverse (**Bedrock 전용** — 다른 provider 금지).
-- Model: env LLM_MODEL (기본 global.anthropic.claude-sonnet-4-6).
+- Model: env LLM_MODEL (기본 global.anthropic.claude-haiku-4-5-20251001-v1:0 — 레이턴시 우선).
 - 공개 API:
     get_llm()           → ChatBedrockConverse 인스턴스 반환 (이슈 #15 수용 기준).
     classify_turn(...)  → structured output (CLASSIFY_SCHEMA) — nodes.classify
@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
+_DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 _FIRST_TOKEN_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "6"))
 
@@ -82,7 +82,7 @@ def get_llm():
     """ChatBedrockConverse 인스턴스를 반환하는 공개 팩토리 함수.
 
     이슈 #15 수용 기준:
-    - LLM_MODEL 환경변수로 모델 지정 (기본 global.anthropic.claude-sonnet-4-6).
+    - LLM_MODEL 환경변수로 모델 지정 (기본 global.anthropic.claude-haiku-4-5-20251001-v1:0).
     - Bedrock 전용: ChatBedrockConverse 인스턴스 반환.
     - .astream 인터페이스 통일 (ChatBedrockConverse 네이티브 지원).
 

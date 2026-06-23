@@ -4,7 +4,7 @@
 수용 기준:
 - ChatBedrockConverse 인스턴스 반환 (올바른 모델 클래스)
 - .astream 인터페이스 호출 가능
-- 미지정 시 기본 모델 global.anthropic.claude-sonnet-4-6 사용
+- 미지정 시 기본 모델 global.anthropic.claude-haiku-4-5-20251001-v1:0 사용
 - 타임아웃 가드: 첫 토큰 초과 시 FALLBACK_TEXT 반환
 """
 
@@ -53,7 +53,7 @@ def test_get_llm_returns_chat_bedrock_converse_instance():
 
 
 def test_get_llm_uses_default_model_when_env_not_set():
-    """LLM_MODEL 미지정 시 기본 모델 global.anthropic.claude-sonnet-4-6을 사용한다."""
+    """LLM_MODEL 미지정 시 기본 모델 global.anthropic.claude-haiku-4-5-20251001-v1:0을 사용한다."""
     mock_cls = MagicMock()
     mock_cls.__name__ = "ChatBedrockConverse"
 
@@ -83,7 +83,7 @@ def test_get_llm_uses_default_model_when_env_not_set():
         if call_kwargs.args
         else call_kwargs.kwargs.get("model")
     )
-    assert model_arg == "global.anthropic.claude-sonnet-4-6"
+    assert model_arg == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 def test_get_llm_uses_env_model_when_set():
@@ -185,14 +185,14 @@ def test_astream_converse_yields_chunks():
 
 
 def test_default_model_constant():
-    """기본 모델 상수가 global.anthropic.claude-sonnet-4-6이다.
+    """기본 모델 상수가 global.anthropic.claude-haiku-4-5-20251001-v1:0이다.
 
     모델 ID는 모듈 로드 시점이 아니라 _client() 생성 시점에 env에서 읽으므로
     (테스트 순서 의존 제거), 기본값은 상수 _DEFAULT_MODEL_ID로 검증한다.
     """
     from orchestrator.llm import router as r
 
-    assert r._DEFAULT_MODEL_ID == "global.anthropic.claude-sonnet-4-6"  # noqa: SLF001
+    assert r._DEFAULT_MODEL_ID == "global.anthropic.claude-haiku-4-5-20251001-v1:0"  # noqa: SLF001
 
 
 def test_get_llm_falls_back_to_default_model_without_env():
@@ -215,7 +215,7 @@ def test_get_llm_falls_back_to_default_model_without_env():
     call_kwargs = mock_cls.call_args
     assert call_kwargs is not None
     model_arg = call_kwargs.kwargs.get("model") or (call_kwargs.args[0] if call_kwargs.args else None)
-    assert model_arg == "global.anthropic.claude-sonnet-4-6"
+    assert model_arg == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
