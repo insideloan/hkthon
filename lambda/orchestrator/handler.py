@@ -33,7 +33,8 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
     구독(onTurn 등)은 AppSync `@aws_subscribe`로 자동 처리되거나 Streams 팬아웃이
     `_emit*` 뮤테이션으로 발화하므로, 여기서는 쿼리/뮤테이션 resolver만 등록한다.
     """
-    from .resolvers import calls, customers, mots, queue, summaries
+    from .api import audio
+    from .resolvers import calls, customers, mots, queue, summaries, turns
 
     return {
         # admin (스키마 비노출 — aws lambda invoke로 직접 호출. 데모 데이터 시드)
@@ -48,6 +49,10 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
         "transferToAgent": calls.resolve_transfer_to_agent,
         "sendLink": calls.resolve_send_link,
         "endCall": calls.resolve_end_call,
+        # 라이브 파이프라인: 턴 진행 + 오디오 글루 (script 모드 no-op)
+        "nextTurn": turns.resolve_next_turn,
+        "startAudio": audio.resolve_start_audio,
+        "audioChunk": audio.resolve_audio_chunk,
         # mots
         "mots": mots.resolve_mots,
         # summaries + customers
