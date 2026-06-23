@@ -116,7 +116,7 @@ export class HkthonStack extends cdk.Stack {
         //   cdk deploy -c orchestratorMode=live
         // 로 옵트인 — 데모 안정성을 위해 기본값은 그대로 둔다.
         ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'script',
-        LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
+        LLM_MODEL: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
         TRANSCRIBE_LANGUAGE: 'ko-KR',
