@@ -7,7 +7,7 @@ name: ci
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 jobs:
   backend:
