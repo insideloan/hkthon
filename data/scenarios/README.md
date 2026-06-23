@@ -8,11 +8,15 @@
 
 | id | 파일 | 제목 | 턴 | 핵심 신호 | 원천 |
 |----|------|------|----|-----------|------|
-| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 18 | 이탈위험 MOT 5회(`rz-*`) 방어 → 상담원 전환 | `consult_redesigned-3.html` const S |
-| `s2` | `s2.json` | 보이스피싱 의심 아웃바운드 (급전 요청) | 15 | `fraud_suspected` 사기 감지 → 접수·차단 | `아웃바운드_스크립트_0621.xlsx` 보이스피싱 시트 |
+| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 19 | 이탈위험 MOT 5회(`rz-*`) 방어 → 상담원 전환 | `consult_redesigned-3.html` const S |
+| `s2` | `s2.json` | 보이스피싱 의심 아웃바운드 (급전 요청) | 16 | `fraud_suspected` 사기 감지 → 접수·차단 | `아웃바운드_스크립트_0621.xlsx` 보이스피싱 시트 |
 
 > 등록부는 `scenario_loader.KNOWN_SCENARIOS`와 일치해야 한다. 시나리오를 추가하면
 > 이 표 + `KNOWN_SCENARIOS` 둘 다 갱신한다.
+>
+> 두 시나리오 모두 **아웃바운드 발신**이라 첫 턴은 고객이 먼저 받는 인사
+> (`greet: true`, "여보세요?")다. greet 턴은 분석/MOT/사기 파이프라인을 트리거하지
+> 않는 가벼운 턴이며, 프론트 `consult-engine`이 이 키로 인사 턴을 식별한다(턴 수 포함).
 
 ### 아직 없는 시나리오
 시드 고객(`seed.py`)의 `scenario_hint`에는 `S3`(전세자금) 라벨도 있으나, 해당
@@ -42,7 +46,8 @@
   `tokens[]`, `churn_after`(0-100), `flag`(`risk`|`def`|`null`)
 - `tokens[]`: `{text, polarity(PRO|CONS|null), reason}` — polarity는 색상용이
   아니라 턴 `flag` 배지 분기 신호(SSOT-3)
-- 선택: `fraud_suspected`(bool), `mot{marker_id,state,crm_stage}`,
+- 선택: `greet`(bool, 인사 턴), `fraud_suspected`(bool),
+  `mot{marker_id,state,crm_stage}`,
   `compliance{draft,violated_policies[],final,state}`,
   `strategy_headline`+`strategy_lead`(쌍)
 

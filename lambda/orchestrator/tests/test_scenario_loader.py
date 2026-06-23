@@ -146,15 +146,33 @@ def test_s2_file_exists():
     assert _S2_PATH.exists(), f"missing {_S2_PATH}"
 
 
-def test_s2_loads_15_turns_via_declared_count(s2_raw):
-    # JSON 최상위 expected_turns=15 선언으로 18턴 기본값을 오버라이드해야 함.
+def test_s2_loads_16_turns_via_declared_count(s2_raw):
+    # JSON 최상위 expected_turns=16 선언으로 18턴 기본값을 오버라이드해야 함.
+    # (인사 greet 턴 1 + 대화 15)
     data = sl.load_from_str(s2_raw)
-    assert data["expected_turns"] == 15
-    assert len(data["turns"]) == 15
+    assert data["expected_turns"] == 16
+    assert len(data["turns"]) == 16
 
 
 def test_s2_passes_schema_validation(s2_data):
     assert sl.validate_scenario(s2_data) is s2_data
+
+
+def test_s2_starts_with_greet_turn(s2_data):
+    # 아웃바운드 발신 — 고객이 먼저 "여보세요?"로 받는 인사 턴으로 시작(s1과 정합).
+    first = s2_data["turns"][0]
+    assert first["greet"] is True
+    assert first["speaker"] == "customer"
+    # 인사 턴은 분석/사기 파이프라인을 트리거하지 않는다(tokens 비고 fraud 없음).
+    assert first["tokens"] == []
+    assert "fraud_suspected" not in first
+
+
+def test_invalid_greet_type_detected(s2_data):
+    bad = copy.deepcopy(s2_data)
+    bad["turns"][0]["greet"] = "yes"
+    with pytest.raises(sl.ScenarioValidationError, match="greet"):
+        sl.validate_scenario(bad)
 
 
 def test_s2_uses_fraud_flag_not_mot(s2_data):
@@ -231,7 +249,7 @@ def test_s3_key_for():
 
 def test_load_scenario_local_known_ids():
     # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
-    for sid, turns in (("s1", 19), ("s2", 15)):
+    for sid, turns in (("s1", 19), ("s2", 16)):
         data = sl.load_scenario(sid)
         assert data["scenario_id"] == sid
         assert len(data["turns"]) == turns

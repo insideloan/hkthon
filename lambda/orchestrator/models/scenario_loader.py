@@ -196,6 +196,12 @@ def _validate_turn(turn: dict, index: int) -> None:
         raise ScenarioValidationError(
             f"turn {index}: fraud_suspected must be a boolean")
 
+    # greet (선택) — 아웃바운드 발신 시 고객이 먼저 받는 인사 턴("여보세요?").
+    # 분석/MOT 파이프라인을 트리거하지 않는 가벼운 턴(프론트 consult-engine 계약).
+    if "greet" in turn and not isinstance(turn["greet"], bool):
+        raise ScenarioValidationError(
+            f"turn {index}: greet must be a boolean")
+
     # mot (선택) — 있으면 enum 검증
     if "mot" in turn:
         _validate_mot(turn["mot"], index)
