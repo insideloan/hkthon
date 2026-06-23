@@ -175,6 +175,29 @@ def test_invalid_greet_type_detected(s2_data):
         sl.validate_scenario(bad)
 
 
+def test_s2_nodes_are_valid_stages(s2_data):
+    # s2의 모든 node가 정식 Stage enum이어야 함(비표준 SAFETY 제거 확인).
+    assert all(t["node"] in sl._NODES for t in s2_data["turns"])
+    assert "SAFETY" not in {t["node"] for t in s2_data["turns"]}
+
+
+# -- node enum 검증 ------------------------------------------------------------
+
+def test_invalid_node_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    bad["turns"][1]["node"] = "SAFETY"  # Stage에 없는 값
+    with pytest.raises(sl.ScenarioValidationError, match="invalid node"):
+        sl.validate_scenario(bad)
+
+
+def test_all_scenario_nodes_within_stage_enum():
+    # 등록된 모든 시나리오의 node가 Stage enum 안에 있어야 함(AGENT stage 추론 정합).
+    for sid in sl.KNOWN_SCENARIOS:
+        data = sl.load_scenario(sid)
+        for t in data["turns"]:
+            assert t["node"] in sl._NODES, f"{sid} seq{t['seq']}: {t['node']}"
+
+
 def test_s2_uses_fraud_flag_not_mot(s2_data):
     # 보이스피싱은 MOT(이탈위험) 대신 fraud_suspected 플래그를 쓴다.
     assert all("mot" not in t for t in s2_data["turns"])
