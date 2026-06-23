@@ -132,7 +132,12 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       <div
         className="stt flex flex-col overflow-hidden"
         style={{
-          height: 'max(560px, calc(100vh - 96px))', background: '#F9F6EE', border: '1px solid var(--card-bd)',
+          height: 'max(560px, calc(100vh - 96px))',
+          // STT 패널 배경 이미지 (public/phone_screen.png). 단색 #F9F6EE 대체.
+          backgroundImage: 'url(/phone_screen.png)',
+          backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+          backgroundColor: '#F9F6EE', // 이미지 로드 전/투명 영역 폴백
+          border: '1px solid var(--card-bd)',
           borderRadius: '18px', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)',
           boxShadow: 'var(--shadow)',
         }}
