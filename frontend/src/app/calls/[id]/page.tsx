@@ -8,13 +8,14 @@
 'use client';
 
 import { use, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { clsx } from 'clsx';
 import { SpeechAnalysis } from '@/components/consult/SpeechAnalysis';
 import { CompliancePanel } from '@/components/consult/CompliancePanel';
 import { JourneyMap, type JourneyMapHandle } from '@/components/consult/JourneyMap';
 import { DbCard } from '@/components/consult/DbCard';
 import { SttTranscript } from '@/components/consult/SttTranscript';
+import { LiveSession } from '@/components/consult/LiveSession';
 import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
@@ -116,6 +117,10 @@ function PlayPauseButton({ ended, busy, label, onClick, onEnded }: PlayPauseButt
 export default function ConsultCockpitPage({ params }: PageProps) {
   const { id: callId } = use(params);
   const router = useRouter();
+  // ?live=1 → 실제 라이브 세션(마이크→STT→agent→TTS). 미지정 시 mock 시나리오 재생.
+  // 체험 큐 행(exp-*)이 ?live=1로 진입한다(OutboundQueueTable.rowHref).
+  const searchParams = useSearchParams();
+  const isLive = searchParams.get('live') === '1';
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<JourneyMapHandle | null>(null);
@@ -124,8 +129,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId });
 
   // 라이브 모드 봇 음성 재생: onTurn의 bot audioUrl(TTS mp3)을 순차 재생.
-  // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 다른 라이브 구독과 동일한 게이트.
-  useBotAudioPlayback(callId, { disabled: IS_MOCK });
+  // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 단, ?live=1 진입(체험 고객)은
+  // mock 빌드여도 실제 라이브 경로이므로 재생을 활성화한다.
+  useBotAudioPlayback(callId, { disabled: IS_MOCK && !isLive });
 
   // 카드 phase 구독 (className 토글).
   const card1 = useConsultStore((s) => s.card1);
@@ -170,42 +176,50 @@ export default function ConsultCockpitPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* STT body — steps-wrap에 엔진이 말풍선 주입. 중앙의 원형 재생/일시정지
-            버튼이 발화 진행 컨트롤(engine.advance)을 담당한다(미디어 플레이어 메타포). */}
-        <div className="stt__chat relative flex flex-1 min-h-0">
-          <div className="stt__body flex flex-col flex-1 overflow-y-auto" id="chat" style={{ padding: '10px 10px 6px', scrollBehavior: 'smooth' }}>
-            <div ref={chatRef}>
-              <SttTranscript />
+        {/* STT body. 라이브 모드(?live=1, 체험 고객)는 mock 재생 대신 마이크 캡처
+            패널을 띄운다. 그 외(데모)는 시나리오 엔진 + 중앙 재생/일시정지 버튼. */}
+        {isLive ? (
+          <div className="stt__chat flex flex-1 min-h-0 overflow-y-auto">
+            <LiveSession callId={callId} />
+          </div>
+        ) : (
+          <>
+            <div className="stt__chat relative flex flex-1 min-h-0">
+              <div className="stt__body flex flex-col flex-1 overflow-y-auto" id="chat" style={{ padding: '10px 10px 6px', scrollBehavior: 'smooth' }}>
+                <div ref={chatRef}>
+                  <SttTranscript />
+                </div>
+              </div>
+              {/* 원형 버튼 — 채팅 영역 상단(첫 "여보세요?" 말풍선과 같은 높이)에 가로
+                  중앙 오버레이. 오버레이 자체는 클릭을 통과(pointer-events-none)시키고
+                  버튼만 클릭 가능(pointer-events-auto). */}
+              <div
+                className="pointer-events-none absolute inset-0 flex items-start justify-center"
+                style={{ paddingTop: '10px' }}
+              >
+                <PlayPauseButton
+                  ended={engine.ended}
+                  busy={engine.btnDisabled && !engine.ended}
+                  label={engine.btnLabel}
+                  onClick={engine.advance}
+                  onEnded={() => router.push(`/crm/${callId}`)}
+                />
+              </div>
             </div>
-          </div>
-          {/* 원형 버튼 — 채팅 영역 상단(첫 "여보세요?" 말풍선과 같은 높이)에 가로
-              중앙 오버레이. 오버레이 자체는 클릭을 통과(pointer-events-none)시키고
-              버튼만 클릭 가능(pointer-events-auto). */}
-          <div
-            className="pointer-events-none absolute inset-0 flex items-start justify-center"
-            style={{ paddingTop: '10px' }}
-          >
-            <PlayPauseButton
-              ended={engine.ended}
-              busy={engine.btnDisabled && !engine.ended}
-              label={engine.btnLabel}
-              onClick={engine.advance}
-              onEnded={() => router.push(`/crm/${callId}`)}
-            />
-          </div>
-        </div>
 
-        <div className="stt__foot flex items-center" style={{ padding: '10px 13px', borderTop: '1px solid var(--hair)', gap: '9px', minHeight: '46px', background: 'rgba(255,255,255,.42)' }}>
-          <button
-            className="ghost-btn font-mono cursor-pointer"
-            id="restart"
-            title="처음부터 다시 재생"
-            onClick={engine.reset}
-            style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-faint)', background: 'none', border: '1px solid var(--line)', borderRadius: '8px', padding: '7px 10px' }}
-          >
-            ↻ 처음부터
-          </button>
-        </div>
+            <div className="stt__foot flex items-center" style={{ padding: '10px 13px', borderTop: '1px solid var(--hair)', gap: '9px', minHeight: '46px', background: 'rgba(255,255,255,.42)' }}>
+              <button
+                className="ghost-btn font-mono cursor-pointer"
+                id="restart"
+                title="처음부터 다시 재생"
+                onClick={engine.reset}
+                style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-faint)', background: 'none', border: '1px solid var(--line)', borderRadius: '8px', padding: '7px 10px' }}
+              >
+                ↻ 처음부터
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ═══ 우: rightcol ═══ */}

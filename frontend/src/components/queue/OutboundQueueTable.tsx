@@ -71,8 +71,18 @@ const PRE_ANALYSIS_STAGE = '사전 고객분석';
 // 이 행은 휴지통 버튼을 렌더하지 않아 삭제를 원천 차단한다.
 const UNDELETABLE_CALL_IDS = new Set(['c-demo-01']);
 
+// 체험(experience) 버튼으로 생성된 행은 callId가 exp-* 다. 데모(scripted) 재생이
+// 아니라 실제 라이브 세션(마이크→STT→agent→TTS)으로 진입한다.
+function isExperienceRow(row: QueueRow): boolean {
+  return (row.callId ?? '').startsWith('exp-');
+}
+
 /** Resolve the target href for a row, or null when the row isn't navigable. */
 function rowHref(row: QueueRow): string | null {
+  // 체험 고객(exp-*) → 라이브 상담 화면(?live=1). mock 시나리오 재생이 아님.
+  if (isExperienceRow(row)) {
+    return `/calls/${row.callId}?live=1`;
+  }
   // 사전 고객분석 단계(데모: 박서준) → 세그먼트 분석 화면.
   if (row.stage === PRE_ANALYSIS_STAGE) {
     const customerId = DEMO_NAME_TO_CUSTOMER_ID[row.customerName ?? ''];
