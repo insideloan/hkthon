@@ -205,3 +205,44 @@ def test_load_from_s3_validates(s1_data):
     fake = _FakeS3(json.dumps(bad))
     with pytest.raises(sl.ScenarioValidationError):
         sl.load_from_s3("b", "k", s3_client=fake)
+
+
+# -- 시나리오 ID 기반 선택 로드 ------------------------------------------------
+
+def test_s3_key_for():
+    assert sl.s3_key_for("s1") == "scenarios/s1.json"
+    assert sl.s3_key_for("s2") == "scenarios/s2.json"
+
+
+def test_load_scenario_local_known_ids():
+    # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
+    for sid, turns in (("s1", 18), ("s2", 15)):
+        data = sl.load_scenario(sid)
+        assert data["scenario_id"] == sid
+        assert len(data["turns"]) == turns
+
+
+def test_load_scenario_unknown_id_raises():
+    with pytest.raises(sl.ScenarioValidationError, match="unknown scenario"):
+        sl.load_scenario("does-not-exist")
+
+
+def test_load_scenario_from_s3(s2_raw):
+    fake = _FakeS3(s2_raw)
+    data = sl.load_scenario("s2", bucket="assets-bucket", s3_client=fake)
+    assert data["scenario_id"] == "s2"
+    # ID 규약대로 scenarios/s2.json 키를 요청해야 함.
+    assert fake.calls == [("assets-bucket", "scenarios/s2.json")]
+
+
+def test_load_scenario_id_mismatch_detected(s1_raw):
+    # s1 내용을 s2로 요청 → scenario_id 불일치 검출.
+    fake = _FakeS3(s1_raw)
+    with pytest.raises(sl.ScenarioValidationError, match="scenario_id mismatch"):
+        sl.load_scenario("s2", bucket="b", s3_client=fake)
+
+
+def test_known_scenarios_all_loadable():
+    # KNOWN_SCENARIOS에 등록된 ID는 전부 로컬에서 로드 가능해야 함.
+    for sid in sl.KNOWN_SCENARIOS:
+        assert sl.load_scenario(sid)["scenario_id"] == sid

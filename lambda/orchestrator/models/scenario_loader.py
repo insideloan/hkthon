@@ -24,7 +24,18 @@ strategy) 모델과 enum 값이 정합한다.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Optional
+
+# 번들된 로컬 시나리오 디렉토리 (repo-root/data/scenarios). 이 파일 기준
+# models → orchestrator → lambda → repo root → data/scenarios.
+_LOCAL_SCENARIO_DIR = Path(__file__).resolve().parents[3] / "data" / "scenarios"
+
+# S3 오브젝트 키 규약: scenarios/{id}.json (config.py:scenario_key 기본 prefix와 정합).
+_S3_KEY_PREFIX = "scenarios"
+
+# 알려진 시나리오 ID (등록된 대화 스크립트). 신규 추가 시 여기 등록.
+KNOWN_SCENARIOS = ("s1", "s2")
 
 # SSOT-3 enum 허용값 (DATA-003/004/005 모델과 일치)
 _SPEAKERS = {"bot", "customer", "agent"}
@@ -68,6 +79,45 @@ def load_from_str(raw: str) -> dict:
     data = json.loads(raw)
     validate_scenario(data)
     return data
+
+
+def s3_key_for(scenario_id: str) -> str:
+    """시나리오 ID → S3 오브젝트 키 (scenarios/{id}.json)."""
+    return f"{_S3_KEY_PREFIX}/{scenario_id}.json"
+
+
+def _check_scenario_id(data: dict, scenario_id: str) -> dict:
+    """로드한 데이터의 scenario_id가 요청한 ID와 일치하는지 확인."""
+    actual = data.get("scenario_id")
+    if actual != scenario_id:
+        raise ScenarioValidationError(
+            f"scenario_id mismatch: requested {scenario_id!r}, file has {actual!r}")
+    return data
+
+
+def load_scenario(scenario_id: str, *, bucket: str | None = None,
+                  s3_client: Any = None) -> dict:
+    """시나리오를 ID로 선택 로드·검증한다.
+
+    `bucket`이 주어지면 S3 `scenarios/{id}.json`에서, 아니면 번들된 로컬
+    `data/scenarios/{id}.json`에서 읽는다. 어느 경로든 로드한 파일의
+    `scenario_id`가 요청한 ID와 일치하는지 검증한다.
+
+    Args:
+        scenario_id: 시나리오 식별자 (예: "s1", "s2").
+        bucket: S3 버킷명. None이면 로컬 번들에서 로드.
+        s3_client: 주입용 boto3 S3 클라이언트(테스트).
+    """
+    if bucket is not None:
+        data = load_from_s3(bucket, s3_key_for(scenario_id), s3_client=s3_client)
+        return _check_scenario_id(data, scenario_id)
+
+    path = _LOCAL_SCENARIO_DIR / f"{scenario_id}.json"
+    if not path.exists():
+        raise ScenarioValidationError(
+            f"unknown scenario {scenario_id!r}: {path} not found")
+    data = load_from_str(path.read_text(encoding="utf-8"))
+    return _check_scenario_id(data, scenario_id)
 
 
 def validate_scenario(data: dict, *, expected_turns: int | None = None) -> dict:
