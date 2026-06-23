@@ -150,17 +150,21 @@ function subscribeWithReconnect<TSchema extends ZodTypeAny>(
 // Shaped to QueueResultSchema. Mirrors the demo-booth scenarios so the table
 // shows the highlight states (needs_agent / fraud_suspected) and churn bar.
 function mockQueue(): QueueResult {
+  // Mirrors the SSOT demo call-list (docs/consult_redesigned-3.html CALLS) and
+  // the backend seed (lambda/orchestrator/seed.py SEED_QUEUE_ROWS) so the admin
+  // table drill-in flow is demoable offline. The 박서준 row carries state DIALING
+  // + the 사전 고객분석 stage so it routes to the segment analysis screen.
   const rows: QueueRow[] = [
-    { callId: 'm1', customerName: '김영수', state: 'IN_CALL', stage: '금리인하 문의',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 95, churnRisk: 38 },
-    { callId: 'm2', customerName: '이민정', state: 'TRANSFER_PENDING', stage: '한도 상향',
-      assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 212, churnRisk: 81 },
-    { callId: 'm3', customerName: '박철수', state: 'IN_CALL', stage: '명의도용 의심',
-      assignee: 'AI 코파일럿', channel: '전세자금', highlight: 'fraud_suspected', elapsedSec: 47, churnRisk: 64 },
-    { callId: 'm4', customerName: '최유진', state: 'DIALING', stage: '신규 상담',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 8, churnRisk: null },
-    { callId: 'm5', customerName: '한지민', state: 'ENDED', stage: '상담 완료',
-      assignee: '김도현', channel: '인바운드', highlight: null, elapsedSec: 363, churnRisk: 22 },
+    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 고객분석',
+      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
+    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 풀기',
+      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
+    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 쌓기',
+      assignee: 'AI 코파일럿', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
+    { callId: 'c-demo-04', customerName: '정민서', state: 'TRANSFER_PENDING', stage: '연결 대기',
+      assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 55 },
+    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '상담사 연결',
+      assignee: '김도현', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
   ];
   const summary: QueueSummary = {
     total: rows.length,

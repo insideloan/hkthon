@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { clsx } from 'clsx';
+import { useRouter } from 'next/navigation';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { RiskBar } from '@/components/ui/RiskBar';
 import { fetchQueue, subscribeQueueUpdates } from '@/lib/appsync';
@@ -47,6 +48,45 @@ function nameInitial(name: string | null | undefined): string {
   return name?.charAt(0) || '?';
 }
 
+// ─── Row → screen navigation ─────────────────────────────────────────────────
+// Clicking a call row drills into the matching screen, keyed by the call's state
+// (SSOT: docs/consult_redesigned-3.html admin call-list → detail flow):
+//   ENDED            → 상담 CRM (/crm) — past call summary + customer profile
+//   IN_CALL          → AI 상담화면 (/calls) — joins mid-conversation
+//   DIALING          → AI 상담화면 (/calls) — booth demo from the call's start
+//   TRANSFER_PENDING → not navigable yet (awaiting agent assignment)
+//   CREATED          → 사전 고객분석 (/segment) — pre-call analysis screen
+//
+// The 박서준 demo row carries state DIALING + the 사전 고객분석 stage, so it routes
+// to /segment for the scripted analysis → 발신 → 상담 flow. Wire QueueRow has no
+// customerId yet (see types/queue.ts), so the segment screen is keyed by the seed
+// id mapped from the demo customer name; other customers are wired up later.
+const DEMO_NAME_TO_CUSTOMER_ID: Record<string, string> = {
+  박서준: 'cust-001',
+};
+
+const PRE_ANALYSIS_STAGE = '사전 고객분석';
+
+/** Resolve the target href for a row, or null when the row isn't navigable. */
+function rowHref(row: QueueRow): string | null {
+  // 사전 고객분석 단계(데모: 박서준) → 세그먼트 분석 화면.
+  if (row.stage === PRE_ANALYSIS_STAGE) {
+    const customerId = DEMO_NAME_TO_CUSTOMER_ID[row.customerName ?? ''];
+    return customerId ? `/segment/${customerId}` : null;
+  }
+  switch (row.state) {
+    case 'ENDED':
+      return `/crm/${row.callId}`;
+    case 'IN_CALL':
+    case 'DIALING':
+      return `/calls/${row.callId}`;
+    case 'TRANSFER_PENDING':
+    case 'CREATED':
+    default:
+      return null; // 상담원 연결 대기 등은 아직 진입점 없음
+  }
+}
+
 type OutboundQueueTableProps = {
   /** When true, skip data wiring (load + subscribe). Tests seed the store directly. */
   disableLiveData?: boolean;
@@ -68,6 +108,7 @@ export function OutboundQueueTable({
   disableLiveData = false,
   filteredRows,
 }: OutboundQueueTableProps) {
+  const router = useRouter();
   const storeRows = useQueueStore((s) => s.rows);
   const setQueue = useQueueStore((s) => s.setQueue);
   // When live data is disabled (tests seed the store), treat as ready.
@@ -144,17 +185,38 @@ export function OutboundQueueTable({
           {emptyMessage}
         </div>
       ) : (
-        rows.map((row) => (
+        rows.map((row) => {
+          const href = rowHref(row);
+          const navigable = href !== null;
+          return (
           <div
             key={row.callId}
             data-testid={`queue-row-${row.callId}`}
             data-highlight={row.highlight ?? 'none'}
+            data-navigable={navigable}
+            role={navigable ? 'link' : undefined}
+            tabIndex={navigable ? 0 : undefined}
+            aria-label={navigable ? `${row.customerName ?? row.callId} 상세 보기` : undefined}
+            onClick={navigable ? () => router.push(href) : undefined}
+            onKeyDown={
+              navigable
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push(href);
+                    }
+                  }
+                : undefined
+            }
             className={clsx(
-              'grid gap-[10px] items-center px-4 py-[11px] transition-colors cursor-default',
+              'grid gap-[10px] items-center px-4 py-[11px] transition-colors',
               'border-b last:border-b-0',
+              navigable
+                ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--route)] focus-visible:ring-inset'
+                : 'cursor-default',
               row.highlight === 'needs_agent' && 'bg-red-50',
               row.highlight === 'fraud_suspected' && 'bg-amber-50',
-              !row.highlight && 'hover:bg-[rgba(53,81,214,0.06)]',
+              !row.highlight && navigable && 'hover:bg-[rgba(53,81,214,0.06)]',
             )}
             style={{
               gridTemplateColumns: GRID_COLS,
@@ -173,10 +235,19 @@ export function OutboundQueueTable({
               </span>
               <div className="flex flex-col gap-0 min-w-0">
                 <span
-                  className="text-[13.5px] font-[800] truncate"
+                  className="text-[13.5px] font-[800] truncate inline-flex items-center gap-1"
                   style={{ color: 'var(--ink)' }}
                 >
                   {row.customerName || '—'}
+                  {navigable && (
+                    <span
+                      className="text-[11px] font-normal"
+                      style={{ color: 'var(--route)' }}
+                      aria-hidden="true"
+                    >
+                      ↗
+                    </span>
+                  )}
                 </span>
                 <span className="text-[10.5px] truncate" style={{ color: 'var(--ink-dim)' }}>
                   {row.callId}
@@ -225,7 +296,8 @@ export function OutboundQueueTable({
               {row.channel || '전화'}
             </span>
           </div>
-        ))
+          );
+        })
       )}
     </div>
   );
