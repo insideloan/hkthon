@@ -256,6 +256,32 @@ export function subscribeQueueUpdates(
   );
 }
 
+// ── deleteQueueRow mutation — admin manual queue clear ───────────────────────
+// SDL: deleteQueueRow(callId: ID!): DeleteQueueRowResult! — permanently removes a
+// call from the queue (index + META + customer ACTIVE_CALL pointer). Idempotent.
+// Other admin clients refresh via the onQueueUpdate delta the resolver emits.
+const DELETE_QUEUE_ROW_MUTATION = /* GraphQL */ `
+  mutation DeleteQueueRow($callId: ID!) {
+    deleteQueueRow(callId: $callId) {
+      ok
+      callId
+    }
+  }
+`;
+
+export async function deleteQueueRow(callId: string): Promise<{ ok: boolean; callId: string }> {
+  if (USE_MOCK) return { ok: true, callId };
+  const res = await getClient().graphql({
+    query: DELETE_QUEUE_ROW_MUTATION,
+    variables: { callId },
+  });
+  if ('data' in res && res.data) {
+    const d = (res.data as { deleteQueueRow: { ok: boolean; callId: string } }).deleteQueueRow;
+    return { ok: d.ok, callId: d.callId };
+  }
+  throw new Error('deleteQueueRow 응답을 받지 못했습니다.');
+}
+
 // ── onComplianceState (realtime) — FRONTEND-008 / #37 ────────────────────────
 // Drives the compliance panel state machine (drafting → reviewing → redacting →
 // redrafting → approved). Producer: AGENT-010 (#18); contract pending in

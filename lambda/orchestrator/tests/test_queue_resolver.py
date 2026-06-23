@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from orchestrator.api import dynamo
+from orchestrator.handler import OrchestratorError
 from orchestrator.resolvers import queue
 
 from ._fake_dynamo import FakeTable
@@ -80,3 +81,47 @@ def test_queue_fallback_reads_camel_started_at():
     _seed_meta("c1", state="IN_CALL", startedAt="2026-06-22T00:00:00Z")
     row = queue.resolve_queue({}, {})["rows"][0]
     assert row["elapsedSec"] >= 0
+
+
+def test_delete_queue_row_removes_index_and_meta():
+    _seed_queue_row("a", state="IN_CALL")
+    _seed_meta("a", state="IN_CALL")
+    res = queue.resolve_delete_queue_row({}, {"callId": "a"})
+    assert res == {"ok": True, "callId": "a"}
+    # 인덱스/META 모두 삭제 → 큐 비어야 함(META fallback도 되살리지 않음).
+    assert queue.resolve_queue({}, {})["rows"] == []
+    assert dynamo.get_item(dynamo.pk_call("a"), dynamo.SK_META) is None
+
+
+def test_delete_queue_row_clears_active_call_pointer():
+    _seed_meta("a", state="DIALING", customerId="cust-1")
+    dynamo.put_item({"PK": "CUST#cust-1", "SK": "ACTIVE_CALL", "callId": "a"})
+    queue.resolve_delete_queue_row({}, {"callId": "a"})
+    assert dynamo.get_item("CUST#cust-1", "ACTIVE_CALL") is None
+
+
+def test_delete_queue_row_keeps_pointer_for_other_call():
+    # 고객의 활성콜 포인터가 다른 콜을 가리키면 보존한다.
+    _seed_meta("a", state="ENDED", customerId="cust-1")
+    dynamo.put_item({"PK": "CUST#cust-1", "SK": "ACTIVE_CALL", "callId": "b"})
+    queue.resolve_delete_queue_row({}, {"callId": "a"})
+    ptr = dynamo.get_item("CUST#cust-1", "ACTIVE_CALL")
+    assert ptr and ptr["callId"] == "b"
+
+
+def test_delete_queue_row_idempotent_for_missing_call():
+    res = queue.resolve_delete_queue_row({}, {"callId": "ghost"})
+    assert res == {"ok": True, "callId": "ghost"}
+
+
+def test_delete_queue_row_rejects_protected_call():
+    # 시연 보호 행(c-demo-01)은 직접 호출로도 삭제 불가 — 행이 그대로 남는다.
+    protected = next(iter(queue.PROTECTED_CALL_IDS))
+    _seed_queue_row(protected, state="DIALING")
+    _seed_meta(protected, state="DIALING")
+    with pytest.raises(OrchestratorError) as exc:
+        queue.resolve_delete_queue_row({}, {"callId": protected})
+    assert exc.value.error_type == "FORBIDDEN"
+    # 인덱스/META 모두 보존되어 큐에 그대로 보인다.
+    assert {r["callId"] for r in queue.resolve_queue({}, {})["rows"]} == {protected}
+    assert dynamo.get_item(dynamo.pk_call(protected), dynamo.SK_META) is not None

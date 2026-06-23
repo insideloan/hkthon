@@ -41,6 +41,7 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
         "_seed": _resolve_seed,
         # queue
         "queue": queue.resolve_queue,
+        "deleteQueueRow": queue.resolve_delete_queue_row,
         # calls (mutations + snapshot query)
         "createCall": calls.resolve_create_call,
         "dialCall": calls.resolve_dial_call,

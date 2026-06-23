@@ -24,6 +24,10 @@ class FakeTable:
         item = self.store.get((Key["PK"], Key["SK"]))
         return {"Item": dict(item)} if item is not None else {}
 
+    def delete_item(self, Key: dict[str, Any]) -> dict:  # noqa: N803
+        self.store.pop((Key["PK"], Key["SK"]), None)
+        return {}
+
     def query(self, **kwargs) -> dict:
         # We don't parse the boto3 ConditionExpression object; instead the dynamo
         # helper builds it from (pk, sk_prefix). For the fake we re-derive intent
