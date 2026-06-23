@@ -31,6 +31,9 @@ export default function SegmentPage({ params }: SegmentPageProps) {
   const [phase, setPhase] = useState<AnalysisPhase>('loading');
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [combo, setCombo] = useState(COMBO_START);
+  // 진입 연출 단계 (SSOT 시차 reveal). 0=숨김, 1=원천데이터, 2~5=군집·연결선 A~D,
+  // 6=세그먼트 후보. 분석 완료 시 조합·선택 세그먼트가 추가로 드러난다.
+  const [reveal, setReveal] = useState(0);
 
   // 1) 고객 정보 로드 + createCall 뮤테이션 (분석 전용, 발신 아님)
   useEffect(() => {
@@ -77,6 +80,25 @@ export default function SegmentPage({ params }: SegmentPageProps) {
       }
     }, 150);
     return () => clearInterval(timer);
+  }, [phase]);
+
+  // 2b) 진입 연출: analysing 동안 reveal 단계를 시차 전진시켜 SSOT 의 순차
+  // 등장(원천데이터 → 군집·연결선 A~D → 세그먼트 후보)을 재현. 단계 전진은
+  // CSS transition 을 트리거할 뿐, 분석 완료(complete)와는 독립적이다.
+  useEffect(() => {
+    if (phase !== 'analysing') {
+      if (phase === 'loading') setReveal(0);
+      return;
+    }
+    setReveal(1); // 원천 데이터 즉시 등장
+    const timers = [
+      setTimeout(() => setReveal(2), 350),
+      setTimeout(() => setReveal(3), 700),
+      setTimeout(() => setReveal(4), 1050),
+      setTimeout(() => setReveal(5), 1400),
+      setTimeout(() => setReveal(6), 1650),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, [phase]);
 
   const initials = customer?.name ? customer.name[0] : '?';
@@ -185,20 +207,20 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             <text className="ts" x="569" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">세그먼트</text>
 
             {/* Connection lines — .ln groups */}
-            <g className={clsx('ln ln-A', phase !== 'loading' && 'show')}>
+            <g className={clsx('ln ln-A', reveal >= 2 && 'show')}>
               <path className="ln ln-A" pathLength="1" d="M214 56 C242 56,242 82,270 82" fill="none" stroke="#6B4A2A" strokeWidth="1" opacity="0.5"/>
               <path className="ln ln-A" pathLength="1" d="M214 108 C242 108,242 82,270 82" fill="none" stroke="#6B4A2A" strokeWidth="1" opacity="0.5"/>
             </g>
-            <g className={clsx('ln ln-B', phase !== 'loading' && 'show')}>
+            <g className={clsx('ln ln-B', reveal >= 3 && 'show')}>
               <path className="ln ln-B" pathLength="1" d="M214 160 C242 160,242 186,270 186" fill="none" stroke="#5168DB" strokeWidth="0.8" opacity="0.45"/>
               <path className="ln ln-B" pathLength="1" d="M214 212 C242 212,242 186,270 186" fill="none" stroke="#5168DB" strokeWidth="0.8" opacity="0.45"/>
             </g>
-            <g className={clsx('ln ln-C', phase !== 'loading' && 'show')}>
+            <g className={clsx('ln ln-C', reveal >= 4 && 'show')}>
               <path className="ln ln-C" pathLength="1" d="M214 264 C242 264,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
               <path className="ln ln-C" pathLength="1" d="M214 316 C242 316,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
               <path className="ln ln-C" pathLength="1" d="M214 368 C242 368,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
             </g>
-            <g className={clsx('ln ln-D', phase !== 'loading' && 'show')}>
+            <g className={clsx('ln ln-D', reveal >= 5 && 'show')}>
               <path className="ln ln-D" pathLength="1" d="M214 420 C242 420,242 446,270 446" fill="none" stroke="#6B4FB8" strokeWidth="0.8" opacity="0.45"/>
               <path className="ln ln-D" pathLength="1" d="M214 472 C242 472,242 446,270 446" fill="none" stroke="#6B4FB8" strokeWidth="0.8" opacity="0.45"/>
             </g>
@@ -215,55 +237,55 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             </g>
 
             {/* Source data rows — 9 .cat groups */}
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="0" data-testid="sg-categories">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="0" data-testid="sg-categories">
               <g className="box"><rect x="14" y="39" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="56" r="4" fill="#6B4A2A"/>
               <text className="ts" x="42" y="56" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">차량 보유</text>
               <text className="th" x="204" y="56" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="1">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="1">
               <g className="box"><rect x="14" y="91" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="108" r="4" fill="#6B4A2A"/>
               <text className="ts" x="42" y="108" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">주식 보유</text>
               <text className="th" x="204" y="108" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="2">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="2">
               <g className="box"><rect x="14" y="143" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="160" r="4" fill="#5168DB"/>
               <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">CB 신용</text>
               <text className="th" x="204" y="160" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">744점</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="3">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="3">
               <g className="box"><rect x="14" y="195" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="212" r="4" fill="#5168DB"/>
               <text className="ts" x="42" y="212" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">부채(A저축)</text>
               <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">2,800만</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="4">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="4">
               <g className="box"><rect x="14" y="247" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="264" r="4" fill="#CF8A3C"/>
               <text className="ts" x="42" y="264" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">대출반응확률</text>
               <text className="th" x="204" y="264" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">자담 HIGH</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="5">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="5">
               <g className="box"><rect x="14" y="299" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="316" r="4" fill="#CF8A3C"/>
               <text className="ts" x="42" y="316" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">금리민감확률</text>
               <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">민감 40bp</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="6">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="6">
               <g className="box"><rect x="14" y="351" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="368" r="4" fill="#CF8A3C"/>
               <text className="ts" x="42" y="368" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">부도확률</text>
               <text className="th" x="204" y="368" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">Low</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="7">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="7">
               <g className="box"><rect x="14" y="403" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="420" r="4" fill="#6B4FB8"/>
               <text className="ts" x="42" y="420" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">대출비교 조회</text>
               <text className="th" x="204" y="420" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">1주내 3회</text>
             </g>
-            <g className={clsx('cat', phase !== 'loading' && 'show')} data-i="8">
+            <g className={clsx('cat', reveal >= 1 && 'show')} data-i="8">
               <g className="box"><rect x="14" y="455" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="472" r="4" fill="#6B4FB8"/>
               <text className="ts" x="42" y="472" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">앱 행태이력</text>
@@ -271,22 +293,22 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             </g>
 
             {/* Cluster boxes — 4 .clu groups + cv circle */}
-            <g className={clsx('clu', phase !== 'loading' && 'show')} data-c="A">
+            <g className={clsx('clu', reveal >= 2 && 'show')} data-c="A">
               <g className="box"><rect x="270" y="56" width="140" height="52" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <text className="th" x="340" y="75" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">고객 자산·여력</text>
               <text className="ts" x="340" y="93" textAnchor="middle" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">차량·주식 멀티에셋</text>
             </g>
-            <g className={clsx('clu', phase !== 'loading' && 'show')} data-c="B">
+            <g className={clsx('clu', reveal >= 3 && 'show')} data-c="B">
               <g className="box"><rect x="270" y="160" width="140" height="52" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <text className="th" x="340" y="179" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">신용·부채</text>
               <text className="ts" x="340" y="197" textAnchor="middle" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">중신용·고금리</text>
             </g>
-            <g className={clsx('clu', phase !== 'loading' && 'show')} data-c="C">
+            <g className={clsx('clu', reveal >= 4 && 'show')} data-c="C">
               <g className="box"><rect x="270" y="290" width="140" height="52" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <text className="th" x="340" y="309" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">ML 예측모형</text>
               <text className="ts" x="340" y="327" textAnchor="middle" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">선호·민감·우량</text>
             </g>
-            <g className={clsx('clu', phase !== 'loading' && 'show')} data-c="D">
+            <g className={clsx('clu', reveal >= 5 && 'show')} data-c="D">
               <g className="box"><rect x="270" y="420" width="140" height="52" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <text className="th" x="340" y="439" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">온라인 행동</text>
               <text className="ts" x="340" y="457" textAnchor="middle" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">대환탐색·전환임박</text>
@@ -298,13 +320,13 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             </g>
 
             {/* Segment outcome rects — .seg groups */}
-            <g className={clsx('seg', phase !== 'loading' && 'show')} data-s="top">
+            <g className={clsx('seg', reveal >= 6 && 'show', analysisComplete && 'dim')} data-s="top">
               <g className="c-gray">
                 <rect x="500" y="128" width="138" height="44" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.5)" stroke="var(--ink-faint)"/>
                 <text className="th" x="569" y="150" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--title)">신용대출 제안형</text>
               </g>
             </g>
-            <g className={clsx('seg', phase !== 'loading' && 'show')} data-s="bottom">
+            <g className={clsx('seg', reveal >= 6 && 'show', analysisComplete && 'dim')} data-s="bottom">
               <g className="c-gray">
                 <rect x="500" y="370" width="138" height="44" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.5)" stroke="var(--ink-faint)"/>
                 <text className="th" x="569" y="392" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--title)">금융비교 안내형</text>
@@ -423,6 +445,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 onClick={() => {
                   setAnalysisComplete(false);
                   setCombo(COMBO_START);
+                  setReveal(0);
                   setPhase('analysing');
                 }}
               >
@@ -430,7 +453,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 다시 재생
               </button>
               {callId && (
-                <CallButton callId={callId} analysisComplete={analysisComplete} />
+                <CallButton customerId={customerId} analysisComplete={analysisComplete} />
               )}
             </div>
           </>

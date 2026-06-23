@@ -483,13 +483,14 @@ export function subscribeMotDetected(
   );
 }
 
-// ── dialCall mutation — FRONTEND-002 / #31 (BACKEND-004 pending) ─────────────
-// Triggers an outbound call for an existing call record. Returns the callId and
-// new state (DIALING). Backend stub until BACKEND-004 ships.
+// ── dialCall mutation — FRONTEND-002 / #31 ───────────────────────────────────
+// SDL: dialCall(customerId: ID!): Call! — starts an outbound call FOR A CUSTOMER
+// and returns the new Call (state=DIALING, `id`). It does NOT take an analysis
+// callId; the navigation target is the freshly-created call's id.
 const DIAL_CALL_MUTATION = /* GraphQL */ `
-  mutation DialCall($callId: ID!) {
-    dialCall(callId: $callId) {
-      callId
+  mutation DialCall($customerId: ID!) {
+    dialCall(customerId: $customerId) {
+      id
       state
     }
   }
@@ -497,25 +498,26 @@ const DIAL_CALL_MUTATION = /* GraphQL */ `
 
 export type DialCallResult = { callId: string; state: string };
 
-export async function dialCall(callId: string): Promise<DialCallResult> {
-  if (USE_MOCK) return { callId, state: 'DIALING' };
+export async function dialCall(customerId: string): Promise<DialCallResult> {
+  if (USE_MOCK) return { callId: `mock-call-${customerId}`, state: 'DIALING' };
   const res = await getClient().graphql({
     query: DIAL_CALL_MUTATION,
-    variables: { callId },
+    variables: { customerId },
   });
   if ('data' in res && res.data) {
-    const d = (res.data as { dialCall: DialCallResult }).dialCall;
-    return d;
+    const d = (res.data as { dialCall: { id: string; state: string } }).dialCall;
+    return { callId: d.id, state: d.state };
   }
   throw new Error('dialCall 응답을 받지 못했습니다.');
 }
 
 // ── createCall mutation — FRONTEND-003 / #32 (analysis-only, not dialing) ────
 // Creates a call record for pre-analysis. Does NOT dial. Returns callId.
+// SDL: createCall(customerId: ID!): Call! — Call exposes `id` (not callId).
 const CREATE_CALL_MUTATION = /* GraphQL */ `
   mutation CreateCall($customerId: ID!) {
     createCall(customerId: $customerId) {
-      callId
+      id
       state
     }
   }
@@ -530,20 +532,22 @@ export async function createCall(customerId: string): Promise<CreateCallResult> 
     variables: { customerId },
   });
   if ('data' in res && res.data) {
-    const d = (res.data as { createCall: CreateCallResult }).createCall;
-    return d;
+    const d = (res.data as { createCall: { id: string; state: string } }).createCall;
+    return { callId: d.id, state: d.state };
   }
   throw new Error('createCall 응답을 받지 못했습니다.');
 }
 
 // ── customer query — FRONTEND-003 / #32 ──────────────────────────────────────
 // Fetches basic customer info for the pre-analysis screen.
+// SDL: customer(id: ID!): Customer! — arg is `id`, and Customer exposes `id`
+// (not customerId) with no `age` field (graphql/schema.graphql). The age shown in
+// the segment header is design-fixed in the SSOT, so we leave it null here.
 const CUSTOMER_QUERY = /* GraphQL */ `
-  query Customer($customerId: ID!) {
-    customer(customerId: $customerId) {
-      customerId
+  query Customer($id: ID!) {
+    customer(id: $id) {
+      id
       name
-      age
       phone
       targetProduct
     }
@@ -558,17 +562,30 @@ export type Customer = {
   targetProduct: string | null;
 };
 
+type CustomerWire = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  targetProduct: string | null;
+};
+
 export async function fetchCustomer(customerId: string): Promise<Customer> {
   if (USE_MOCK) {
     return { customerId, name: '박서준', age: 38, phone: '010-****-2840', targetProduct: '대환대출' };
   }
   const res = await getClient().graphql({
     query: CUSTOMER_QUERY,
-    variables: { customerId },
+    variables: { id: customerId },
   });
   if ('data' in res && res.data) {
-    const d = (res.data as { customer: Customer }).customer;
-    return d;
+    const d = (res.data as { customer: CustomerWire }).customer;
+    return {
+      customerId: d.id,
+      name: d.name ?? '',
+      age: null,
+      phone: d.phone,
+      targetProduct: d.targetProduct,
+    };
   }
   throw new Error('customer 쿼리 응답을 받지 못했습니다.');
 }

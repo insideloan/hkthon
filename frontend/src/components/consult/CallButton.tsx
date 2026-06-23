@@ -10,14 +10,15 @@ import { useRouter } from 'next/navigation';
 import { dialCall } from '@/lib/appsync';
 
 type CallButtonProps = {
-  callId: string;
+  /** 발신 대상 고객 id. dialCall(customerId)이 새 통화를 생성한다. */
+  customerId: string;
   /** 분석 완료 여부. false 이면 버튼이 disabled 상태로 렌더된다. */
   analysisComplete?: boolean;
 };
 
 type ButtonState = 'idle' | 'dialing' | 'error';
 
-export function CallButton({ callId, analysisComplete = true }: CallButtonProps) {
+export function CallButton({ customerId, analysisComplete = true }: CallButtonProps) {
   const router = useRouter();
   const [btnState, setBtnState] = useState<ButtonState>('idle');
 
@@ -25,7 +26,7 @@ export function CallButton({ callId, analysisComplete = true }: CallButtonProps)
     if (btnState === 'dialing') return;
     setBtnState('dialing');
     try {
-      const result = await dialCall(callId);
+      const result = await dialCall(customerId);
       if (result.state === 'DIALING' || result.callId) {
         router.push(`/calls/${result.callId}`);
       }
