@@ -14,7 +14,13 @@
 //   disableLiveData=true 또는 NEXT_PUBLIC_USE_MOCK=1 이면 mock만 사용.
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { clsx } from 'clsx';
 import { subscribeMotDetected, fetchMots } from '@/lib/appsync';
 import * as appsyncMod from '@/lib/appsync';
@@ -25,6 +31,34 @@ import {
   type MarkerState,
 } from '@/stores/motStore';
 import type { MotDetected } from '@/types/realtime';
+import { CAR_IMAGE_HREF } from '@/consult-engine/data/carImage';
+import type { BannerContent as EngineBanner } from '@/consult-engine/types';
+
+// ── 엔진(useConsultEngine)이 호출하는 명령형 핸들 ──────────────────────────────
+// SSOT의 moveCar/setCar/revealRoute/reach/setBanner/stageEffects는 getPointAtLength·
+// stroke-dashoffset·rAF 기반이라 선언적 state로 옮기기 부적합 → ref로 노출해 그대로 구동.
+export type JourneyMapHandle = {
+  /** 차량을 prog(0–1)까지 ms 동안 주행 (rAF easeInOutQuad). 도착 시 cb. */
+  moveCar: (to: number, ms: number, cb?: () => void) => void;
+  /** 체크포인트 도달: 이전은 done, 현재는 now (SSOT reach). */
+  reach: (cpId: string) => void;
+  /** 위험노드 표시(alert) + cautionPop. */
+  showRisk: (rzId: string) => void;
+  /** 위험노드 방어 완료(blocked) + cautionPop 숨김. */
+  setBlocked: (rzId: string) => void;
+  /** 네비 배너 갱신 (SSOT setBanner). */
+  setBanner: (b: EngineBanner | null, prog: number) => void;
+  /** 차량 흔들기 (위험 도착 시). */
+  shakeCar: () => void;
+  /** 전체 초기화: 차량 0, 경로 미표시, 마커 hidden. */
+  resetMap: () => void;
+};
+
+// rz 접미사(rate/compare/…) → MOT 마커 element id.
+const rzToMarkerId = (rz: string): MotMarkerId | null => {
+  const id = `rz-${rz}` as MotMarkerId;
+  return MOT_MARKER_IDS.includes(id) ? id : null;
+};
 
 // SSOT 좌표: docs/consult_redesigned-3.html 각 rz 요소의 transform="translate(x,y)"
 const MOT_MARKER_COORDS: Record<MotMarkerId, { x: number; y: number; label: string }> = {
@@ -431,7 +465,13 @@ function AxisLines() {
 // ── Route paths — SSOT ghost/route/routeInk/routeCore paths ──────────────────
 const ROUTE_D = "M70.0,232.0 C94.2,247.0 173.3,319.0 215.0,322.0 C256.7,325.0 284.2,248.7 320.0,250.0 C355.8,251.3 387.5,337.5 430.0,330.0 C472.5,322.5 533.3,218.3 575.0,205.0 C616.7,191.7 642.5,248.8 680.0,250.0 C717.5,251.2 758.3,198.3 800.0,212.0 C841.7,225.7 894.2,324.8 930.0,332.0 C965.8,339.2 987.5,274.7 1015.0,255.0 C1042.5,235.3 1063.3,200.5 1095.0,214.0 C1126.7,227.5 1178.3,323.3 1205.0,336.0 C1231.7,348.7 1239.2,292.3 1255.0,290.0 C1270.8,287.7 1274.2,340.7 1300.0,322.0 C1325.8,303.3 1369.2,211.7 1410.0,178.0 C1450.8,144.3 1522.5,129.7 1545.0,120.0";
 
-function RoutePaths() {
+type RoutePathsProps = {
+  routeRef: React.Ref<SVGPathElement>;
+  routeInkRef: React.Ref<SVGUseElement>;
+  routeCoreRef: React.Ref<SVGUseElement>;
+};
+
+function RoutePaths({ routeRef, routeInkRef, routeCoreRef }: RoutePathsProps) {
   return (
     <>
       {/* 예상(고스트) 경로 — opacity는 globals.css #ghost/#ghost.show 로 제어 */}
@@ -445,11 +485,11 @@ function RoutePaths() {
         d={ROUTE_D}
       />
       {/* 재탐색(확정) 경로 */}
-      <path id="route" fill="none" d={ROUTE_D} />
+      <path ref={routeRef} id="route" fill="none" d={ROUTE_D} />
       {/* 주행 완료 구간: routeInk */}
-      <use href="#route" stroke="url(#routegrad)" strokeWidth={13} fill="none" strokeLinecap="round" filter="url(#glow)" id="routeInk" />
+      <use ref={routeInkRef} href="#route" stroke="url(#routegrad)" strokeWidth={13} fill="none" strokeLinecap="round" filter="url(#glow)" id="routeInk" />
       {/* routeCore */}
-      <use href="#route" stroke="#EAF1FF" strokeWidth={4} fill="none" strokeLinecap="round" id="routeCore" />
+      <use ref={routeCoreRef} href="#route" stroke="#EAF1FF" strokeWidth={4} fill="none" strokeLinecap="round" id="routeCore" />
     </>
   );
 }
@@ -539,17 +579,140 @@ export type JourneyMapProps = {
   disableLiveData?: boolean;
 };
 
-export function JourneyMap({
+export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function JourneyMap({
   callId,
   initialMots,
   initialChurnRisk = null,
   disableLiveData = false,
-}: JourneyMapProps) {
+}: JourneyMapProps, ref) {
   const { mots, markers, activeCautionSeq, addMot, setMarkerState, showCaution, hideCaution, reset } =
     useMotStore();
 
   const bannerRef = useRef<BannerContent | null>(null);
   const distRef = useRef(0);
+
+  // ── 엔진 구동용 (명령형) ──────────────────────────────────────────────────
+  // 차량/경로는 getPointAtLength·stroke-dashoffset 기반 → state 아닌 ref + 직접 DOM.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const routeRef = useRef<SVGPathElement | null>(null);
+  const routeInkRef = useRef<SVGUseElement | null>(null);
+  const routeCoreRef = useRef<SVGUseElement | null>(null);
+  const carPosRef = useRef<SVGGElement | null>(null);
+  const carBodyRef = useRef<SVGGElement | null>(null);
+  const routeLenRef = useRef(0); // getTotalLength() 캐시
+  const curProgRef = useRef(0); // 매 rAF 프레임 변형 — state 금지
+  const rafRef = useRef<number | null>(null);
+  // engineMode 배너(엔진 setBanner가 갱신) — engineMode일 때 구독 배너보다 우선.
+  const [engineBanner, setEngineBanner] = useState<BannerContent | null>(null);
+  const [engineDist, setEngineDist] = useState<number | null>(null);
+  // 통화 시작(차량 주행 개시) 여부 — engineMode에서 #svg.playing 토글.
+  const [enginePlaying, setEnginePlaying] = useState(false);
+
+  // setCar: prog(0–1) 위치로 차량 이동 + 경로 채움 (SSOT setCar/revealRoute).
+  const setCar = (prog: number) => {
+    const route = routeRef.current;
+    const L = routeLenRef.current;
+    // jsdom 등 getPointAtLength 미구현 환경 가드.
+    if (!route || !L || typeof route.getPointAtLength !== 'function') return;
+    prog = Math.max(0, Math.min(1, prog));
+    const p = route.getPointAtLength(L * prog);
+    carPosRef.current?.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+    const off = L * (1 - prog);
+    if (routeInkRef.current) routeInkRef.current.style.strokeDashoffset = String(off);
+    if (routeCoreRef.current) routeCoreRef.current.style.strokeDashoffset = String(off);
+  };
+
+  // ── 마운트: 경로 길이 측정 + dash 초기화 + 차량 0 위치 ──────────────────────
+  useEffect(() => {
+    const route = routeRef.current;
+    if (!route || typeof route.getTotalLength !== 'function') return;
+    const L = route.getTotalLength();
+    routeLenRef.current = L;
+    [routeInkRef.current, routeCoreRef.current].forEach((u) => {
+      if (!u) return;
+      u.style.strokeDasharray = `${L} ${L}`;
+      u.style.strokeDashoffset = String(L);
+    });
+    setCar(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── 명령형 핸들 노출 (엔진이 호출) ──────────────────────────────────────────
+  useImperativeHandle(ref, (): JourneyMapHandle => ({
+    moveCar(to, ms, cb) {
+      to = Math.max(0, Math.min(1, to));
+      setEnginePlaying(true);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const from = curProgRef.current;
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const k = Math.min(1, (now - t0) / ms);
+        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // easeInOutQuad
+        curProgRef.current = from + (to - from) * e;
+        setCar(curProgRef.current);
+        if (k < 1) {
+          rafRef.current = requestAnimationFrame(step);
+        } else {
+          rafRef.current = null;
+          cb?.();
+        }
+      };
+      rafRef.current = requestAnimationFrame(step);
+    },
+    reach(cpId) {
+      const ORDER = ['interest', 'trust', 'cond', 'limit', 'review', 'goal'];
+      const idx = ORDER.indexOf(cpId);
+      ORDER.forEach((n, j) => {
+        const el = svgRef.current?.querySelector(`#cp-${n}`);
+        if (!el) return;
+        el.classList.remove('now', 'done');
+        if (j < idx) el.classList.add('done');
+        else if (j === idx) el.classList.add('now');
+      });
+    },
+    showRisk(rz) {
+      const id = rzToMarkerId(rz);
+      if (id) {
+        setMarkerState(id, 'alert', MOT_MARKER_IDS.indexOf(id) + 1);
+        showCaution(MOT_MARKER_IDS.indexOf(id) + 1);
+      }
+    },
+    setBlocked(rz) {
+      const id = rzToMarkerId(rz);
+      if (id) {
+        setMarkerState(id, 'blocked', MOT_MARKER_IDS.indexOf(id) + 1);
+        hideCaution();
+      }
+    },
+    setBanner(b, prog) {
+      if (!b) return;
+      setEngineBanner({ type: b.type, eyebrow: b.eye, lead: b.lead });
+      setEngineDist(Math.round((prog ?? curProgRef.current) * 100));
+    },
+    shakeCar() {
+      const el = carBodyRef.current;
+      if (!el) return;
+      el.style.animation = 'none';
+      if (typeof el.getBBox === 'function') void el.getBBox(); // reflow
+      el.style.animation = 'shake .5s ease-in-out 2';
+    },
+    resetMap() {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      curProgRef.current = 0;
+      setCar(0);
+      setEngineBanner(null);
+      setEngineDist(null);
+      setEnginePlaying(false);
+      reset();
+      svgRef.current?.querySelectorAll('.cp').forEach((el) => el.classList.remove('now', 'done'));
+    },
+  }));
+
+  // 언마운트 시 rAF 정리
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
 
   // FRONTEND-012: churnRisk% → bannerDist + rz marker risk-zone emphasis
   const [churnRisk, setChurnRisk] = useState<number | null>(initialChurnRisk ?? null);
@@ -638,12 +801,16 @@ export function JourneyMap({
     : { x: 0, y: 0 };
 
   // FRONTEND-012: churnRisk% drives bannerDist when available; mark rz zones active
-  const bannerDist = churnRisk !== null ? churnRisk : distRef.current;
+  // engineMode(setBanner)일 때는 엔진 dist가 우선.
+  const bannerDist = engineDist !== null ? engineDist : churnRisk !== null ? churnRisk : distRef.current;
   // A marker is "risk-active" if churnRisk >= 50 (high-risk zone emphasis per SSOT)
   const isHighRisk = churnRisk !== null && churnRisk >= 50;
 
-  // SSOT: #svg.playing — 통화 시작(MOT 수신) 시 mapframe/carPos 표시
-  const isPlaying = mots.length > 0;
+  // engineMode 배너가 있으면 그것을, 아니면 구독 배너(bannerRef).
+  const activeBanner = engineBanner ?? bannerRef.current;
+
+  // SSOT: #svg.playing — 통화 시작(MOT 수신 또는 엔진 주행) 시 mapframe/carPos 표시
+  const isPlaying = enginePlaying || mots.length > 0;
 
   return (
     <section
@@ -654,9 +821,10 @@ export function JourneyMap({
       style={{ display: 'block' }}
     >
       {/* NavBanner — absolutely positioned overlay on top of SVG */}
-      <NavBanner banner={bannerRef.current} dist={bannerDist} />
+      <NavBanner banner={activeBanner} dist={bannerDist} />
 
       <svg
+        ref={svgRef}
         id="svg"
         className={clsx(isPlaying && 'playing')}
         viewBox="25 12 1610 418"
@@ -687,7 +855,7 @@ export function JourneyMap({
         </g>
 
         {/* 경로 (ghost/route/routeInk/routeCore) */}
-        <RoutePaths />
+        <RoutePaths routeRef={routeRef} routeInkRef={routeInkRef} routeCoreRef={routeCoreRef} />
 
         {/* MOT 마커 (SSOT: .rz 그룹) */}
         <g fontFamily="var(--kr)" fontSize={18} fontWeight={800}>
@@ -719,7 +887,24 @@ export function JourneyMap({
           x={cautionCoords.x}
           y={cautionCoords.y}
         />
+
+        {/* 차량 (SSOT #carPos/#carBody) — 동그라미 안 더뉴그랜저, 회전 없이 위치만 이동 */}
+        <g ref={carPosRef} id="carPos">
+          <g ref={carBodyRef} id="carBody">
+            <circle r={38} fill="#fff" stroke="var(--route)" strokeWidth={2.5} filter="url(#soft)" />
+            <image
+              href={CAR_IMAGE_HREF}
+              x={-33}
+              y={-33}
+              width={66}
+              height={66}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath="url(#carClip)"
+            />
+            <circle r={33} fill="none" stroke="#fff" strokeWidth={1} />
+          </g>
+        </g>
       </svg>
     </section>
   );
-}
+});

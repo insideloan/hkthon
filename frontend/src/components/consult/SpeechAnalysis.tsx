@@ -21,6 +21,8 @@ import type {
   SpeechToken,
   StrategyUpdate,
 } from '@/types/realtime';
+import { useCard1Store } from '@/stores/card1Store';
+import { CATS } from '@/consult-engine/data/strategy';
 
 // ── STRAT20 (SSOT docs/consult_redesigned-3.html) ──────────────────────────
 const STRAT20: ReadonlyArray<{ name: string; lead: string }> = [
@@ -245,6 +247,71 @@ function EmoBins({ emotion }: { emotion: string | null }) {
   );
 }
 
+// ── engineMode: SSOT 충실 카드① (bins + solveArrow + stratg) ──────────────────
+// 시나리오 엔진(useConsultEngine)이 card1Store에 단계적으로 기록 → SSOT 마크업 그대로.
+const ENGINE_CATS = [
+  { key: 'psy', ...CATS.psy },
+  { key: 'intent', ...CATS.intent },
+  { key: 'obstacle', ...CATS.obstacle },
+] as const;
+
+function EngineCard1() {
+  const { psy, intent, obstacle, stratPhase, picked, solveArrow } = useCard1Store();
+  const orbByKey = { psy, intent, obstacle } as const;
+  const resolved = stratPhase === 'resolved';
+
+  return (
+    <section className="flex flex-col gap-2 h-full min-h-0" aria-label="고객발화분석" data-testid="speech-analysis">
+      <div className="cseclbl"><span>발화 분류</span><span className="ln" /></div>
+
+      {/* orb bins — 감정/니즈/이용가능성 */}
+      <div className="bins" id="emoBins">
+        {ENGINE_CATS.map(({ key, label, en }) => {
+          const orb = orbByKey[key as 'psy' | 'intent' | 'obstacle'];
+          return (
+            <div className={clsx('bin', key)} key={key} data-cat={key}>
+              <div className="bin__h"><b>{label}</b><i>{en}</i></div>
+              <div className="bin__slot" id={`slot-${key}`}>
+                {orb && (
+                  <div className={clsx('orb', key, 'drop', orb.tone && 'eased')} data-testid={`orb-${key}`}>
+                    <span className="otag">{orb.dim}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* solveArrow */}
+      <div className={clsx('solvearrow', solveArrow && 'on')} id="solveArrow">
+        <span className="dn">▼</span><span>최적 전략 선택</span>
+      </div>
+
+      {/* 전략 그리드 20장 → swiping → resolved */}
+      <div
+        className={clsx('stratg', stratPhase === 'swiping' && 'swiping', resolved && 'resolved', resolved && picked.length === 1 && 'one')}
+        id="stratGrid"
+        data-testid="strat-grid"
+        data-phase={stratPhase}
+      >
+        <div className="strat-track">
+          {STRAT20.map((s, idx) => {
+            const isSel = resolved && picked.includes(idx);
+            return (
+              <div className={clsx('scard', isSel && 'sel')} key={idx} data-i={idx} data-testid={isSel ? 'strat-sel' : undefined}>
+                <span className="sno">{String(idx + 1).padStart(2, '0')}</span>
+                <span className="stx">{s.name}</span>
+                <span className="slead">{s.lead}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Component state ───────────────────────────────────────────────────────────
 type TurnAnalysis = {
   turnSeq: number;
@@ -265,9 +332,18 @@ export type SpeechAnalysisProps = {
   /** FRONTEND-012: seed initial emotion for tests/Storybook. */
   initialEmotion?: string | null;
   disableLiveData?: boolean;
+  /** 시나리오 엔진 모드: card1Store 구독, SSOT 충실 마크업(bins+stratg) 렌더. */
+  engineMode?: boolean;
 };
 
-export function SpeechAnalysis({
+export function SpeechAnalysis(props: SpeechAnalysisProps) {
+  // 엔진 모드: AppSync 구독 없이 card1Store 기반 SSOT 마크업.
+  // (래퍼로 분기해 아래 LiveSpeechAnalysis의 hooks 규칙을 지킨다.)
+  if (props.engineMode) return <EngineCard1 />;
+  return <LiveSpeechAnalysis {...props} />;
+}
+
+function LiveSpeechAnalysis({
   callId,
   initialState,
   initialEmotion = null,
