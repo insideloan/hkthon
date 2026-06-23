@@ -399,6 +399,11 @@ export class HkthonStack extends cdk.Stack {
       platform: 'WEB_COMPUTE', // Next.js 15 SSR/ISR
       environmentVariables: [
         { name: 'NEXT_PUBLIC_APPSYNC_URL', value: api.graphqlUrl },
+        // The frontend's Amplify client needs BOTH url + apiKey — without the
+        // key, configureAppSync() bails and every query fails 'NoCredentials'
+        // (empty dashboard). NEXT_PUBLIC_* is baked at build time, so this must
+        // be present before `pnpm build` runs.
+        { name: 'NEXT_PUBLIC_APPSYNC_API_KEY', value: api.apiKey ?? '' },
         { name: 'AMPLIFY_MONOREPO_APP_ROOT', value: 'frontend' },
       ],
       buildSpec: [
