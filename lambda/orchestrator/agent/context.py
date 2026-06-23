@@ -20,8 +20,10 @@ def load_call_state(call_id: str, customer_text: str) -> CallState:
     turns = _query_turns(call_id)              # TODO: Query PK=CALL#{id}, SK begins_with TURN#
     customer = _load_customer(call_id)         # TODO: META.customer_id → CUSTOMER#{id}
 
-    churn_before = turns[-1]["churn_after"] if turns else 50
-    next_seq = (turns[-1]["seq"] + 1) if turns else 1
+    # churn_before = 가장 최근에 churn_after가 기록된 Turn 값(봇 Turn만 기록). customer
+    # Turn(audioChunk write)은 churn_after가 없으므로 거꾸로 훑어 마지막 점수를 찾는다.
+    churn_before = _last_churn(turns)
+    next_seq = (int(turns[-1]["seq"]) + 1) if turns else 1
     history: list[TurnMsg] = [_to_turn_msg(t) for t in turns[-_HISTORY_WINDOW:]]
 
     return CallState(
@@ -33,6 +35,15 @@ def load_call_state(call_id: str, customer_text: str) -> CallState:
         churn_before=churn_before,
         next_seq=next_seq,
     )
+
+
+def _last_churn(turns: list[dict]) -> int:
+    """가장 최근 Turn의 churn_after(없으면 50). customer Turn은 점수가 없어 건너뛴다."""
+    for t in reversed(turns):
+        val = t.get("churn_after")
+        if val is not None:
+            return int(val)
+    return 50
 
 
 def _infer_stage(turns: list[dict]) -> Stage:
@@ -56,14 +67,44 @@ def _infer_stage(turns: list[dict]) -> Stage:
 
 def _query_turns(call_id: str) -> list[dict]:
     """CALL#{id}의 TURN#* 아이템을 seq 순으로 반환."""
-    # TODO: models.turns.list_by_call(call_id) — DATA 모듈 키 설계 사용
-    return []
+    from ..api import dynamo
+
+    turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
+    # dynamo.query는 SK 사전순(=seq zero-padded 순) 정렬이지만, seq 필드로 한 번 더
+    # 안정 정렬해 누락 padding/혼합 데이터에도 결정적 순서를 보장한다.
+    turns.sort(key=lambda t: int(t.get("seq", 0)))
+    return turns
 
 
 def _load_customer(call_id: str) -> CustomerCtx:
-    """Call META의 customer_id로 CUSTOMER#{id} 로드."""
-    # TODO: models.calls.get(call_id).customer_id → models.customers.get(...)
-    return CustomerCtx()
+    """Call META의 customer_id로 CUSTOMER#{id} 로드. 없으면 빈 컨텍스트."""
+    from ..api import dynamo
+
+    call = dynamo.get_item(dynamo.pk_call(call_id), dynamo.SK_META) or {}
+    customer_id = call.get("customerId")
+    if not customer_id:
+        return CustomerCtx()
+    item = dynamo.get_item(dynamo.pk_cust(customer_id), dynamo.SK_META)
+    if not item:
+        return CustomerCtx()
+    return _to_customer_ctx(item)
+
+
+def _to_customer_ctx(item: dict) -> CustomerCtx:
+    """Customer META 아이템(snake) → CustomerCtx (프롬프트 주입용 투영)."""
+    ctx = CustomerCtx(customer_id=item.get("customerId", ""))
+    for key in ("name", "target_product", "rate", "limit", "credit_score"):
+        if item.get(key) is not None:
+            ctx[key] = item[key]
+    if item.get("existing_loans") is not None:
+        # CustomerCtx.existing_loans는 list[dict](당사/타사) 형상. 시드는 {own,other} 맵을
+        # 쓰므로 한 건짜리 요약 dict로 감싼다(프롬프트 표시용 — 정확 스키마는 비강제).
+        ctx["existing_loans"] = [dict(item["existing_loans"])]
+    if item.get("has_vehicle") is not None:
+        ctx["has_vehicle"] = bool(item["has_vehicle"])
+    if item.get("persona") is not None:
+        ctx["persona_json"] = dict(item["persona"])
+    return ctx
 
 
 def _to_turn_msg(turn: dict) -> TurnMsg:

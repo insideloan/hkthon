@@ -49,10 +49,16 @@ _FRAUD_KW = (
 def load_context(state: CallState) -> CallState:
     """DynamoDB Turn 이력 → CallState 재구성. 실제 로딩은 context.load_call_state()에 위임.
 
-    그래프 진입점에서 이미 context.py가 채운 상태로 들어온다고 가정하되,
-    누락 필드(history/churn_before/stage/next_seq)에 대한 방어적 기본값만 보정한다.
+    call_id가 있고 history가 아직 안 채워졌으면 DynamoDB에서 재구성한다(라이브 진입점).
+    이미 채워진 상태(테스트/사전 주입)는 그대로 두고 방어적 기본값만 보정한다.
     """
-    # TODO: context.load_call_state(state["call_id"], state["customer_text"])로 실제 로드.
+    from . import context
+
+    if state.get("call_id") and "history" not in state:
+        loaded = context.load_call_state(state["call_id"], state.get("customer_text", ""))
+        loaded.update({k: v for k, v in state.items() if k not in loaded})
+        state = loaded
+
     state.setdefault("history", [])
     state.setdefault("churn_before", 50)
     state.setdefault("stage", Stage.IDENTIFY)
@@ -278,19 +284,177 @@ def silence(state: CallState) -> CallState:
 
 
 def persist(state: CallState) -> CallState:
-    """Turn/MOT/ComplianceReview/Call write. 멱등성: 동일 seq 조건부 write로 중복 방지."""
-    # TODO: models.* 로 write
-    #   - Turn(seq=next_seq, speaker=bot, text=bot_text, tokens=churn_tokens, churn_after, node=stage)
-    #   - MOT(mot)  if state["mot"]
-    #   - ComplianceReview(compliance_log)
-    #   - Call.fraud_suspected = state["fraud_suspected"]  (true일 때만, 종료 아님)
-    #   - state 전이 (TRANSFER_PENDING / ENDED)
+    """Turn/MOT/ComplianceReview/Call write → DynamoDB Streams 팬아웃(_emit*).
+
+    한 nextTurn = 봇 Turn 1건. write 순서는 화면 연출 순서를 따른다:
+    Compliance(검수 로그) → Turn(봇 발화 + 분석) → MOT → Call META(상태/전략/사기).
+    write 실패가 통화를 끊지 않도록 각 write는 best-effort(예외는 로깅 후 계속).
+    """
+    from ..api import dynamo
+    from ..models.compliance import ComplianceReview
+    from ..models.turn import Turn
+
+    call_id = state.get("call_id")
+    if not call_id:
+        return state
+
+    seq = int(state.get("next_seq", 1))
+    ts = _now_iso()
+
+    # 1) ComplianceReview — 검수 루프 단계별 로그(턴당 try 인덱스). 화면 카드③ 소스.
+    _persist_compliance(call_id, seq, state.get("compliance_log") or [], ts, ComplianceReview, dynamo)
+
+    # 2) 봇 Turn — bot_text + 이번 턴 분석(churn_after/tokens/flag). onTurn/onIndexUpdate 발화.
+    bot_text = state.get("bot_text") or state.get("bot_draft") or ""
+    turn = Turn(
+        call_id=call_id,
+        seq=seq,
+        speaker="bot",
+        text=bot_text,
+        node=_stage_value(state.get("stage")),
+        ts=ts,
+        tokens=list(state.get("churn_tokens") or []),
+        churn_after=state.get("churn_after"),
+        flag=_turn_flag(state),
+    )
+    item = turn.to_item()
+    # 분석 스냅샷(emotion)을 Turn 아이템에도 실어 stream_fanout이 onIndexUpdate를 발화하게 한다.
+    emotion = _enum_value(state.get("emotion"))
+    if emotion is not None:
+        item["emotion"] = emotion
+    _safe_write(dynamo, item, "Turn")
+
+    # 3) MOT — RISK/CONVERSION 판정이 있으면 기록. onMotDetected 발화.
+    mot = state.get("mot")
+    if mot:
+        _persist_mot(call_id, seq, mot, ts, dynamo)
+
+    # 4) Call META — 분석 스냅샷(전략/근거/이탈위험/감정) + 상태 전이 + 사기 플래그.
+    _persist_call_meta(call_id, state, emotion, ts, dynamo)
+
     return state
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 보조 함수
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _now_iso() -> str:
+    """ISO-8601 UTC 타임스탬프 (resolvers/_common.now_iso와 동일 포맷)."""
+    import time
+
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _safe_write(dynamo, item: dict, what: str) -> None:
+    """best-effort put_item — write 실패가 통화를 끊지 않게 예외를 삼킨다."""
+    import logging
+
+    try:
+        dynamo.put_item(item)
+    except Exception:  # noqa: BLE001 — 데모 안정성
+        logging.getLogger(__name__).exception("persist %s write failed", what)
+
+
+def _stage_value(stage) -> str | None:
+    """Stage enum → 저장용 문자열(node 필드). context._infer_stage가 역추론에 사용."""
+    return _enum_value(stage)
+
+
+def _enum_value(v):
+    """Enum이면 .value, 아니면 원값(None 포함) 그대로."""
+    return v.value if hasattr(v, "value") else v
+
+
+def _turn_flag(state: CallState) -> str | None:
+    """봇 Turn의 턴 레벨 flag("risk"|"def"|None) — SpeechAnalysis 배지 분기용.
+
+    이번 턴 MOT가 위험(전환 아님)이면 "risk", 전환이면 "def"(전환=방어 성공 신호).
+    MOT가 없으면 None(NEUTRAL).
+    """
+    mot = state.get("mot")
+    if not mot:
+        return None
+    return "def" if mot.get("is_conversion") else "risk"
+
+
+def _persist_compliance(call_id, turn_seq, log, ts, ComplianceReview, dynamo) -> None:
+    """compliance_log 단계들을 ComplianceReview 아이템으로 적재(try_index = 단계 순번)."""
+    for try_index, step in enumerate(log):
+        review = ComplianceReview(
+            call_id=call_id,
+            turn=turn_seq,
+            try_index=try_index,
+            state=step.get("state", "drafting"),
+            draft=step.get("draft", ""),
+            violated_policies=list(step.get("violated_policies") or []),
+            final=step.get("final_text") or "",
+            ts=ts,
+        )
+        _safe_write(dynamo, review.to_item(), "ComplianceReview")
+
+
+def _persist_mot(call_id, turn_seq, mot, ts, dynamo) -> None:
+    """MotResult(wire 값) → MOT 아이템 write (mots.mot_out / stream_fanout 계약 형상).
+
+    detect_mot은 이미 wire 값(motId=MOT_n, state=SHOW.., stageIndex)을 담으므로,
+    stageIndex→stage(wire enum)만 매핑해 그대로 직렬화한다(도메인 역매핑 불필요).
+    """
+    item = {
+        "PK": dynamo.pk_call(call_id),
+        "SK": dynamo.sk_mot(turn_seq),
+        "markerId": mot.get("motId"),
+        "state": mot.get("state"),
+        "stageIndex": mot.get("stageIndex"),
+        "turn_seq": mot.get("turn_seq", turn_seq),
+        "ts": ts,
+    }
+    # stageIndex→stage(wire) 매핑은 mots.mot_out과 동일 규약. Streams 팬아웃이 그대로 읽는다.
+    from ..resolvers.mots import _STAGE_BY_INDEX
+
+    idx = item.pop("stageIndex", None)
+    if idx is not None and 0 <= int(idx) < len(_STAGE_BY_INDEX):
+        item["stage"] = _STAGE_BY_INDEX[int(idx)]
+    _safe_write(dynamo, item, "MOT")
+
+
+def _persist_call_meta(call_id, state, emotion, ts, dynamo) -> None:
+    """Call META에 분석 스냅샷 + 상태 전이 + 사기 플래그를 누적 업데이트.
+
+    META MODIFY는 stream_fanout이 _emitStrategyUpdate/_emitQueueUpdate/_emitCallEnded로
+    팬아웃한다. update_fields(SET)로 부분 갱신 — 없는 키만 덮어쓴다.
+    """
+    fields: dict = {"current_node": _stage_value(state.get("stage")), "updated_at": ts}
+
+    if state.get("churn_after") is not None:
+        fields["churn_risk"] = state["churn_after"]
+    if emotion is not None:
+        fields["emotion"] = emotion
+    strategy = state.get("strategy") or {}
+    if strategy.get("headline"):
+        fields["strategy_headline"] = strategy["headline"]
+    if state.get("rationale"):
+        fields["rationale"] = state["rationale"]
+    # fraud_suspected는 한 번 true면 유지(latching) — true일 때만 set, 종료/전이 없음.
+    if state.get("fraud_suspected"):
+        fields["fraud_suspected"] = True
+
+    # 상태 전이: TRANSFER_PENDING / ENDED (call_status). ACTIVE면 state 미변경.
+    status = _enum_value(state.get("call_status"))
+    if status == "TRANSFER_PENDING":
+        fields["state"] = "TRANSFER_PENDING"
+        fields["agent_joined_at"] = ts
+    elif status == "ENDED":
+        fields["state"] = "ENDED"
+        fields["ended_at"] = ts
+
+    try:
+        dynamo.update_fields(dynamo.pk_call(call_id), dynamo.SK_META, fields)
+    except Exception:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).exception("persist Call META update failed")
 
 
 def _count_trailing_silence(state: CallState) -> int:
