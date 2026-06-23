@@ -28,6 +28,48 @@ def test_transfer_is_not_ended():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# transfer_node — 핸드오프 요약 (상담원 이관 맥락 전달)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_transfer_emits_handoff_summary_via_llm(monkeypatch):
+    """대화 맥락이 있으면 LLM 요약을 handoff_summary로 반환."""
+    from orchestrator.llm import router
+
+    monkeypatch.setattr(router, "converse", lambda system, user, **kw: "고객이 금리 부담으로 상담원 연결 요청.")
+    out = nodes.transfer_node({
+        "history": [{"seq": 1, "speaker": "customer", "text": "금리가 너무 높아요", "node": None}],
+        "customer_text": "사람 바꿔주세요",
+    })
+    assert out["handoff_summary"] == "고객이 금리 부담으로 상담원 연결 요청."
+
+
+def test_transfer_handoff_summary_fallback_when_no_context():
+    """대화 맥락이 전혀 없으면 LLM 없이 결정적 폴백 요약."""
+    out = nodes.transfer_node({"history": []})
+    assert out["handoff_summary"]
+    assert "상담원 연결 요청" in out["handoff_summary"]
+
+
+def test_transfer_handoff_summary_fallback_on_llm_failure(monkeypatch):
+    """converse가 FALLBACK_TEXT(장애)면 룰 폴백으로 대체."""
+    from orchestrator.llm import router
+
+    monkeypatch.setattr(router, "converse", lambda system, user, **kw: router.FALLBACK_TEXT)
+    out = nodes.transfer_node({
+        "history": [],
+        "customer_text": "사람 바꿔주세요",
+        "stage": Stage.PROPOSE,
+        "intent": Intent.TRANSFER_INTENT,
+        "churn_after": 55,
+    })
+    s = out["handoff_summary"]
+    assert "상담원 연결 요청" in s
+    assert "사람 바꿔주세요" in s  # 직전 발화 포함
+    assert "55" in s              # 이탈위험 포함
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # detect_fraud — 플래그만, 분기·종료 없음 (Acceptance #2)
 # ─────────────────────────────────────────────────────────────────────────────
 

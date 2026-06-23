@@ -242,18 +242,68 @@ def transfer_node(state: CallState) -> CallState:
     """상담원 이관. transferToAgent 경로 → call_status=TRANSFER_PENDING (성공경로). 이관 멘트 준비.
 
     Acceptance(AGENT-006): transfer 시 call_status가 TRANSFER_PENDING으로 전이.
+
+    이관 시 지금까지의 대화를 1~2문장 핸드오프 요약(handoff_summary)으로 만들어
+    상담원이 맥락을 즉시 파악하게 한다(persist가 Call META에 기록 → CRM 표시).
+    고객에겐 추가 질문으로 시간을 끌지 않는다(요약은 백그라운드 산출물).
     """
-    # TODO: 지금까지 history 요약 후 상담원 이관 페이로드 구성. 추가 질문으로 시간끌기 금지.
     return {
         "route": Route.TRANSFER,
         "call_status": CallStatus.TRANSFER_PENDING,
         "bot_text": "네, 바로 상담원에게 연결해 드리겠습니다. 잠시만 기다려 주세요.",
+        "handoff_summary": _build_handoff_summary(state),
         "strategy": {
             "tactic": "즉시 이관",
             "headline": "상담원 연결 요청 — 단계 무시 즉시 이관",
             "lead": signals.tactic_lead(signals.Tactic.HANDOFF_PROTECT),
         },
     }
+
+
+def _build_handoff_summary(state: CallState) -> str:
+    """상담원 이관용 핸드오프 요약 1~2문장. LLM 우선, 장애/빈 이력 시 결정적 폴백.
+
+    LLM(converse)으로 history+이번 발화를 요약하되, 실패하면 룰 기반 폴백으로
+    이관 사유/단계/이탈위험을 한 줄로 구성한다(통화 흐름을 막지 않음).
+    """
+    history = state.get("history") or []
+    customer_text = (state.get("customer_text") or "").strip()
+    # 대화 맥락이 거의 없으면 LLM 없이 폴백(콜드 이관 — 비용/지연 회피).
+    if not history and not customer_text:
+        return _fallback_handoff_summary(state)
+
+    system = (
+        "당신은 아웃바운드 대출상담 봇이다. 지금까지의 통화를 상담원에게 넘기기 위해 "
+        "한국어 1~2문장으로 핸드오프 요약을 작성하라. 고객의 핵심 니즈/우려와 이관 사유만 "
+        "간결히. 인사말·군더더기·추측 금지. 확정 수치 단정 금지."
+    )
+    try:
+        summary = router.converse(system, _render_history(state), stream=False).strip()
+    except Exception:  # noqa: BLE001 — 요약 실패가 이관을 막지 않게
+        summary = ""
+    # converse는 장애 시 FALLBACK_TEXT(일반 안내문)를 줄 수 있음 — 그 경우 룰 폴백으로 대체.
+    if not summary or summary == router.FALLBACK_TEXT:
+        return _fallback_handoff_summary(state)
+    return summary
+
+
+def _fallback_handoff_summary(state: CallState) -> str:
+    """LLM 없이 state 신호로 구성하는 결정적 핸드오프 요약."""
+    parts = []
+    stage = _enum_value(state.get("stage"))
+    if stage:
+        parts.append(f"단계 {stage}")
+    intent = _enum_value(state.get("intent"))
+    if intent:
+        parts.append(f"의도 {intent}")
+    churn = state.get("churn_after", state.get("churn_before"))
+    if churn is not None:
+        parts.append(f"이탈위험 {churn}")
+    last = (state.get("customer_text") or "").strip()
+    head = "상담원 연결 요청"
+    detail = f" — {', '.join(parts)}" if parts else ""
+    tail = f' 직전 발화: "{last}"' if last else ""
+    return f"{head}{detail}.{tail}".strip()
 
 
 def close_node(state: CallState) -> CallState:
@@ -479,6 +529,10 @@ def _persist_call_meta(call_id, state, emotion, ts, dynamo) -> None:
     if status == "TRANSFER_PENDING":
         fields["state"] = "TRANSFER_PENDING"
         fields["agent_joined_at"] = ts
+        # 상담원 핸드오프 요약 — CRM/상담원이 맥락 즉시 파악(handoff_reason 키로 통일,
+        # summaries.write_summary 및 CallSummaryResult.handoffReason과 동일 소스).
+        if state.get("handoff_summary"):
+            fields["handoff_reason"] = state["handoff_summary"]
     elif status == "ENDED":
         fields["state"] = "ENDED"
         fields["ended_at"] = ts

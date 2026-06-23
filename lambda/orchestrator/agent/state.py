@@ -186,6 +186,7 @@ class CallState(TypedDict, total=False):
     intent: Intent
     route: Route
     classified_by: Literal["rule", "llm"]
+    handoff_summary: str   # transfer_node가 채움: 상담원 이관용 1~2문장 핸드오프 요약
     emotion: Optional[Emotion]       # 신호축1 (signals.Emotion, 15종)
     need: Optional[Need]             # 신호축2 (signals.Need, 15종)
     usability: Optional[Usability]   # 신호축3 (signals.Usability, 20종)
