@@ -565,6 +565,45 @@ export async function createCall(customerId: string): Promise<CreateCallResult> 
   throw new Error('createCall 응답을 받지 못했습니다.');
 }
 
+// ── 라이브 오디오 뮤테이션 (체험 라이브 세션) ────────────────────────────────
+// SDL: startAudio(callId): Boolean / audioChunk(callId, data): Boolean / nextTurn(callId): Turn.
+// 라이브 모드(ORCHESTRATOR_MODE=live) 백엔드에서 STT→agent→TTS를 구동한다.
+// mock 빌드/스크립트 모드에서는 백엔드가 no-op이므로 클라이언트도 안전하게 단락한다.
+const START_AUDIO_MUTATION = /* GraphQL */ `
+  mutation StartAudio($callId: ID!) {
+    startAudio(callId: $callId)
+  }
+`;
+
+const AUDIO_CHUNK_MUTATION = /* GraphQL */ `
+  mutation AudioChunk($callId: ID!, $data: String!) {
+    audioChunk(callId: $callId, data: $data)
+  }
+`;
+
+/** 라이브 오디오 세션 시작. mock 모드는 true(로컬 시뮬레이션 경로). */
+export async function startAudio(callId: string): Promise<boolean> {
+  if (USE_MOCK) return true;
+  const res = await getClient().graphql({ query: START_AUDIO_MUTATION, variables: { callId } });
+  if ('data' in res && res.data) {
+    return Boolean((res.data as { startAudio: boolean }).startAudio);
+  }
+  return false;
+}
+
+/**
+ * base64 PCM(16kHz mono) 오디오 청크를 전송. 백엔드가 STT→customer Turn→agent→bot Turn.
+ * mock 모드는 no-op(true) — 전송할 실제 백엔드가 없다.
+ */
+export async function audioChunk(callId: string, data: string): Promise<boolean> {
+  if (USE_MOCK) return true;
+  const res = await getClient().graphql({ query: AUDIO_CHUNK_MUTATION, variables: { callId, data } });
+  if ('data' in res && res.data) {
+    return Boolean((res.data as { audioChunk: boolean }).audioChunk);
+  }
+  return false;
+}
+
 // ── customer query — FRONTEND-003 / #32 ──────────────────────────────────────
 // Fetches basic customer info for the pre-analysis screen.
 // SDL: customer(id: ID!): Customer! — arg is `id`, and Customer exposes `id`
