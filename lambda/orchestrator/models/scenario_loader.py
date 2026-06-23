@@ -39,6 +39,10 @@ KNOWN_SCENARIOS = ("s1", "s2")
 
 # SSOT-3 enum 허용값 (DATA-003/004/005 모델과 일치)
 _SPEAKERS = {"bot", "customer", "agent"}
+# 턴 node = AGENT 4단계 + 종료(agent/state.py:Stage). AGENT가 마지막 봇 Turn의
+# node에서 stage를 역추론하므로(LANGGRAPH-DESIGN §4 _infer_stage) 값이 정합해야 한다.
+# mot.py가 wire enum을 자체 상수로 두는 선례처럼, 모듈 결합을 피해 값만 복제.
+_NODES = {"IDENTIFY", "CONSENT", "PROPOSE", "CHANNEL", "CLOSING"}
 _FLAGS = {"risk", "def", None}
 _POLARITIES = {"PRO", "CONS", None}
 _MOT_MARKERS = {"rz-rate", "rz-compare", "rz-pay", "rz-security", "rz-avoid"}
@@ -175,6 +179,10 @@ def _validate_turn(turn: dict, index: int) -> None:
     if turn["speaker"] not in _SPEAKERS:
         raise ScenarioValidationError(
             f"turn {index}: invalid speaker {turn['speaker']!r}")
+    if turn["node"] not in _NODES:
+        raise ScenarioValidationError(
+            f"turn {index}: invalid node {turn['node']!r} "
+            f"(Stage: IDENTIFY|CONSENT|PROPOSE|CHANNEL|CLOSING)")
     if turn["flag"] not in _FLAGS:
         raise ScenarioValidationError(
             f"turn {index}: invalid flag {turn['flag']!r} (risk|def|null)")
@@ -195,6 +203,12 @@ def _validate_turn(turn: dict, index: int) -> None:
     if "fraud_suspected" in turn and not isinstance(turn["fraud_suspected"], bool):
         raise ScenarioValidationError(
             f"turn {index}: fraud_suspected must be a boolean")
+
+    # greet (선택) — 아웃바운드 발신 시 고객이 먼저 받는 인사 턴("여보세요?").
+    # 분석/MOT 파이프라인을 트리거하지 않는 가벼운 턴(프론트 consult-engine 계약).
+    if "greet" in turn and not isinstance(turn["greet"], bool):
+        raise ScenarioValidationError(
+            f"turn {index}: greet must be a boolean")
 
     # mot (선택) — 있으면 enum 검증
     if "mot" in turn:
