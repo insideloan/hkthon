@@ -127,19 +127,33 @@ def resolve_create_call(event: dict, args: dict) -> dict:
 
 
 def resolve_dial_call(event: dict, args: dict) -> dict:
-    """통화 버튼 발신. 이미 진행 중인 콜이 있으면 INVALID_STATE.
+    """통화 버튼 발신. 이미 *연결된* 콜이 있으면 INVALID_STATE.
 
     행 클릭은 모니터링 진입일 뿐 — 발신은 이 뮤테이션(명시적 버튼)으로만 일어난다.
+
+    중복 발신 처리: 같은 고객의 활성 콜이
+      - IN_CALL / TRANSFER_PENDING (실제 통화 중) → INVALID_STATE 로 거부.
+      - DIALING (발신만 하고 연결 안 됨) → stale 로 간주, 종료하고 재발신 진행.
+    DIALING 은 과도 상태(벨 울리는 중)라 연결되지 못한 채 남으면 ACTIVE_CALL 인덱스가
+    영구히 잠겨 재발신이 불가능해진다(발신 화면엔 endCall 경로 없음). 다시 발신 버튼을
+    누른 의도는 명백히 재발신이므로, 묵은 DIALING 콜은 ENDED 처리하고 새 콜을 만든다.
     """
     customer_id = args["customerId"]
 
-    # 같은 고객의 진행 중 콜이 있으면 중복 발신 거부.
     existing = _active_call_for_customer(customer_id)
     if existing:
-        raise OrchestratorError(
-            "INVALID_STATE",
-            f"customer {customer_id} already has an active call ({existing})",
+        if existing["state"] in ("IN_CALL", "TRANSFER_PENDING"):
+            raise OrchestratorError(
+                "INVALID_STATE",
+                f"customer {customer_id} already has an active call "
+                f"({existing['callId']})",
+            )
+        # state == DIALING: 연결되지 않은 묵은 발신 — 종료하고 재발신을 진행한다.
+        stale = dynamo.update_fields(
+            dynamo.pk_call(existing["callId"]), dynamo.SK_META,
+            {"state": "ENDED", "ended_at": now_iso()},
         )
+        _upsert_queue_index(stale)
 
     # 큐 row에 고객명을 띄우기 위해 발신 시점 META에 미러링(스냅샷용, 선택).
     cust = dynamo.get_item(dynamo.pk_cust(customer_id), dynamo.SK_META) or {}
@@ -167,11 +181,13 @@ def resolve_dial_call(event: dict, args: dict) -> dict:
     return _call_out(item)
 
 
-def _active_call_for_customer(customer_id: str) -> str | None:
-    """활성(DIALING/IN_CALL/TRANSFER_PENDING) 콜이 있으면 callId 반환.
+def _active_call_for_customer(customer_id: str) -> dict | None:
+    """활성(DIALING/IN_CALL/TRANSFER_PENDING) 콜이 있으면 {callId, state} 반환.
 
     싱글 테이블에 고객→콜 GSI가 없으므로, 활성 콜 인덱스 아이템
     (PK=CUST#, SK=ACTIVE_CALL)을 사용한다. dialCall이 이 인덱스를 갱신.
+    호출부가 DIALING(묵은 발신) vs IN_CALL/TRANSFER_PENDING(연결됨)을 구분해야
+    하므로 state 까지 함께 돌려준다.
     """
     idx = dynamo.get_item(dynamo.pk_cust(customer_id), "ACTIVE_CALL")
     if not idx:
@@ -181,7 +197,7 @@ def _active_call_for_customer(customer_id: str) -> str | None:
         return None
     call = dynamo.get_item(dynamo.pk_call(call_id), dynamo.SK_META)
     if call and call.get("state") in ACTIVE_STATES:
-        return call_id
+        return {"callId": call_id, "state": call["state"]}
     return None
 
 
