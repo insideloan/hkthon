@@ -57,11 +57,75 @@ def test_resolve_voice_id_unknown_raises_tts_error():
 
 
 def test_synthesize_no_api_key_raises_tts_error(monkeypatch):
-    """TYPECAST_API_KEY 미설정 → TtsError."""
+    """TYPECAST_API_KEY/SECRET_ARN 둘 다 미설정 → TtsError."""
     monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.delenv("TYPECAST_SECRET_ARN", raising=False)
     with pytest.raises(TtsError) as exc_info:
         synthesize("안녕하세요", "혜라", s3_uploader=_SKIP_S3)
     assert "TTS_ERROR" in str(exc_info.value)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _resolve_api_key — env 우선 / Secrets Manager 폴백 (배포 경로)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_resolve_api_key_prefers_env(monkeypatch):
+    """env가 있으면 boto3를 타지 않고 env 값을 쓴다."""
+    from orchestrator.tts import typecast_tts as t
+
+    monkeypatch.setenv("TYPECAST_API_KEY", "env-key")
+    monkeypatch.setenv("TYPECAST_SECRET_ARN", "arn:should-not-be-used")
+    assert t._resolve_api_key() == "env-key"
+
+
+def test_resolve_api_key_from_secret_plain(monkeypatch):
+    """env 없고 ARN만 있으면 Secrets Manager 평문 시크릿을 읽는다."""
+    from orchestrator.tts import typecast_tts as t
+
+    monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.setenv("TYPECAST_SECRET_ARN", "arn:secret")
+    monkeypatch.setattr(t, "_cached_secret_key", None)
+
+    class _FakeSM:
+        def get_secret_value(self, SecretId):  # noqa: N803 (boto3 kw)
+            assert SecretId == "arn:secret"
+            return {"SecretString": "plain-secret-key"}
+
+    # boto3는 함수 내부 import — monkeypatch.setitem으로 가짜 주입(자동 복원, 누수 없음).
+    import sys
+
+    monkeypatch.setitem(sys.modules, "boto3",
+                        type("M", (), {"client": staticmethod(lambda svc: _FakeSM())}))
+    assert t._resolve_api_key() == "plain-secret-key"
+
+
+def test_resolve_api_key_from_secret_json(monkeypatch):
+    """JSON 시크릿이면 TYPECAST_API_KEY 키에서 추출."""
+    import sys
+
+    from orchestrator.tts import typecast_tts as t
+
+    monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.setenv("TYPECAST_SECRET_ARN", "arn:secret")
+    monkeypatch.setattr(t, "_cached_secret_key", None)
+
+    class _FakeSM:
+        def get_secret_value(self, SecretId):  # noqa: N803
+            return {"SecretString": '{"TYPECAST_API_KEY": "json-key-123"}'}
+
+    monkeypatch.setitem(sys.modules, "boto3",
+                        type("M", (), {"client": staticmethod(lambda svc: _FakeSM())}))
+    assert t._resolve_api_key() == "json-key-123"
+
+
+def test_resolve_api_key_none_when_unset(monkeypatch):
+    """env/ARN 모두 없으면 빈 문자열(→ synthesize가 TtsError)."""
+    from orchestrator.tts import typecast_tts as t
+
+    monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.delenv("TYPECAST_SECRET_ARN", raising=False)
+    assert t._resolve_api_key() == ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
