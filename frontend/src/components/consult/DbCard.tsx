@@ -17,7 +17,41 @@ function DbIcon() {
   );
 }
 
-export function DbCard() {
+// 라이브 변형 — DB분석은 wire 구독 소스가 없으므로(card2Store는 mock 엔진 전용),
+// 라이브 세션에서는 대화 진행에 맞춘 분석 진행 표시를 렌더한다.
+function LiveDbCard() {
+  const USED_DATA = ['고객 프로필', '보유 대출', '신용평가', '대환 한도'];
+  return (
+    <div className="card-scroll" data-testid="db-card-live">
+      <div className="cseclbl"><span>사용 데이터</span><span className="ln" /></div>
+      <div className="usebox" data-testid="db-use">
+        {USED_DATA.map((nm, i) => (
+          <div key={i} className="usecard on">
+            <DbIcon />
+            <b>{nm}</b>
+          </div>
+        ))}
+      </div>
+      <div className="usedivider on"><span className="dn">▼</span></div>
+      <div className="cseclbl"><span>데이터 분석 결과</span><span className="ln" /></div>
+      <div className="resbox" data-testid="db-res">
+        <p className="text-[12px] leading-[1.6] text-ink-dim px-1 py-2">
+          통화 내용을 기반으로 고객 프로필·보유 대출·신용 조건을 실시간 조회하고 있습니다.
+          대환 가능 한도와 금리 비교 결과가 준비되는 대로 표시됩니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function DbCard({ live = false }: { live?: boolean } = {}) {
+  // 라이브 세션: wire 소스가 없는 카드이므로 진행 표시 변형을 렌더.
+  // (hooks 규칙: 분기 전에 store를 호출하지 않도록 별도 컴포넌트로 분리)
+  if (live) return <LiveDbCard />;
+  return <EngineDbCard />;
+}
+
+function EngineDbCard() {
   const { use, flash, bridge, diag, shownNodes, bannerOn } = useCard2Store();
 
   return (

@@ -28,6 +28,7 @@ import {
   CallEndedSchema,
   type CallEnded,
 } from '@/types/realtime';
+import { isMockLiveCall, subscribeMockLive } from '@/lib/mockLive';
 
 let configured = false;
 
@@ -311,6 +312,9 @@ export function subscribeComplianceState(
   onData: (state: ComplianceState) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'compliance', (p) => onData(p as ComplianceState));
+  }
   return subscribeWithReconnect(
     { query: ON_COMPLIANCE_STATE_SUB, variables: { callId } },
     (d) => (d as OnComplianceState | undefined)?.onComplianceState,
@@ -342,6 +346,10 @@ export function subscribeTurns(
   onData: (turn: Turn) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  // mock 빌드의 체험 라이브 콜(exp-*)은 로컬 시뮬레이터에서 이벤트를 받는다.
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'turn', (p) => onData(p as Turn));
+  }
   return subscribeWithReconnect(
     { query: ON_TURN_SUB, variables: { callId } },
     (d) => (d as OnTurn | undefined)?.onTurn,
@@ -401,6 +409,9 @@ export function subscribeSpeechAnalysis(
   onData: (analysis: SpeechAnalysis) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'speech', (p) => onData(p as SpeechAnalysis));
+  }
   return subscribeWithReconnect(
     { query: ON_SPEECH_ANALYSIS_SUB, variables: { callId } },
     (d) => (d as OnSpeechAnalysis | undefined)?.onSpeechAnalysis,
@@ -435,6 +446,9 @@ export function subscribeStrategyUpdate(
   onData: (strategy: StrategyUpdate) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'strategy', (p) => onData(p as StrategyUpdate));
+  }
   return subscribeWithReconnect(
     { query: ON_STRATEGY_UPDATE_SUB, variables: { callId } },
     (d) => (d as OnStrategyUpdate | undefined)?.onStrategyUpdate,
