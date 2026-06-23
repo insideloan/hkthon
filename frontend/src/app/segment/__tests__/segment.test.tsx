@@ -67,9 +67,9 @@ describe('SegmentPage', () => {
   it('shows call button when analysis is complete', async () => {
     vi.useFakeTimers();
     await renderAndAwaitInit('cust-001');
-    // Advance timers to complete the analysis counter (12 ticks × 150ms = 1800ms)
+    // Advance past the full reveal timeline (completes at 3500ms → analysisComplete).
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(4000);
     });
     expect(screen.getByTestId('call-button')).toBeInTheDocument();
   });

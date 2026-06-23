@@ -182,7 +182,16 @@
 
 /* ── 세그먼트 분류 SVG 진입 애니메이션 (SSOT consult_redesigned-3.html 588-593) ──
    각 요소는 기본 숨김이며 .show 클래스가 붙을 때 fade/slide/draw 로 전환된다.
-   페이지가 단계별로 .show 를 시차 부여(stagger)해 SSOT 의 순차 연출을 재현. */
+   페이지가 ref+classList 로 .show 를 시차 부여(stagger)해 SSOT 순차 연출을 재현. */
+
+/* replay 리셋 순간 transition 일시 정지 — fade-out 깜빡임 없이 즉시 초기화.
+   .sg-reset 는 <svg> 자체에 붙으므로 자손 선택자로 대상화한다. */
+#view-segment .sg-reset .cat,
+#view-segment .sg-reset .clu,
+#view-segment .sg-reset .seg,
+#view-segment .sg-reset .ln path,
+#view-segment .sg-reset .ln line { transition: none !important; }
+
 #view-segment .cat { opacity: 0; transition: opacity .35s ease; }
 #view-segment .cat.show { opacity: 1; }
 /* 원천 데이터 9행 cascade — data-i 순서대로 시차 등장 (SSOT 120+i*65ms 근사) */
