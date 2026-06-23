@@ -303,6 +303,7 @@ const ON_TURN_SUB = /* GraphQL */ `
       seq
       speaker
       text
+      audioUrl
     }
   }
 `;

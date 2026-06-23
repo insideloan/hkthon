@@ -12,6 +12,7 @@ vi.mock('@/lib/appsync', () => ({
   subscribeComplianceState: () => () => {},
   subscribeMotDetected: () => () => {},
   subscribeIndexUpdate: () => () => {},
+  subscribeTurns: () => () => {},
   fetchMots: () => Promise.resolve([]),
 }));
 

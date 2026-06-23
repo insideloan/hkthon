@@ -16,6 +16,12 @@ import { DbCard } from '@/components/consult/DbCard';
 import { SttTranscript } from '@/components/consult/SttTranscript';
 import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
+import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
+
+// 목/스크립트 데모 게이트 (lib/appsync.ts의 USE_MOCK과 동일 규약).
+const IS_MOCK =
+  process.env.NEXT_PUBLIC_USE_MOCK === '1' ||
+  process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -43,6 +49,10 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const cardEmoRef = useRef<HTMLElement | null>(null);
 
   const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId });
+
+  // 라이브 모드 봇 음성 재생: onTurn의 bot audioUrl(TTS mp3)을 순차 재생.
+  // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 다른 라이브 구독과 동일한 게이트.
+  useBotAudioPlayback(callId, { disabled: IS_MOCK });
 
   // 카드 phase 구독 (className 토글).
   const card1 = useConsultStore((s) => s.card1);

@@ -20,6 +20,8 @@ export const TurnSchema = z.object({
   seq: z.number().int(),
   speaker: z.enum(TURN_SPEAKERS),
   text: z.string(),
+  // 봇 발화 TTS mp3 presigned URL (라이브 모드, bot Turn만). 없으면 null/omitted.
+  audioUrl: z.string().nullish(),
 });
 export type Turn = z.infer<typeof TurnSchema>;
 
