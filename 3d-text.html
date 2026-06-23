@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Text Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #C8C8C8;
+    overflow: hidden;
+    perspective: 1200px;
+  }
+
+  .scene {
+    /* the whole word bobs up and down */
+    animation: hover 4s ease-in-out infinite;
+    transform-style: preserve-3d;
+  }
+
+  .tilt {
+    /* base tilt (so top + left faces are visible) plus cursor lean.
+       JS sets --rx / --ry each frame; the base angles are baked into
+       the rotate values below. */
+    /* fully cursor-driven: no fixed base tilt, so which side shows
+       (top / bottom / left / right) depends on where the cursor is */
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transform-style: preserve-3d;
+    transition: transform .12s ease-out;  /* smooth out jitter */
+  }
+
+  .text {
+    position: relative;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    font-size: 16vw;
+    line-height: 1;
+    transform-style: preserve-3d;
+  }
+
+  /* every extruded slice sits exactly on top of the others; JS pushes
+     each one back along Z and tints it for depth shading */
+  .text .layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    white-space: nowrap;
+  }
+  /* the first layer keeps the element in normal flow so the box has size */
+  .text .layer.front { position: relative; }
+
+  /* hover: float gently up and down */
+  @keyframes hover {
+    0%, 100% { transform: translateY(-4%); }
+    50%      { transform: translateY(4%); }
+  }
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="tilt">
+      <div class="text" id="text"></div>
+    </div>
+  </div>
+
+  <script>
+    const WORD   = 'ㅎㅋ톤';
+    const DEPTH  = 60;     // number of slices = extrusion depth in px
+    const FACE   = [0x3c, 0x96, 0xaa];   // #3C96AA front color
+    const BACK_MUL = 0.45;               // how dark the deepest slice gets
+
+    const textEl = document.getElementById('text');
+
+    // Build the extrusion: slice 0 is the front face, deeper slices are
+    // pushed back along -Z and progressively darkened so the side walls
+    // read as a solid 3D body of the same teal.
+    for (let i = DEPTH; i >= 0; i--) {
+      const layer = document.createElement('span');
+      layer.className = 'layer' + (i === 0 ? ' front' : '');
+      layer.textContent = WORD;
+
+      // brightness ramps from full at the face to BACK_MUL at the back
+      const t = i / DEPTH;                       // 0 = front, 1 = back
+      const k = 1 - (1 - BACK_MUL) * t;
+      const c = FACE.map(v => Math.round(v * k));
+      layer.style.color = `rgb(${c[0]},${c[1]},${c[2]})`;
+      layer.style.transform = `translateZ(${-i}px)`;
+
+      textEl.appendChild(layer);
+    }
+
+    // --- cursor-driven facing (adds to the base tilt in CSS) ---
+    const tilt = document.querySelector('.tilt');
+
+    const MAX_ANGLE = 45;   // peak lean near the center
+    const FALLOFF = Math.min(window.innerWidth, window.innerHeight) * 0.6;
+
+    let targetRx = 0, targetRy = 0;
+    let curRx = 0, curRy = 0;
+
+    addEventListener('mousemove', (e) => {
+      const r = textEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+
+      // 0 at the center (text faces straight), rising toward 1 as the
+      // cursor moves away — and rising at a decreasing rate
+      const influence = 1 - Math.exp(-dist / FALLOFF);
+
+      const ux = dist ? dx / dist : 0;
+      const uy = dist ? dy / dist : 0;
+
+      targetRy =  ux * MAX_ANGLE * influence;
+      targetRx = -uy * MAX_ANGLE * influence;
+    });
+
+    (function loop() {
+      curRx += (targetRx - curRx) * 0.1;
+      curRy += (targetRy - curRy) * 0.1;
+      tilt.style.setProperty('--rx', curRx.toFixed(2) + 'deg');
+      tilt.style.setProperty('--ry', curRy.toFixed(2) + 'deg');
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
