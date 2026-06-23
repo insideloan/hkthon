@@ -348,7 +348,18 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId }: Consul
     busyRef.current = true;
     setBtn();
     const s = S[iRef.current];
-    if (s.who === 'cust') {
+    if (s.who === 'cust' && s.greet) {
+      // 인사("여보세요?") — 분석 파이프라인을 트리거하지 않는다. 말풍선만 노출하고
+      // custSeq/lastCust를 건드리지 않아, 뒤따르는 AI 인사가 분석 없이 발화된다.
+      typing('cust', () => {
+        const b = bubble(s);
+        try { stageEffects(s); } catch (err) { console.error('stage error', err); }
+        revealWords(b, () => {
+          iRef.current++;
+          produceAI();
+        });
+      });
+    } else if (s.who === 'cust') {
       typing('cust', () => {
         const b = bubble(s);
         try { stageEffects(s); } catch (err) { console.error('stage error', err); }

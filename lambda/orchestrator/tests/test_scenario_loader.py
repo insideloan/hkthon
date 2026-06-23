@@ -43,9 +43,23 @@ def test_s1_file_exists():
     assert _S1_PATH.exists(), f"missing {_S1_PATH}"
 
 
-def test_s1_loads_18_turns(s1_raw):
+def test_s1_loads_19_turns(s1_raw):
+    # 아웃바운드 인사("여보세요?") greet 턴 추가로 19턴. expected_turns 선언으로
+    # 18턴 기본값을 오버라이드(S2의 15턴 방식과 동일).
     data = sl.load_from_str(s1_raw)
-    assert len(data["turns"]) == sl.EXPECTED_TURNS == 18
+    assert data["expected_turns"] == 19
+    assert len(data["turns"]) == 19
+
+
+def test_s1_opens_with_customer_greet(s1_data):
+    # 아웃바운드: 연결 시 고객이 먼저 "여보세요?". 분석/MOT 트리거 안 함.
+    first = s1_data["turns"][0]
+    assert first["speaker"] == "customer"
+    assert first.get("greet") is True
+    assert "mot" not in first
+    # 두 번째 턴이 봇 인사.
+    assert s1_data["turns"][1]["speaker"] == "bot"
+    assert "현대캐피탈" in s1_data["turns"][1]["text"]
 
 
 def test_s1_passes_schema_validation(s1_data):
@@ -100,7 +114,7 @@ def test_missing_required_field_detected(s1_data):
 def test_wrong_turn_count_detected(s1_data):
     bad = copy.deepcopy(s1_data)
     bad["turns"].pop()
-    with pytest.raises(sl.ScenarioValidationError, match="17"):
+    with pytest.raises(sl.ScenarioValidationError, match="18"):
         sl.validate_scenario(bad)
 
 
@@ -120,7 +134,8 @@ def test_invalid_compliance_state_detected(s1_data):
 
 def test_consecutive_customer_turns_detected(s1_data):
     bad = copy.deepcopy(s1_data)
-    bad["turns"][2]["speaker"] = "customer"  # seq 1,2 모두 customer
+    # turns[2]=customer(이미), turns[3]=bot → turns[3]을 customer로 바꿔 연속 위반.
+    bad["turns"][3]["speaker"] = "customer"  # seq 2,3 모두 customer
     with pytest.raises(sl.ScenarioValidationError, match="교대"):
         sl.validate_scenario(bad)
 
@@ -195,7 +210,7 @@ def test_load_from_s3_getobject(s1_raw):
     fake = _FakeS3(s1_raw)
     data = sl.load_from_s3("assets-bucket", "scenarios/scenario.json",
                            s3_client=fake)
-    assert len(data["turns"]) == 18
+    assert len(data["turns"]) == 19
     assert fake.calls == [("assets-bucket", "scenarios/scenario.json")]
 
 
@@ -216,7 +231,7 @@ def test_s3_key_for():
 
 def test_load_scenario_local_known_ids():
     # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
-    for sid, turns in (("s1", 18), ("s2", 15)):
+    for sid, turns in (("s1", 19), ("s2", 15)):
         data = sl.load_scenario(sid)
         assert data["scenario_id"] == sid
         assert len(data["turns"]) == turns

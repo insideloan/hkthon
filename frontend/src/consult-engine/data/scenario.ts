@@ -7,6 +7,15 @@ import type { ScenarioEntry, JourneyStep } from '@/consult-engine/types';
 
 export const S: ScenarioEntry[] = [
   {
+    // 아웃바운드 발신 — 전화가 연결되면 고객이 먼저 받는다("여보세요?").
+    // greet: 분석 파이프라인/custSeq를 소비하지 않는 인사 턴.
+    who: 'cust',
+    greet: true,
+    txt: '여보세요?',
+    prog: 0,
+    nx: { t: '연결 — 첫 응답 대기', d: '—', a: '통화 연결', pick: 'a' },
+  },
+  {
     who: 'ai',
     txt: '안녕하세요, 현대캐피탈 AI 상담원입니다. 통화는 녹음되고요, 박서준 고객님 맞으실까요?',
     kw: ['현대캐피탈', '맞으실까요?'],
@@ -243,10 +252,10 @@ export const JOURNEY: JourneyStep[] = [
   { label: '완료', warn: false },
 ];
 
-// S 배열 인덱스(18) → 여정 단계 인덱스(8) 매핑 — SSOT STEP_OF (라인 1553).
-//  0~2 본인확인 / 3~4 신뢰구축 / 5~6 조건확인 / 7~8 심화제안 /
-//  9~11 차량담보 / 12~13 이탈방어 / 14~16 전환 / 17 완료
-export const STEP_OF: number[] = [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7];
+// S 배열 인덱스(19) → 여정 단계 인덱스(8) 매핑 — SSOT STEP_OF (라인 1553).
+//  0 인사(여보세요) + 1~3 본인확인 / 4~5 신뢰구축 / 6~7 조건확인 / 8~9 심화제안 /
+//  10~12 차량담보 / 13~14 이탈방어 / 15~17 전환 / 18 완료
+export const STEP_OF: number[] = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7];
 
 // 여정맵 체크포인트 순서 — SSOT ORDER (라인 1406).
 export const ORDER = ['interest', 'trust', 'cond', 'limit', 'review', 'goal'] as const;

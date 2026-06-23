@@ -64,6 +64,10 @@ export interface ScenarioEntry {
   cp?: string; // 도달 체크포인트 id (interest/trust/cond/limit/review/goal)
   prob?: number; // 이탈 확률(%)
   last?: true;
+  // 아웃바운드 콜 연결 시 고객이 먼저 받는 인사("여보세요?"). 분석 파이프라인을
+  // 트리거하지 않으며 custSeq(발화분석 인덱스)도 소비하지 않는다 — 가벼운 인사라
+  // 심리/DB/컴플라이언스 카드를 돌릴 발화가 아니기 때문.
+  greet?: true;
   // 고객 턴 전용
   an?: TurnAnalysis;
   db?: InlineDb[];
