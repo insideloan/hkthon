@@ -91,6 +91,53 @@ class _DefaultS3Uploader:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _resolve_api_key() -> str:
+    """Typecast API 키 해석. env(TYPECAST_API_KEY) 우선, 없으면 Secrets Manager 폴백.
+
+    배포 환경(infra)은 시크릿 값을 직접 env로 주입하지 않고 `TYPECAST_SECRET_ARN`만
+    넘긴다(시크릿을 코드/로그에 남기지 않기 위함). 이 함수가 런타임에 ARN으로
+    Secrets Manager에서 키를 꺼낸다. 시크릿은 평문 문자열 또는 {"TYPECAST_API_KEY": "..."}
+    /{"apiKey": "..."} JSON 둘 다 허용. 해석 결과는 콜드스타트 간 캐시(반복 호출 비용 방지).
+
+    로컬/단위테스트는 TYPECAST_API_KEY를 직접 설정하므로 boto3/네트워크 경로를 타지 않는다.
+    """
+    env_key = os.environ.get("TYPECAST_API_KEY", "")
+    if env_key:
+        return env_key
+
+    arn = os.environ.get("TYPECAST_SECRET_ARN", "")
+    if not arn:
+        return ""
+
+    global _cached_secret_key
+    if _cached_secret_key is not None:
+        return _cached_secret_key
+
+    try:
+        import json
+
+        import boto3
+
+        resp = boto3.client("secretsmanager").get_secret_value(SecretId=arn)
+        raw = resp.get("SecretString") or ""
+        key = raw
+        # JSON 시크릿이면 흔한 키 이름에서 추출, 아니면 평문으로 간주.
+        if raw.lstrip().startswith("{"):
+            try:
+                data = json.loads(raw)
+                key = data.get("TYPECAST_API_KEY") or data.get("apiKey") or data.get("X-API-KEY") or ""
+            except (ValueError, TypeError):
+                key = raw
+        _cached_secret_key = key.strip()
+        return _cached_secret_key
+    except Exception as exc:  # noqa: BLE001 — 시크릿 조회 실패는 TtsError로 일원화
+        raise TtsError(f"TTS_ERROR: 시크릿 조회 실패 — {exc}") from exc
+
+
+# Secrets Manager 조회 결과 캐시 (콜드스타트 간 재사용). 테스트는 직접 env를 쓰므로 무관.
+_cached_secret_key: str | None = None
+
+
 def resolve_voice_id(voice_name: str) -> str:
     """화자 이름 → Typecast voice_id 반환.
 
@@ -133,9 +180,9 @@ def synthesize(
     Raises:
         TtsError: API 호출 실패 또는 알 수 없는 화자
     """
-    api_key = os.environ.get("TYPECAST_API_KEY", "")
+    api_key = _resolve_api_key()
     if not api_key:
-        raise TtsError("TTS_ERROR: TYPECAST_API_KEY 환경변수가 설정되지 않음")
+        raise TtsError("TTS_ERROR: TYPECAST_API_KEY/TYPECAST_SECRET_ARN 미설정")
 
     voice_id = resolve_voice_id(voice_name)
 

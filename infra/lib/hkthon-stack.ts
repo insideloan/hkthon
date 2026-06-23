@@ -112,7 +112,10 @@ export class HkthonStack extends cdk.Stack {
         // so at runtime it unzips to /var/task/orchestrator/. Missing file →
         // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
         LEXICON_LOCAL_PATH: '/var/task/orchestrator/churn_risk_lexicon.json',
-        ORCHESTRATOR_MODE: 'script',
+        // 기본 script(시나리오 재생). 라이브(STT/그래프/TTS) 활성화는 배포 시
+        //   cdk deploy -c orchestratorMode=live
+        // 로 옵트인 — 데모 안정성을 위해 기본값은 그대로 둔다.
+        ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'script',
         LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
@@ -120,6 +123,10 @@ export class HkthonStack extends cdk.Stack {
         TYPECAST_SECRET_ARN: typecastSecret.secretArn,
         TYPECAST_MODEL: 'ssfm-v30',
         TYPECAST_VOICE: '혜라',
+        // TTS mp3 업로드 버킷/화자 — typecast_tts.py가 읽는다(미설정 시 코드 기본값이
+        // 실제 버킷과 달라 업로드 실패). assets 버킷을 재사용한다.
+        TTS_S3_BUCKET: bucket.bucketName,
+        TTS_VOICE_NAME: '혜라',
         LOG_LEVEL: 'INFO',
       },
       logGroup: orchestratorLogs,
