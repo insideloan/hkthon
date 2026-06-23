@@ -8,6 +8,7 @@
 'use client';
 
 import { use, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { SpeechAnalysis } from '@/components/consult/SpeechAnalysis';
 import { CompliancePanel } from '@/components/consult/CompliancePanel';
@@ -43,7 +44,8 @@ const CARD_T_STYLE: React.CSSProperties = { fontSize: '14px', fontWeight: 800, c
 
 // ── 중앙 원형 재생/일시정지 버튼 ────────────────────────────────────────────
 // 발화 진행 컨트롤. 미디어 플레이어 메타포: 클릭 가능하면 ▶(play), 재생 중이면
-// ❚❚(pause, dim), 종료면 ✓(check, disabled). 회색 원형 — SSOT 토큰 사용.
+// ❚❚(pause, dim). 상담 종료 시에는 초록 ✓(check) — 클릭하면 상담 CRM 화면으로
+// 이동한다. 회색 원형 — SSOT 토큰 사용.
 type PlayPauseButtonProps = {
   /** 시나리오 종료(모든 턴 소진). */
   ended: boolean;
@@ -51,12 +53,17 @@ type PlayPauseButtonProps = {
   busy: boolean;
   /** 접근성 라벨(engine.btnLabel — 상담 시작/다음 발화/재생 중/상담 종료). */
   label: string;
+  /** 진행 클릭(advance). */
   onClick: () => void;
+  /** 종료 후 클릭 — 상담 CRM 화면으로 이동. */
+  onEnded: () => void;
 };
 
-function PlayPauseButton({ ended, busy, label, onClick }: PlayPauseButtonProps) {
-  const disabled = ended || busy;
+function PlayPauseButton({ ended, busy, label, onClick, onEnded }: PlayPauseButtonProps) {
+  // 종료 시 버튼은 비활성이 아니라 CRM 이동 액션으로 전환된다(재생 중일 때만 비활성).
+  const disabled = busy;
   const icon: 'play' | 'pause' | 'check' = ended ? 'check' : busy ? 'pause' : 'play';
+  const ariaLabel = ended ? '상담 CRM 화면으로 이동' : label;
   return (
     <button
       type="button"
@@ -67,18 +74,20 @@ function PlayPauseButton({ ended, busy, label, onClick }: PlayPauseButtonProps) 
         !disabled && 'hover:scale-105 active:scale-95',
         disabled && 'cursor-default',
       )}
-      onClick={onClick}
+      onClick={ended ? onEnded : onClick}
       disabled={disabled}
-      aria-label={label}
-      title={label}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       data-state={icon}
       style={{
         width: '64px', height: '64px',
-        // 회색 원형 — 살짝 떠 보이도록 soft shadow + 반투명 배경.
-        background: ended ? 'rgba(120,126,138,.18)' : 'rgba(120,126,138,.92)',
-        color: ended ? 'var(--ink-faint)' : '#fff',
+        // 종료: 초록 원형 / 진행: 회색 원형. 살짝 떠 보이도록 soft shadow + 반투명 배경.
+        background: ended ? 'var(--go)' : 'rgba(120,126,138,.92)',
+        color: '#fff',
         border: '1px solid rgba(255,255,255,.5)',
-        boxShadow: disabled ? '0 2px 8px -3px rgba(0,0,0,.25)' : '0 8px 20px -6px rgba(0,0,0,.4)',
+        boxShadow: ended
+          ? '0 8px 20px -6px rgba(46,158,110,.55)'
+          : disabled ? '0 2px 8px -3px rgba(0,0,0,.25)' : '0 8px 20px -6px rgba(0,0,0,.4)',
         opacity: busy ? 0.6 : 1,
         backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
       }}
@@ -106,6 +115,7 @@ function PlayPauseButton({ ended, busy, label, onClick }: PlayPauseButtonProps) 
 
 export default function ConsultCockpitPage({ params }: PageProps) {
   const { id: callId } = use(params);
+  const router = useRouter();
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<JourneyMapHandle | null>(null);
@@ -180,6 +190,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               busy={engine.btnDisabled && !engine.ended}
               label={engine.btnLabel}
               onClick={engine.advance}
+              onEnded={() => router.push(`/crm/${callId}`)}
             />
           </div>
         </div>
