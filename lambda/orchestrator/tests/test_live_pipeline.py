@@ -95,6 +95,8 @@ def test_run_turn_transfer_sets_pending_state():
     assert out is not None
     meta = dynamo.get_item(dynamo.pk_call(call_id), dynamo.SK_META)
     assert meta["state"] == "TRANSFER_PENDING"
+    # 이관 시 핸드오프 요약이 handoff_reason으로 META에 기록(상담원 맥락 전달).
+    assert meta.get("handoff_reason")
 
 
 def test_persisted_mot_is_wire_canonical():
