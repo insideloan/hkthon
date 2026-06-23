@@ -12,6 +12,14 @@ vi.mock('@/lib/appsync', () => ({
   subscribeIndexUpdate: () => () => {},
   subscribeTurns: () => () => {},
   fetchMots: () => Promise.resolve([]),
+  // 라이브 오디오 뮤테이션 — LiveSession이 마이크 권한 후 호출.
+  startAudio: vi.fn().mockResolvedValue(true),
+  audioChunk: vi.fn().mockResolvedValue(true),
+}));
+
+// PCM 캡처는 AudioContext 의존 — jsdom에 없으므로 목으로 대체.
+vi.mock('@/lib/pcmCapture', () => ({
+  startPcmCapture: () => ({ stop: vi.fn() }),
 }));
 
 vi.mock('@/stores/motStore', () => {
