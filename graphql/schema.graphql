@@ -139,6 +139,7 @@ type CallSummaryResult {
 
 type ApproveResult { ok: Boolean!, callId: ID!, productId: ID }
 type SendLinkResult { ok: Boolean!, callId: ID!, url: String! }
+type DeleteQueueRowResult { ok: Boolean!, callId: ID! }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscription payloads (SSOT-3 정합)
@@ -209,6 +210,8 @@ type Mutation {
   transferToAgent(callId: ID!): Call!
   sendLink(callId: ID!, url: String!): SendLinkResult!
   endCall(callId: ID!): Call!
+  # 큐 row 수동 삭제 (관리자 대시보드)
+  deleteQueueRow(callId: ID!): DeleteQueueRowResult!
   # 스크립트 모드 진행
   nextTurn(callId: ID!): Turn
   # 라이브 오디오 (스크립트 모드 no-op)

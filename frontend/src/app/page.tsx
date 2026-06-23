@@ -6,6 +6,8 @@
 import { useState } from 'react';
 import { useQueueStore } from '@/stores/queueStore';
 import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
+import { ExperienceModal } from '@/components/queue/ExperienceModal';
+import { buildExperienceCustomer, experienceQueueRow, type ExperienceForm } from '@/lib/experience';
 import type { CallState } from '@/types/queue';
 
 // ─── Filter definition ───────────────────────────────────────────────────────
@@ -75,7 +77,21 @@ function StatCard({
 export default function Home() {
   const rows = useQueueStore((s) => s.rows);
   const summary = useQueueStore((s) => s.summary);
+  const prependRow = useQueueStore((s) => s.prependRow);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
+  const [experienceOpen, setExperienceOpen] = useState(false);
+
+  // 체험 모달 확인 — 입력값으로 체험 고객 생성(신용점수/금리 자동 배정) 후 큐
+  // 최상단에 발신중(DIALING)으로 노출한다. 데모(mock) 모드라 db 저장은 큐 스토어
+  // prepend 로 대체(백엔드 DynamoDB 저장은 후속 작업).
+  const handleExperienceConfirm = (form: ExperienceForm) => {
+    // 고유 시드 — 같은 ms 충돌을 피하려 시각 기반(렌더 외부 이벤트 핸들러라 안전).
+    const seed = Date.now();
+    const customer = buildExperienceCustomer(form, seed);
+    prependRow(experienceQueueRow(customer));
+    setActiveFilter('all'); // 새 행이 가려지지 않게 전체 필터로.
+    setExperienceOpen(false);
+  };
 
   // Derived counts from rows (SDL summary = total/needsAgent/fraudSuspected/inCall;
   // ended/waiting are display-only, computed client-side from row states).
@@ -116,7 +132,29 @@ export default function Home() {
         >
           전체 상담 모니터링
         </span>
+        {/* 체험 버튼 — 우상단. 클릭 시 고객 정보 입력 팝업. */}
+        <button
+          type="button"
+          data-testid="experience-button"
+          onClick={() => setExperienceOpen(true)}
+          className="ml-auto self-center inline-flex items-center gap-1.5 cursor-pointer transition-all duration-[180ms] hover:-translate-y-px"
+          style={{
+            fontSize: 13, fontWeight: 700, color: '#fff',
+            background: 'var(--route)', border: 'none', borderRadius: 10,
+            padding: '8px 16px', boxShadow: '0 4px 12px -3px rgba(44,91,214,.5)',
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 14 }}>✦</span>
+          체험
+        </button>
       </div>
+
+      {/* 체험 고객 입력 모달 */}
+      <ExperienceModal
+        open={experienceOpen}
+        onClose={() => setExperienceOpen(false)}
+        onConfirm={handleExperienceConfirm}
+      />
 
       {/* ── adm-stats ── */}
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
