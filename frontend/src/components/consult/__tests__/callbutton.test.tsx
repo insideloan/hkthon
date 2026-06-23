@@ -23,37 +23,37 @@ beforeEach(() => {
 
 describe('CallButton', () => {
   it('renders a button with 발신하기 label', () => {
-    render(<CallButton callId="call-1" analysisComplete />);
+    render(<CallButton customerId="cust-1" analysisComplete />);
     expect(screen.getByTestId('call-button')).toBeInTheDocument();
     expect(screen.getByTestId('call-button')).toHaveTextContent('발신하기');
   });
 
   it('does NOT call dialCall on mount (no auto-dial)', () => {
-    render(<CallButton callId="call-1" analysisComplete />);
+    render(<CallButton customerId="cust-1" analysisComplete />);
     expect(dialCallMock).not.toHaveBeenCalled();
   });
 
   it('calls dialCall mutation when button is clicked', async () => {
     dialCallMock.mockResolvedValue({ callId: 'call-1', state: 'DIALING' });
-    render(<CallButton callId="call-1" analysisComplete />);
+    render(<CallButton customerId="cust-1" analysisComplete />);
     fireEvent.click(screen.getByTestId('call-button'));
-    await waitFor(() => expect(dialCallMock).toHaveBeenCalledWith('call-1'));
+    await waitFor(() => expect(dialCallMock).toHaveBeenCalledWith('cust-1'));
   });
 
   it('navigates to /calls/[id] after dialCall resolves', async () => {
     dialCallMock.mockResolvedValue({ callId: 'call-1', state: 'DIALING' });
-    render(<CallButton callId="call-1" analysisComplete />);
+    render(<CallButton customerId="cust-1" analysisComplete />);
     fireEvent.click(screen.getByTestId('call-button'));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/calls/call-1'));
   });
 
   it('is disabled when analysisComplete is false', () => {
-    render(<CallButton callId="call-1" analysisComplete={false} />);
+    render(<CallButton customerId="cust-1" analysisComplete={false} />);
     expect(screen.getByTestId('call-button')).toBeDisabled();
   });
 
   it('does NOT call dialCall when disabled (analysisComplete=false)', async () => {
-    render(<CallButton callId="call-1" analysisComplete={false} />);
+    render(<CallButton customerId="cust-1" analysisComplete={false} />);
     fireEvent.click(screen.getByTestId('call-button'));
     // Wait a tick to confirm nothing async fires
     await new Promise((r) => setTimeout(r, 10));

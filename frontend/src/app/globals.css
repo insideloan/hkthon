@@ -179,3 +179,59 @@
     opacity: 1;
   }
 }
+
+/* ── 세그먼트 분류 SVG 진입 애니메이션 (SSOT consult_redesigned-3.html 588-593) ──
+   각 요소는 기본 숨김이며 .show 클래스가 붙을 때 fade/slide/draw 로 전환된다.
+   페이지가 단계별로 .show 를 시차 부여(stagger)해 SSOT 의 순차 연출을 재현. */
+#view-segment .cat { opacity: 0; transition: opacity .35s ease; }
+#view-segment .cat.show { opacity: 1; }
+/* 원천 데이터 9행 cascade — data-i 순서대로 시차 등장 (SSOT 120+i*65ms 근사) */
+#view-segment .cat[data-i='0'] { transition-delay: 0ms; }
+#view-segment .cat[data-i='1'] { transition-delay: 55ms; }
+#view-segment .cat[data-i='2'] { transition-delay: 110ms; }
+#view-segment .cat[data-i='3'] { transition-delay: 165ms; }
+#view-segment .cat[data-i='4'] { transition-delay: 220ms; }
+#view-segment .cat[data-i='5'] { transition-delay: 275ms; }
+#view-segment .cat[data-i='6'] { transition-delay: 330ms; }
+#view-segment .cat[data-i='7'] { transition-delay: 385ms; }
+#view-segment .cat[data-i='8'] { transition-delay: 440ms; }
+
+#view-segment .clu {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .45s ease, transform .45s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#view-segment .clu.show { opacity: 1; transform: translateY(0); }
+
+/* .ln: pathLength=1 기준 stroke-dashoffset 로 선이 그려지는 효과.
+   .show 는 그룹(<g class="ln …">)에 토글되지만 stroke 는 자식 path/line 에만
+   적용되므로 자손 선택자로 대상화한다 (SSOT 는 path 에 직접 클래스를 단다). */
+#view-segment .ln path,
+#view-segment .ln line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset .6s ease;
+}
+#view-segment .ln.show path,
+#view-segment .ln.show line { stroke-dashoffset: 0; }
+
+#view-segment .seg {
+  opacity: 0;
+  transition: opacity .45s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#view-segment .seg.show { opacity: 1; }
+#view-segment .seg.dim { opacity: .36; }
+#view-segment .seg.lock { animation: sglock .5s ease; }
+
+/* 모션 최소화 선호 시 전환 제거 (즉시 표시) */
+@media (prefers-reduced-motion: reduce) {
+  #view-segment .cat,
+  #view-segment .clu,
+  #view-segment .seg,
+  #view-segment .ln path,
+  #view-segment .ln line { transition: none; animation: none; }
+}
