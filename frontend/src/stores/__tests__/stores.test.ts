@@ -32,14 +32,23 @@ const unsubscribe = vi.fn();
 vi.mock('aws-amplify', () => ({
   Amplify: { configure: vi.fn() },
 }));
+// graphql() serves double duty: subscription ops return a { subscribe } stream;
+// query ops (fetchQueue's Queue query) resolve to { data }. We branch on whether
+// the op string contains "subscription". queryResult is settable per-test.
+let queryResult: unknown = { queue: { summary: {}, rows: [] } };
 vi.mock('aws-amplify/api', () => ({
   generateClient: () => ({
-    graphql: () => ({
-      subscribe: (handlers: Handlers) => {
-        opened.push(handlers);
-        return { unsubscribe };
-      },
-    }),
+    graphql: (args: { query?: string }) => {
+      if (typeof args?.query === 'string' && args.query.includes('subscription')) {
+        return {
+          subscribe: (handlers: Handlers) => {
+            opened.push(handlers);
+            return { unsubscribe };
+          },
+        };
+      }
+      return Promise.resolve({ data: queryResult });
+    },
   }),
 }));
 
@@ -50,17 +59,16 @@ import {
 } from '@/lib/appsync';
 
 const queueResult: QueueResult = {
-  summary: { waiting: 3, inProgress: 2, needsAgent: 1, fraudSuspected: 0, ended: 5 },
+  summary: { total: 6, needsAgent: 1, fraudSuspected: 0, inCall: 2 },
   rows: [
     {
       callId: 'c1',
-      customerId: 'u1',
       customerName: '김고객',
-      targetProduct: '대환대출',
       state: 'IN_CALL',
-      scenario: 'refi',
+      stage: 'refi',
+      assignee: 'AI 코파일럿',
+      channel: '아웃바운드',
       highlight: null,
-      highlightSince: null,
       elapsedSec: 42,
     },
   ],
@@ -82,15 +90,20 @@ afterEach(() => {
 });
 
 describe('queueStore ← onQueueUpdate', () => {
-  it('updates queueStore when an onQueueUpdate message arrives', () => {
+  it('refetches the snapshot when an onQueueUpdate delta arrives', async () => {
+    // SDL: onQueueUpdate is a {callId, state} delta, not a full snapshot. The
+    // subscription refetches the authoritative queue (graphql query mock below)
+    // and feeds that snapshot to onData.
+    queryResult = { queue: queueResult };
     subscribeQueueUpdates((result) => useQueueStore.getState().setQueue(result));
     expect(opened).toHaveLength(1);
 
-    opened[0].next({ data: { onQueueUpdate: queueResult } });
+    // A valid delta payload (callId + state) triggers the refetch.
+    opened[0].next({ data: { onQueueUpdate: { callId: 'c1', state: 'IN_CALL' } } });
+    await vi.waitFor(() => expect(useQueueStore.getState().rows).toHaveLength(1));
 
     const state = useQueueStore.getState();
     expect(state.summary).toEqual(queueResult.summary);
-    expect(state.rows).toHaveLength(1);
     expect(state.rows[0].callId).toBe('c1');
   });
 

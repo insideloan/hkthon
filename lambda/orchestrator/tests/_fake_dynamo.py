@@ -43,6 +43,27 @@ class FakeTable:
         items.sort(key=lambda it: it["SK"])
         return {"Items": items}
 
+    def scan(self, **kwargs) -> dict:
+        # dynamo.scan passes only an optional FilterExpression of Attr("SK").eq(v).
+        # We re-derive the SK literal from the boto3 condition; no filter → all.
+        sk = None
+        cond = kwargs.get("FilterExpression")
+        if cond is not None:
+            try:
+                expr = cond.get_expression()
+                vals = expr.get("values", [])
+                if getattr(vals[0], "name", None) == "SK" and expr.get("operator") == "=":
+                    sk = vals[1]
+            except (AttributeError, IndexError):
+                sk = None
+        items = [
+            dict(v)
+            for (_p, s), v in self.store.items()
+            if sk is None or s == sk
+        ]
+        items.sort(key=lambda it: (it["PK"], it["SK"]))
+        return {"Items": items}
+
     def update_item(self, **kwargs) -> dict:
         key = (kwargs["Key"]["PK"], kwargs["Key"]["SK"])
         item = self.store.setdefault(key, {"PK": key[0], "SK": key[1]})

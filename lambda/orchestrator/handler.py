@@ -36,6 +36,8 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
     from .resolvers import calls, customers, mots, queue, summaries
 
     return {
+        # admin (스키마 비노출 — aws lambda invoke로 직접 호출. 데모 데이터 시드)
+        "_seed": _resolve_seed,
         # queue
         "queue": queue.resolve_queue,
         # calls (mutations + snapshot query)
@@ -55,6 +57,28 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
         # health
         "ping": lambda event, args: {"ok": True},
     }
+
+
+def _resolve_seed(event: dict, args: dict) -> dict:
+    """데모 데이터 시드 (admin). `aws lambda invoke`로 직접 호출.
+
+    Lambda 실행 역할은 테이블 write 권한(grantReadWriteData)을 가지므로, 직접
+    DynamoDB write 권한이 없는 환경에서도 이 경로로 시드할 수 있다.
+
+    args:
+      - what: "all"(기본) | "customers" | "queue" — 무엇을 시드할지.
+    seed_queue는 매 호출 덮어쓰기(started_at 재계산) — 시연 직전 재호출로 elapsed 리셋.
+    """
+    from . import seed
+
+    what = (args.get("what") or "all").lower()
+    if what not in ("all", "customers", "queue"):
+        raise OrchestratorError("INVALID_STATE", f"unknown seed target: {what}")
+
+    customers_n = seed.seed_customers() if what in ("all", "customers") else None
+    queue_n = seed.seed_queue() if what in ("all", "queue") else None
+    logger.info("_seed what=%s customers=%s queue=%s", what, customers_n, queue_n)
+    return {"ok": True, "what": what, "customers": customers_n, "queue": queue_n}
 
 
 def _field_name(event: dict) -> str:
