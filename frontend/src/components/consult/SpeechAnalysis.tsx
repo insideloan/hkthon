@@ -261,8 +261,10 @@ function EngineCard1() {
   const resolved = stratPhase === 'resolved';
 
   return (
-    <section className="flex flex-col gap-2 h-full min-h-0" aria-label="고객발화분석" data-testid="speech-analysis">
-      <div className="cseclbl"><span>발화 분류</span><span className="ln" /></div>
+    // SSOT docs/consult_redesigned-3.html #card-emo .card-scroll (lines 1080–1086):
+    // 발화분류 → bins → solvearrow(▼) → 대표 전략 20 → stratg.
+    <div className="card-scroll" role="region" aria-label="고객발화분석" data-testid="speech-analysis">
+      <div className="cseclbl"><span>발화분류</span><span className="ln" /></div>
 
       {/* orb bins — 감정/니즈/이용가능성 */}
       <div className="bins" id="emoBins">
@@ -283,10 +285,12 @@ function EngineCard1() {
         })}
       </div>
 
-      {/* solveArrow */}
+      {/* solveArrow — SSOT: ▼ 아이콘만 (텍스트 없음) */}
       <div className={clsx('solvearrow', solveArrow && 'on')} id="solveArrow">
-        <span className="dn">▼</span><span>최적 전략 선택</span>
+        <span className="dn">▼</span>
       </div>
+
+      <div className="cseclbl"><span>대표 전략 20</span><span className="ln" /></div>
 
       {/* 전략 그리드 20장 → swiping → resolved */}
       <div
@@ -308,7 +312,7 @@ function EngineCard1() {
           })}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

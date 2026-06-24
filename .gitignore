@@ -25,3 +25,8 @@ infra/layers/
 
 # run.sh local PID files + logs
 .run/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+# SSOT reference copy (not tracked)
+frontend/consult_redesigned-3.html

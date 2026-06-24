@@ -162,17 +162,125 @@ export function CompliancePanel(props: CompliancePanelProps) {
   return <LiveCompliancePanel {...props} />;
 }
 
-// 엔진 모드: consultStore.compliance를 그대로 렌더.
+// 체크 SVG (SSOT CHK_SVG, line 1344) — .cmp-chk .cbx 안 체크 표시.
+function ChkSvg() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 8.5l3 3 6-7" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// 가안 발화: violations substring을 .risk(빨강 취소선)로 감싼다 (SSOT .cmp-draft .risk).
+function renderCmpDraft(draft: string, violations: string[]) {
+  if (violations.length === 0) return draft;
+  const sorted = [...violations].sort((a, b) => b.length - a.length);
+  let parts: Array<{ text: string; risk: boolean }> = [{ text: draft, risk: false }];
+  for (const v of sorted) {
+    const next: Array<{ text: string; risk: boolean }> = [];
+    for (const part of parts) {
+      if (part.risk || !part.text.includes(v)) { next.push(part); continue; }
+      const idx = part.text.indexOf(v);
+      if (part.text.slice(0, idx)) next.push({ text: part.text.slice(0, idx), risk: false });
+      next.push({ text: v, risk: true });
+      if (part.text.slice(idx + v.length)) next.push({ text: part.text.slice(idx + v.length), risk: false });
+    }
+    parts = next;
+  }
+  return parts.map((p, i) =>
+    p.risk ? <span key={i} className="risk" data-testid="cmp-violation">{p.text}</span> : <span key={i}>{p.text}</span>,
+  );
+}
+
+// 엔진 모드: consultStore.compliance를 SSOT 카드③ 마크업(.cmp)으로 렌더.
 function EngineCompliancePanel() {
   const state = useConsultStore((s) => s.compliance);
   if (!state) {
     return (
-      <section aria-label="컴플라이언스 체크">
+      <div className="card-scroll" role="region" aria-label="컴플라이언스 체크">
         <p className="text-xs text-ink-faint">상담 시작 대기</p>
-      </section>
+      </div>
     );
   }
-  return <ComplianceView state={state} />;
+  return <EngineComplianceView state={state} />;
+}
+
+// SSOT docs/consult_redesigned-3.html #card-strat .cmp (lines 1111–1118):
+//   가안 발화(.cmp-draft) → 컴플라이언스 규제 검토(.cmp-checks 2×2) → 최종 발화(.cmp-final diff)
+function EngineComplianceView({ state }: { state: ComplianceState }) {
+  const { phase, draft, violations, checks, final } = state;
+  const showFinal = (phase === 'redrafting' || phase === 'approved') && final.length > 0;
+
+  return (
+    <div
+      className="card-scroll"
+      role="region"
+      aria-label="컴플라이언스 체크"
+      data-testid="compliance-panel"
+      data-phase={phase}
+    >
+      <div className="cmp">
+        {/* 가안 발화 */}
+        <div className="cseclbl"><span>가안 발화</span><span className="ln" /></div>
+        <div className="cmp-utter cmp-draft" id="cmpDraft" data-testid="cmp-draft">
+          {renderCmpDraft(draft, violations)}
+        </div>
+
+        {/* 컴플라이언스 규제 검토 — 4규제 2×2 */}
+        <div className="cseclbl"><span>컴플라이언스 규제 검토</span><span className="ln" /></div>
+        <div className="cmp-checks" id="cmpChecks">
+          {checks.map((c, idx) => {
+            const reviewed = c.flagged !== null && c.flagged !== undefined;
+            const fixed = c.flagged === true;
+            return (
+              <div
+                className={clsx('cmp-chk', reviewed && 'ok', reviewed && fixed && 'fix')}
+                key={`${c.law}-${idx}`}
+                data-i={idx}
+                data-testid="cmp-check"
+                data-flagged={reviewed ? String(fixed) : 'pending'}
+              >
+                <span className="cbx"><span className="cn">{idx + 1}</span><ChkSvg /></span>
+                <span className="claw">{c.law}</span>
+                <span className="cdesc">{c.desc}</span>
+                <span className="cflag" />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 최종 발화 (수정 = 빨강) */}
+        {showFinal && (
+          <>
+            <div className="cseclbl">
+              <span>최종 발화 (수정 = <span style={{ color: '#D6322E' }}>빨강</span>)</span>
+              <span className="ln" />
+            </div>
+            <div className="cmp-utter cmp-final" id="cmpFinal" data-testid="cmp-final">
+              {final.map((seg, i) => {
+                if (seg.del !== undefined) {
+                  return (
+                    <span className="seg" key={i}>
+                      {seg.del && <del>{seg.del}</del>}
+                      {seg.ins && <ins>{seg.ins}</ins>}
+                    </span>
+                  );
+                }
+                if (seg.ins !== undefined) {
+                  return (
+                    <span className="seg" key={i}>
+                      <ins className={clsx(seg.added && 'add')}>{seg.ins}</ins>
+                    </span>
+                  );
+                }
+                return <span className="seg" key={i}>{seg.text}</span>;
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function LiveCompliancePanel({
