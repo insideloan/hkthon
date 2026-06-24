@@ -382,9 +382,6 @@
 /* 컴플라이언스 draft/final 세그먼트 rise-in (SSOT 373) */
 @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 컴플라이언스 체크 진행 펄스 (SSOT 370) */
-@keyframes cpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(224,162,28,.35); } 50% { box-shadow: 0 0 0 4px rgba(224,162,28,.1); } }
-
 /* 푸터 컴플라이언스 버튼 armed 펄스 (SSOT 216) */
 @keyframes cbtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(224,162,28,.55); } 50% { box-shadow: 0 0 0 7px rgba(224,162,28,0); } }
 
@@ -521,7 +518,7 @@
 .cmp-chk.run { opacity: 1; border-color: #2563EB; background: #EAF0FF; }
 .cmp-chk.ok { opacity: 1; border-color: #2563EB; background: #EAF0FF; }
 .cmp-chk .cbx { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 9px; font-weight: 700; background: var(--badge-bg); color: var(--badge-ink); transition: all .3s; }
-.cmp-chk.run .cbx { background: #FFE6A8; color: #7a4a00; animation: cpulse 1s ease-in-out infinite; }
+.cmp-chk.run .cbx { background: #FFE6A8; color: #7a4a00; }
 .cmp-chk.ok .cbx { background: var(--go); color: #fff; }
 .cmp-chk .cbx svg { width: 10px; height: 10px; opacity: 0; transform: scale(.4); transition: opacity .25s, transform .25s; }
 .cmp-chk.ok .cbx svg { opacity: 1; transform: scale(1); }
