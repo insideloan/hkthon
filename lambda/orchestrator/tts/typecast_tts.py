@@ -24,7 +24,19 @@ import httpx
 
 _TTS_ENDPOINT = "https://api.typecast.ai/v1/text-to-speech"
 _MODEL = "ssfm-v30"
-_TIMEOUT = 30.0  # seconds
+# TTS는 best-effort 부가 기능 — 통화 한 턴(Lambda 90s) 안에서 agent 그래프와 직렬
+# 실행되므로, 느린/멈춘 Typecast 응답이 턴 전체를 잡아먹지 않게 짧게 끊는다.
+# 초과 시 nodes._synthesize_bot_audio가 예외를 삼키고 텍스트만 남긴다.
+_TIMEOUT = 12.0  # seconds
+
+
+# 환경변수로 오버라이드 가능(운영 튜닝용). 미설정 시 _TIMEOUT.
+def _http_timeout() -> float:
+    raw = os.environ.get("TTS_HTTP_TIMEOUT_S", "")
+    try:
+        return float(raw) if raw else _TIMEOUT
+    except ValueError:
+        return _TIMEOUT
 
 # 화자 이름 → Typecast voice_id 고정 매핑
 VOICE_MAP: dict[str, str] = {
@@ -197,7 +209,7 @@ def synthesize(
     }
 
     try:
-        resp = httpx.post(_TTS_ENDPOINT, json=payload, headers=headers, timeout=_TIMEOUT)
+        resp = httpx.post(_TTS_ENDPOINT, json=payload, headers=headers, timeout=_http_timeout())
     except httpx.RequestError as exc:
         raise TtsError(f"TTS_ERROR: Typecast 요청 실패 — {exc}") from exc
 

@@ -159,7 +159,7 @@ describe('OutboundQueueTable', () => {
           callId: 'c-demo-01',
           customerName: '박서준',
           state: 'DIALING',
-          stage: '사전 고객분석',
+          stage: '사전 분석중',
         }),
       ]);
       render(<OutboundQueueTable disableLiveData />);
@@ -184,6 +184,14 @@ describe('OutboundQueueTable', () => {
       fireEvent.click(screen.getByTestId('queue-row-c2'));
       expect(push).toHaveBeenCalledWith('/calls/c1');
       expect(push).toHaveBeenCalledWith('/calls/c2');
+    });
+
+    it('routes 체험(experience) rows (exp-*) to the LIVE consult screen', () => {
+      // 체험 큐 행은 mock 시나리오 재생이 아니라 실제 라이브 세션으로 진입한다(?live=1).
+      seed([makeRow({ callId: 'exp-1782219685345', state: 'DIALING', stage: '발신 대기' })]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.click(screen.getByTestId('queue-row-exp-1782219685345'));
+      expect(push).toHaveBeenCalledWith('/calls/exp-1782219685345?live=1');
     });
 
     it('does not navigate a TRANSFER_PENDING (상담원 연결 대기) row', () => {

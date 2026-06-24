@@ -4,138 +4,312 @@
   "description": "아웃바운드_스크립트_0621.xlsx '시나리오(보이스피싱)' 시트 15턴 직렬화. 고객이 '보이스피싱'을 한 번도 말하지 않지만 봇이 송금 압박·대환 계약위반 키워드로 사기 의도를 감지(fraud_suspected). MOT(이탈위험) 대신 턴 레벨 fraud_suspected 플래그를 쓴다 — agent/nodes.py:detect_fraud 계약 정합(통화 종료·라우팅 영향 없음, 대시보드 🟥 표시 전용). 접수 후 고객이 송금을 취소하며 종료.",
   "_notes": "DemoCase.FRAUD_DOUBT(보이스피싱 의심 고객, signals.py)에 대응. fraud_suspected는 봇이 의심을 인지한 seq 4부터 접수(seq 12)까지 true 유지. churn_after는 송금 압박 구간에서 상승했다가 사기 인지·취소 후 급락. token.polarity는 flag 배지 분기 신호(SSOT-3).",
   "customer_id": "cust-005",
-  "expected_turns": 15,
+  "expected_turns": 16,
   "turns": [
     {
-      "seq": 0, "speaker": "bot", "node": "IDENTIFY",
+      "seq": 0,
+      "speaker": "customer",
+      "node": "IDENTIFY",
+      "text": "여보세요?",
+      "tokens": [],
+      "churn_after": 8,
+      "flag": null,
+      "greet": true,
+      "_notes": "아웃바운드 발신 — 연결 시 고객이 먼저 받는 인사. 분석/MOT 트리거 안 함."
+    },
+    {
+      "seq": 1,
+      "speaker": "bot",
+      "node": "IDENTIFY",
       "text": "안녕하세요 고객님, 저는 현대캐피탈 AI 상담원이에요. 대출상담 요청하셔서 연락드렸어요. 지금 통화 괜찮으세요?",
       "tokens": [
-        {"text": "현대캐피탈", "polarity": null, "reason": ""},
-        {"text": "대출상담", "polarity": null, "reason": ""},
-        {"text": "괜찮으세요?", "polarity": null, "reason": ""}
+        {
+          "text": "현대캐피탈",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "대출상담",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "괜찮으세요?",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 8, "flag": "def",
+      "churn_after": 8,
+      "flag": "def",
       "strategy_headline": "신원·녹취 고지 · 용건 진입",
       "strategy_lead": "초반 구간 진입 — 본인 확인"
     },
     {
-      "seq": 1, "speaker": "customer", "node": "IDENTIFY",
+      "seq": 2,
+      "speaker": "customer",
+      "node": "IDENTIFY",
       "text": "네, 대출상담 신청했는데요. 얼마까지 나오나요? 최대한 많이 해주세요. 지금 대출이 급하게 필요해서요.",
       "tokens": [
-        {"text": "최대한", "polarity": "CONS", "reason": "과도요구"},
-        {"text": "급하게", "polarity": "CONS", "reason": "시간압박"},
-        {"text": "필요해서요.", "polarity": "CONS", "reason": "시간압박"}
+        {
+          "text": "최대한",
+          "polarity": "CONS",
+          "reason": "과도요구"
+        },
+        {
+          "text": "급하게",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        },
+        {
+          "text": "필요해서요.",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        }
       ],
-      "churn_after": 30, "flag": "risk"
+      "churn_after": 30,
+      "flag": "risk"
     },
     {
-      "seq": 2, "speaker": "bot", "node": "CONSENT",
+      "seq": 3,
+      "speaker": "bot",
+      "node": "CONSENT",
       "text": "고객님 대출 가능 여부 확인 가능하신데요. 상세한 상담을 위해 대출 용도 확인 부탁드려도 될까요?",
       "tokens": [
-        {"text": "확인", "polarity": "PRO", "reason": "절차"},
-        {"text": "용도", "polarity": null, "reason": ""}
+        {
+          "text": "확인",
+          "polarity": "PRO",
+          "reason": "절차"
+        },
+        {
+          "text": "용도",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 18, "flag": "def",
+      "churn_after": 18,
+      "flag": "def",
       "strategy_headline": "용도 확인 진입",
       "strategy_lead": "적합성 확인 — 자금 용도 질의"
     },
     {
-      "seq": 3, "speaker": "customer", "node": "CONSENT",
+      "seq": 4,
+      "speaker": "customer",
+      "node": "CONSENT",
       "text": "그냥 필요해서요. 개인사정입니다. 빨리 좀 해주세요. 오늘 되는 거죠?",
       "tokens": [
-        {"text": "개인사정입니다.", "polarity": "CONS", "reason": "용도회피"},
-        {"text": "빨리", "polarity": "CONS", "reason": "시간압박"},
-        {"text": "오늘", "polarity": "CONS", "reason": "시간압박"}
+        {
+          "text": "개인사정입니다.",
+          "polarity": "CONS",
+          "reason": "용도회피"
+        },
+        {
+          "text": "빨리",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        },
+        {
+          "text": "오늘",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        }
       ],
-      "churn_after": 38, "flag": "risk"
+      "churn_after": 38,
+      "flag": "risk"
     },
     {
-      "seq": 4, "speaker": "bot", "node": "SAFETY",
+      "seq": 5,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "네 고객님, 확인해 드릴게요. 대출금이 지금 바로 필요하신가 봐요. 혹시 송금을 해야 한다거나 대환대출 상환 문제로 연락을 받고 계신 건 아니실까요?",
       "tokens": [
-        {"text": "송금", "polarity": null, "reason": "사기점검"},
-        {"text": "대환대출", "polarity": null, "reason": "사기점검"},
-        {"text": "연락을", "polarity": null, "reason": "사기점검"}
+        {
+          "text": "송금",
+          "polarity": null,
+          "reason": "사기점검"
+        },
+        {
+          "text": "대환대출",
+          "polarity": null,
+          "reason": "사기점검"
+        },
+        {
+          "text": "연락을",
+          "polarity": null,
+          "reason": "사기점검"
+        }
       ],
-      "churn_after": 33, "flag": "def",
+      "churn_after": 33,
+      "flag": "def",
       "fraud_suspected": true,
       "strategy_headline": "1차 사기 점검 · 용도 재확인",
       "strategy_lead": "안전성 확인 — 송금·대환 상환 압박 여부 점검"
     },
     {
-      "seq": 5, "speaker": "customer", "node": "SAFETY",
+      "seq": 6,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "그런 거 없어요. 한도나 얼마 나오는지 알려줘요. 급하다니까요.",
       "tokens": [
-        {"text": "없어요.", "polarity": "CONS", "reason": "부인"},
-        {"text": "급하다니까요.", "polarity": "CONS", "reason": "시간압박"}
+        {
+          "text": "없어요.",
+          "polarity": "CONS",
+          "reason": "부인"
+        },
+        {
+          "text": "급하다니까요.",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        }
       ],
-      "churn_after": 36, "flag": "risk",
+      "churn_after": 36,
+      "flag": "risk",
       "fraud_suspected": true
     },
     {
-      "seq": 6, "speaker": "bot", "node": "SAFETY",
+      "seq": 7,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "네 고객님 예상 한도는 확인해 드릴 수 있어요. 다만 최근에 보이스피싱 등 사고가 많아서 확인차 문의를 드렸어요. 지금 예상 한도는 2,000만원, 36개월, 12%로 이용 가능하신 것으로 확인되시는데요. 해당 조건은 심사 전 조건으로 심사 진행 시 변경될 수 있어요.",
       "tokens": [
-        {"text": "보이스피싱", "polarity": null, "reason": "사기점검"},
-        {"text": "예상", "polarity": "PRO", "reason": "신뢰"},
-        {"text": "심사", "polarity": null, "reason": ""}
+        {
+          "text": "보이스피싱",
+          "polarity": null,
+          "reason": "사기점검"
+        },
+        {
+          "text": "예상",
+          "polarity": "PRO",
+          "reason": "신뢰"
+        },
+        {
+          "text": "심사",
+          "polarity": null,
+          "reason": ""
+        }
       ],
-      "churn_after": 30, "flag": "def",
+      "churn_after": 30,
+      "flag": "def",
       "fraud_suspected": true,
       "strategy_headline": "2차 점검 · 예상 한도 안내",
       "strategy_lead": "사기 경각 환기 + 예상 조건 안내",
       "compliance": {
         "draft": "지금 한도는 2,000만원 36개월 12%로 이용 가능합니다.",
-        "violated_policies": ["FIXED_FIGURE"],
+        "violated_policies": [
+          "FIXED_FIGURE"
+        ],
         "final": "지금 예상 한도는 2,000만원, 36개월, 12%로 이용 가능하신 것으로 확인되시는데요. 해당 조건은 심사 전 조건으로 심사 진행 시 변경될 수 있어요.",
         "state": "approved"
       }
     },
     {
-      "seq": 7, "speaker": "customer", "node": "SAFETY",
+      "seq": 8,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "한도가 왜 이렇게 적어요. 지금 돈이 많이 필요해요. 오늘까지 송금해야 한다고요. 더 나올 수 있는 방법은 없어요?",
       "tokens": [
-        {"text": "오늘까지", "polarity": "CONS", "reason": "시간압박"},
-        {"text": "송금해야", "polarity": "CONS", "reason": "송금압박"},
-        {"text": "방법은", "polarity": "CONS", "reason": "과도요구"}
+        {
+          "text": "오늘까지",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        },
+        {
+          "text": "송금해야",
+          "polarity": "CONS",
+          "reason": "송금압박"
+        },
+        {
+          "text": "방법은",
+          "polarity": "CONS",
+          "reason": "과도요구"
+        }
       ],
-      "churn_after": 52, "flag": "risk",
+      "churn_after": 52,
+      "flag": "risk",
       "fraud_suspected": true
     },
     {
-      "seq": 8, "speaker": "bot", "node": "SAFETY",
+      "seq": 9,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "고객님 혹시 지금 누군가에게 대출금 송금을 약속하신 게 있으신 거 같은데요, 확인 부탁드려도 될까요?",
       "tokens": [
-        {"text": "송금을", "polarity": null, "reason": "사기점검"},
-        {"text": "약속하신", "polarity": null, "reason": "사기점검"},
-        {"text": "확인", "polarity": "PRO", "reason": "절차"}
+        {
+          "text": "송금을",
+          "polarity": null,
+          "reason": "사기점검"
+        },
+        {
+          "text": "약속하신",
+          "polarity": null,
+          "reason": "사기점검"
+        },
+        {
+          "text": "확인",
+          "polarity": "PRO",
+          "reason": "절차"
+        }
       ],
-      "churn_after": 40, "flag": "def",
+      "churn_after": 40,
+      "flag": "def",
       "fraud_suspected": true,
       "strategy_headline": "송금 약속 직접 확인",
       "strategy_lead": "안전성 확인 — 제3자 송금 지시 여부 직접 질의"
     },
     {
-      "seq": 9, "speaker": "customer", "node": "SAFETY",
+      "seq": 10,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "다른 대출 상담받았다가 대환 계약 위반돼서 지금 바로 대출금 송금해야 해요. 홍길동은행에서 저보고 계약 위반이라고 당장 돈을 송금하라고 했어요. 시간이 지금 없어요. 빨리 조회 좀 해줘요.",
       "tokens": [
-        {"text": "계약", "polarity": "CONS", "reason": "사기수법"},
-        {"text": "위반돼서", "polarity": "CONS", "reason": "사기수법"},
-        {"text": "당장", "polarity": "CONS", "reason": "시간압박"},
-        {"text": "송금하라고", "polarity": "CONS", "reason": "송금압박"}
+        {
+          "text": "계약",
+          "polarity": "CONS",
+          "reason": "사기수법"
+        },
+        {
+          "text": "위반돼서",
+          "polarity": "CONS",
+          "reason": "사기수법"
+        },
+        {
+          "text": "당장",
+          "polarity": "CONS",
+          "reason": "시간압박"
+        },
+        {
+          "text": "송금하라고",
+          "polarity": "CONS",
+          "reason": "송금압박"
+        }
       ],
-      "churn_after": 64, "flag": "risk",
+      "churn_after": 64,
+      "flag": "risk",
       "fraud_suspected": true
     },
     {
-      "seq": 10, "speaker": "bot", "node": "PROPOSE",
+      "seq": 11,
+      "speaker": "bot",
+      "node": "PROPOSE",
       "text": "네 고객님. 대환대출은 더 유리한 조건으로 대출을 전환해 이자 부담을 낮추는 금융 제도예요. 대환대출을 알아본다고 해서 계약 위반으로 대출금을 일시 상환하라고 요청할 수는 없어요.",
       "tokens": [
-        {"text": "대환대출은", "polarity": "PRO", "reason": "팩트정정"},
-        {"text": "계약", "polarity": null, "reason": ""},
-        {"text": "없어요.", "polarity": "PRO", "reason": "안심"}
+        {
+          "text": "대환대출은",
+          "polarity": "PRO",
+          "reason": "팩트정정"
+        },
+        {
+          "text": "계약",
+          "polarity": null,
+          "reason": ""
+        },
+        {
+          "text": "없어요.",
+          "polarity": "PRO",
+          "reason": "안심"
+        }
       ],
-      "churn_after": 42, "flag": "def",
+      "churn_after": 42,
+      "flag": "def",
       "fraud_suspected": true,
       "strategy_headline": "팩트 정정 · 사기 수법 차단",
       "strategy_lead": "대환 제도 정정으로 계약위반 협박 무력화",
@@ -147,46 +321,98 @@
       }
     },
     {
-      "seq": 11, "speaker": "customer", "node": "PROPOSE",
+      "seq": 12,
+      "speaker": "customer",
+      "node": "PROPOSE",
       "text": "어머 그런 거예요? 아니 근데 홍길동은행 김 아무개 씨가 저보고 법 위반, 막 계약 위반이라고 당장 자기한테 송금 안 하면 큰일 난다고 했어요. 그 사람은 도대체 누구예요?",
       "tokens": [
-        {"text": "그런", "polarity": "PRO", "reason": "인지전환"},
-        {"text": "누구예요?", "polarity": "PRO", "reason": "의심전환"}
+        {
+          "text": "그런",
+          "polarity": "PRO",
+          "reason": "인지전환"
+        },
+        {
+          "text": "누구예요?",
+          "polarity": "PRO",
+          "reason": "의심전환"
+        }
       ],
-      "churn_after": 38, "flag": "def",
+      "churn_after": 38,
+      "flag": "def",
       "fraud_suspected": true
     },
     {
-      "seq": 12, "speaker": "bot", "node": "SAFETY",
+      "seq": 13,
+      "speaker": "bot",
+      "node": "CHANNEL",
       "text": "많이 놀라셨죠. 고객님 우선 저희가 보이스피싱 의심으로 접수를 해드릴게요. 접수해 드리면 당사에서는 고객님 요청이 아닌 이상 대출 실행은 안 되세요. 최근 대환대출 계약 위반을 안내하는 보이스피싱이 기승을 부리고 있어요. 조심하셔야 해요.",
       "tokens": [
-        {"text": "보이스피싱", "polarity": null, "reason": "사기확정"},
-        {"text": "접수를", "polarity": "PRO", "reason": "보호조치"},
-        {"text": "안", "polarity": "PRO", "reason": "보호조치"},
-        {"text": "조심하셔야", "polarity": "PRO", "reason": "안심"}
+        {
+          "text": "보이스피싱",
+          "polarity": null,
+          "reason": "사기확정"
+        },
+        {
+          "text": "접수를",
+          "polarity": "PRO",
+          "reason": "보호조치"
+        },
+        {
+          "text": "안",
+          "polarity": "PRO",
+          "reason": "보호조치"
+        },
+        {
+          "text": "조심하셔야",
+          "polarity": "PRO",
+          "reason": "안심"
+        }
       ],
-      "churn_after": 22, "flag": "def",
+      "churn_after": 22,
+      "flag": "def",
       "fraud_suspected": true,
       "strategy_headline": "보이스피싱 접수 · 대출 차단",
       "strategy_lead": "사기 확정 — 접수 후 실행 차단으로 고객 보호"
     },
     {
-      "seq": 13, "speaker": "customer", "node": "CLOSING",
+      "seq": 14,
+      "speaker": "customer",
+      "node": "CLOSING",
       "text": "너무 고마워요. 저한테 이런 일이 생길 줄이야, 너무 놀랐어요. 대출 요청 건은 취소할게요.",
       "tokens": [
-        {"text": "고마워요.", "polarity": "PRO", "reason": "신뢰회복"},
-        {"text": "취소할게요.", "polarity": "PRO", "reason": "사기차단"}
+        {
+          "text": "고마워요.",
+          "polarity": "PRO",
+          "reason": "신뢰회복"
+        },
+        {
+          "text": "취소할게요.",
+          "polarity": "PRO",
+          "reason": "사기차단"
+        }
       ],
-      "churn_after": 8, "flag": "def"
+      "churn_after": 8,
+      "flag": "def"
     },
     {
-      "seq": 14, "speaker": "bot", "node": "CLOSING",
+      "seq": 15,
+      "speaker": "bot",
+      "node": "CLOSING",
       "text": "네 고객님, 오늘 안내해 드린 상담이 도움이 되셨기를 바랍니다. 건강한 금융 생활 이어가시길 바라며, 궁금한 점이 생기시면 언제든 다시 찾아주세요. 좋은 하루 되십시오.",
       "tokens": [
-        {"text": "도움이", "polarity": "PRO", "reason": "마무리"},
-        {"text": "좋은", "polarity": "PRO", "reason": "마무리"}
+        {
+          "text": "도움이",
+          "polarity": "PRO",
+          "reason": "마무리"
+        },
+        {
+          "text": "좋은",
+          "polarity": "PRO",
+          "reason": "마무리"
+        }
       ],
-      "churn_after": 5, "flag": "def",
+      "churn_after": 5,
+      "flag": "def",
       "strategy_headline": "안전 종료",
       "strategy_lead": "사기 차단 완료 — 통화 정상 종료"
     }

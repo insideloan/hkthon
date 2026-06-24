@@ -118,6 +118,11 @@ def get_item(pk: str, sk: str) -> Optional[dict[str, Any]]:
     return resp.get("Item")
 
 
+def delete_item(pk: str, sk: str) -> None:
+    """PK/SK 단건 삭제. 멱등 — 없는 키를 지워도 에러 없음."""
+    get_table().delete_item(Key={"PK": pk, "SK": sk})
+
+
 def query(pk: str, sk_prefix: Optional[str] = None) -> list[dict[str, Any]]:
     """PK 기준 아이템 목록 조회. sk_prefix 주면 begins_with 필터.
 

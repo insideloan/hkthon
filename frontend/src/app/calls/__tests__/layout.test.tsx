@@ -5,6 +5,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import ConsultCockpitPage from '@/app/calls/[id]/page';
 
+// ── Mock next/navigation (페이지가 useRouter로 종료 후 CRM 이동) ─────────────
+// useSearchParams: 기본은 비-라이브(mock 시나리오 엔진 렌더). 라이브 모드는
+// 별도 테스트에서 검증.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // ── Mock AppSync so live subscriptions don't fire ──────────────────────────
 vi.mock('@/lib/appsync', () => ({
   subscribeSpeechAnalysis: () => () => {},

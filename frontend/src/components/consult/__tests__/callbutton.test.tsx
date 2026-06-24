@@ -47,6 +47,33 @@ describe('CallButton', () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/calls/call-1'));
   });
 
+  it('navigates to the existing call when dialCall rejects with INVALID_STATE', async () => {
+    // 백엔드가 이미 연결된 콜 때문에 거부하면, 그 콜 모니터링으로 진입해야 한다.
+    dialCallMock.mockRejectedValue({
+      errors: [
+        {
+          message:
+            'INVALID_STATE: customer cust-1 already has an active call (call-existing)',
+        },
+      ],
+    });
+    render(<CallButton customerId="cust-1" analysisComplete />);
+    fireEvent.click(screen.getByTestId('call-button'));
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith('/calls/call-existing'),
+    );
+  });
+
+  it('shows error state when dialCall fails without a parseable existing call', async () => {
+    dialCallMock.mockRejectedValue(new Error('network down'));
+    render(<CallButton customerId="cust-1" analysisComplete />);
+    fireEvent.click(screen.getByTestId('call-button'));
+    await waitFor(() =>
+      expect(screen.getByTestId('call-button')).toHaveAttribute('data-state', 'error'),
+    );
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
   it('is disabled when analysisComplete is false', () => {
     render(<CallButton customerId="cust-1" analysisComplete={false} />);
     expect(screen.getByTestId('call-button')).toBeDisabled();

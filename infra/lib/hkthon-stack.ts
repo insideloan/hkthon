@@ -99,7 +99,10 @@ export class HkthonStack extends cdk.Stack {
       // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
       // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
       code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
-      timeout: cdk.Duration.seconds(30),
+      // 라이브 한 턴(nextTurn/audioChunk)은 agent 그래프(Bedrock classify+respond,
+      // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
+      // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
+      timeout: cdk.Duration.seconds(90),
       memorySize: 256,
       environment: {
         TABLE_NAME: table.tableName,
@@ -116,7 +119,7 @@ export class HkthonStack extends cdk.Stack {
         //   cdk deploy -c orchestratorMode=live
         // 로 옵트인 — 데모 안정성을 위해 기본값은 그대로 둔다.
         ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'script',
-        LLM_MODEL: 'global.anthropic.claude-sonnet-4-6',
+        LLM_MODEL: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
         TRANSCRIBE_LANGUAGE: 'ko-KR',

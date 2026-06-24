@@ -18,6 +18,27 @@ type CallButtonProps = {
 
 type ButtonState = 'idle' | 'dialing' | 'error';
 
+// 백엔드 INVALID_STATE 메시지에서 기존 활성 콜 id 추출.
+// Amplify 는 GraphQL 에러를 { errors: [{ message }] } 로 reject 하며, 메시지는
+// "INVALID_STATE: customer cust-001 already has an active call (c123...)" 형태다.
+function existingCallIdFromError(err: unknown): string | null {
+  const messages: string[] = [];
+  if (err && typeof err === 'object') {
+    const e = err as { message?: unknown; errors?: Array<{ message?: unknown }> };
+    if (Array.isArray(e.errors)) {
+      for (const ge of e.errors) {
+        if (typeof ge?.message === 'string') messages.push(ge.message);
+      }
+    }
+    if (typeof e.message === 'string') messages.push(e.message);
+  }
+  for (const m of messages) {
+    const match = m.match(/already has an active call \(([^)]+)\)/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
 export function CallButton({ customerId, analysisComplete = true }: CallButtonProps) {
   const router = useRouter();
   const [btnState, setBtnState] = useState<ButtonState>('idle');
@@ -31,6 +52,14 @@ export function CallButton({ customerId, analysisComplete = true }: CallButtonPr
         router.push(`/calls/${result.callId}`);
       }
     } catch (err) {
+      // 이미 *연결된* 콜이 있으면 백엔드가 INVALID_STATE 로 거부하며 메시지에 기존
+      // callId 를 싣는다("...already has an active call (c123...)"). 발신 버튼을 누른
+      // 의도는 그 통화로 진입하는 것이므로, 새 발신 대신 기존 콜 모니터링으로 이동한다.
+      const existing = existingCallIdFromError(err);
+      if (existing) {
+        router.push(`/calls/${existing}`);
+        return;
+      }
       console.error('dialCall 오류', err);
       setBtnState('error');
     }

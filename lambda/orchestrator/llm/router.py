@@ -3,7 +3,7 @@
 AGENT 모듈. SSOT: hk-skills/reference/STACK.md §5(LLM), ARCHITECTURE.md §3.3.
 
 - SDK: langchain-aws ChatBedrockConverse (**Bedrock 전용** — 다른 provider 금지).
-- Model: env LLM_MODEL (기본 global.anthropic.claude-sonnet-4-6).
+- Model: env LLM_MODEL (기본 global.anthropic.claude-haiku-4-5-20251001-v1:0 — 레이턴시 우선).
 - 공개 API:
     get_llm()           → ChatBedrockConverse 인스턴스 반환 (이슈 #15 수용 기준).
     classify_turn(...)  → structured output (CLASSIFY_SCHEMA) — nodes.classify
@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
+_DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 _FIRST_TOKEN_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "6"))
 
@@ -69,6 +69,14 @@ def _client():
         # 모델 ID는 클라이언트 생성 시점에 env에서 읽는다(모듈 로드 시점 고정 금지):
         # Lambda 콜드스타트마다 최신 LLM_MODEL을 반영하고, 테스트가 env를 주입할 수 있게 한다.
         model_id = os.environ.get("LLM_MODEL", _DEFAULT_MODEL_ID)
+        # 라이브 통화 레이턴시 우선 — reasoning(extended thinking) 비활성.
+        # Bedrock Converse에서 Claude의 thinking은 additionalModelRequestFields에
+        # thinking 블록을 "넣어야" 켜지는 opt-in이다(langchain_aws _is_thinking_enabled:
+        # type=="enabled"일 때만 활성). 따라서 그 필드를 주지 않으면 thinking은
+        # 애초에 일어나지 않는다 — 굳이 {"type":"disabled"} 같은 비표준 키를 보내면
+        # Bedrock이 400을 낼 수 있으므로 보내지 않는다.
+        # (라이브 한 턴의 ~20s는 thinking이 아니라 classify+respond(+compliance)
+        #  직렬 Bedrock 호출 때문 — max_tokens 512로 출력 토큰을 짧게 묶어 단축.)
         _chat = ChatBedrockConverse(
             model=model_id,
             region_name=_REGION,
@@ -82,7 +90,7 @@ def get_llm():
     """ChatBedrockConverse 인스턴스를 반환하는 공개 팩토리 함수.
 
     이슈 #15 수용 기준:
-    - LLM_MODEL 환경변수로 모델 지정 (기본 global.anthropic.claude-sonnet-4-6).
+    - LLM_MODEL 환경변수로 모델 지정 (기본 global.anthropic.claude-haiku-4-5-20251001-v1:0).
     - Bedrock 전용: ChatBedrockConverse 인스턴스 반환.
     - .astream 인터페이스 통일 (ChatBedrockConverse 네이티브 지원).
 

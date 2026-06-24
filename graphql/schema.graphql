@@ -139,6 +139,7 @@ type CallSummaryResult {
 
 type ApproveResult { ok: Boolean!, callId: ID!, productId: ID }
 type SendLinkResult { ok: Boolean!, callId: ID!, url: String! }
+type DeleteQueueRowResult { ok: Boolean!, callId: ID! }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscription payloads (SSOT-3 정합)
@@ -156,25 +157,37 @@ type TurnPayload @aws_iam @aws_api_key {
 
 type IndexUpdatePayload @aws_iam @aws_api_key { callId: ID!, churnRisk: Int, emotion: String }
 
+# SSOT-3 발화분석: 턴 단위 토큰 배열(키워드 강조 + polarity로 risk/def flag 분기).
+# tokens는 Turn에 기록되는 churn_tokens와 동일 형상(Token: text/polarity/reason).
 type SpeechAnalysisPayload @aws_iam @aws_api_key {
   callId: ID!
-  turnId: ID
-  polarity: Polarity
-  reason: String
-  turnFlag: TurnFlag
+  turnSeq: Int
+  tokens: [Token!]
 }
 
-# 별도 StrategyPanel 없음 — 두 필드로 단순화 (카드① .stx/.slead).
-type StrategyUpdatePayload @aws_iam @aws_api_key { callId: ID!, strategyHeadline: String!, rationale: String! }
+# 카드① 전략: 헤드라인 + 근거(.stx/.slead). turnSeq로 어느 턴의 전략인지 식별.
+type StrategyUpdatePayload @aws_iam @aws_api_key {
+  callId: ID!
+  turnSeq: Int
+  strategyHeadline: String!
+  rationale: String!
+}
 
-type PolicyCheck @aws_iam @aws_api_key { id: ID!, label: String!, passed: Boolean! }
+# 컴플라이언스 4규제 체크 1건. flagged: 위반 여부(null=미검토).
+type ComplianceCheck @aws_iam @aws_api_key { law: String!, desc: String!, flagged: Boolean }
 
+# 최종 발화 diff 세그먼트: {text}=불변 / {del,ins}=교체 / {ins,added:true}=신규.
+type ComplianceFinalSegment @aws_iam @aws_api_key { text: String, del: String, ins: String, added: Boolean }
+
+# 카드③ 컴플라이언스: 가안→4규제 검수→최종 diff (SSOT-3 풍부 형상).
 type ComplianceStatePayload @aws_iam @aws_api_key {
   callId: ID!
-  state: ComplianceStateEnum!
+  phase: ComplianceStateEnum!
   draft: String
-  violatedPolicies: [PolicyCheck!]!
-  finalDiff: String
+  violations: [String!]
+  checks: [ComplianceCheck!]
+  violatedPolicies: [String!]
+  final: [ComplianceFinalSegment!]
 }
 
 type MotDetectedPayload @aws_iam @aws_api_key {
@@ -185,7 +198,7 @@ type MotDetectedPayload @aws_iam @aws_api_key {
 }
 
 type QueueUpdatePayload @aws_iam @aws_api_key { callId: ID!, state: CallState }
-type CallEndedPayload @aws_iam @aws_api_key { callId: ID! }
+type CallEndedPayload @aws_iam @aws_api_key { callId: ID!, resultType: String, endedAt: String }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Query / Mutation / Subscription roots
@@ -209,6 +222,8 @@ type Mutation {
   transferToAgent(callId: ID!): Call!
   sendLink(callId: ID!, url: String!): SendLinkResult!
   endCall(callId: ID!): Call!
+  # 큐 row 수동 삭제 (관리자 대시보드)
+  deleteQueueRow(callId: ID!): DeleteQueueRowResult!
   # 스크립트 모드 진행
   nextTurn(callId: ID!): Turn
   # 라이브 오디오 (스크립트 모드 no-op)
@@ -216,15 +231,22 @@ type Mutation {
   audioChunk(callId: ID!, data: String!): Boolean
 
   # 내부 _emit* — Streams 팬아웃이 호출, 구독이 @aws_subscribe로 연결.
-  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag, audioUrl: String): TurnPayload @aws_iam
+  # NONE 데이터소스 resolver가 arguments를 그대로 payload로 echo(hkthon-stack.ts)하므로,
+  # payload 형상 = arguments 형상이어야 한다. 리스트/객체 인자는 input 타입 사용.
+  _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag, audioUrl: String, tokens: [TokenInput!]): TurnPayload @aws_iam
   _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload @aws_iam
-  _emitSpeechAnalysis(callId: ID!, turnId: ID, polarity: Polarity, reason: String, turnFlag: TurnFlag): SpeechAnalysisPayload @aws_iam
-  _emitStrategyUpdate(callId: ID!, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload @aws_iam
-  _emitComplianceState(callId: ID!, state: ComplianceStateEnum!, draft: String, finalDiff: String): ComplianceStatePayload @aws_iam
+  _emitSpeechAnalysis(callId: ID!, turnSeq: Int, tokens: [TokenInput!]): SpeechAnalysisPayload @aws_iam
+  _emitStrategyUpdate(callId: ID!, turnSeq: Int, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload @aws_iam
+  _emitComplianceState(callId: ID!, phase: ComplianceStateEnum!, draft: String, violations: [String!], checks: [ComplianceCheckInput!], violatedPolicies: [String!], final: [ComplianceFinalSegmentInput!]): ComplianceStatePayload @aws_iam
   _emitMot(callId: ID!, markerId: MotMarkerId!, state: MotState!, stage: MotStage!): MotDetectedPayload @aws_iam
   _emitQueueUpdate(callId: ID!, state: CallState): QueueUpdatePayload @aws_iam
-  _emitCallEnded(callId: ID!): CallEndedPayload @aws_iam
+  _emitCallEnded(callId: ID!, resultType: String, endedAt: String): CallEndedPayload @aws_iam
 }
+
+# _emit* 인자용 input 타입 (output Token/ComplianceCheck는 인자로 못 씀).
+input TokenInput { text: String!, polarity: Polarity, reason: String }
+input ComplianceCheckInput { law: String!, desc: String!, flagged: Boolean }
+input ComplianceFinalSegmentInput { text: String, del: String, ins: String, added: Boolean }
 
 type Subscription {
   onQueueUpdate: QueueUpdatePayload

@@ -9,13 +9,13 @@ import { clsx } from 'clsx';
 import { useRouter } from 'next/navigation';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { RiskBar } from '@/components/ui/RiskBar';
-import { fetchQueue, subscribeQueueUpdates } from '@/lib/appsync';
+import { deleteQueueRow, fetchQueue, subscribeQueueUpdates } from '@/lib/appsync';
 import { useQueueStore } from '@/stores/queueStore';
 import type { CallState, QueueRow } from '@/types/queue';
 
 // Call state → human label (Korean) + badge tone. Mirrors SDL `enum CallState`.
 const STATE_LABEL: Record<CallState, string> = {
-  CREATED: '대기',
+  CREATED: '대기중',
   DIALING: '발신중',
   IN_CALL: '통화중',
   TRANSFER_PENDING: '상담원 연결 대기',
@@ -55,9 +55,9 @@ function nameInitial(name: string | null | undefined): string {
 //   IN_CALL          → AI 상담화면 (/calls) — joins mid-conversation
 //   DIALING          → AI 상담화면 (/calls) — booth demo from the call's start
 //   TRANSFER_PENDING → not navigable yet (awaiting agent assignment)
-//   CREATED          → 사전 고객분석 (/segment) — pre-call analysis screen
+//   CREATED          → 사전 분석중 (/segment) — pre-call analysis screen
 //
-// The 박서준 demo row carries state DIALING + the 사전 고객분석 stage, so it routes
+// The 박서준 demo row carries state DIALING + the 사전 분석중 stage, so it routes
 // to /segment for the scripted analysis → 발신 → 상담 flow. Wire QueueRow has no
 // customerId yet (see types/queue.ts), so the segment screen is keyed by the seed
 // id mapped from the demo customer name; other customers are wired up later.
@@ -65,11 +65,25 @@ const DEMO_NAME_TO_CUSTOMER_ID: Record<string, string> = {
   박서준: 'cust-001',
 };
 
-const PRE_ANALYSIS_STAGE = '사전 고객분석';
+const PRE_ANALYSIS_STAGE = '사전 분석중';
+
+// 시연 시나리오의 시작점(박서준)이라 큐에서 사라지면 데모 흐름이 깨진다.
+// 이 행은 휴지통 버튼을 렌더하지 않아 삭제를 원천 차단한다.
+const UNDELETABLE_CALL_IDS = new Set(['c-demo-01']);
+
+// 체험(experience) 버튼으로 생성된 행은 callId가 exp-* 다. 데모(scripted) 재생이
+// 아니라 실제 라이브 세션(마이크→STT→agent→TTS)으로 진입한다.
+function isExperienceRow(row: QueueRow): boolean {
+  return (row.callId ?? '').startsWith('exp-');
+}
 
 /** Resolve the target href for a row, or null when the row isn't navigable. */
 function rowHref(row: QueueRow): string | null {
-  // 사전 고객분석 단계(데모: 박서준) → 세그먼트 분석 화면.
+  // 체험 고객(exp-*) → 라이브 상담 화면(?live=1). mock 시나리오 재생이 아님.
+  if (isExperienceRow(row)) {
+    return `/calls/${row.callId}?live=1`;
+  }
+  // 사전 분석중 단계(데모: 박서준) → 세그먼트 분석 화면.
   if (row.stage === PRE_ANALYSIS_STAGE) {
     const customerId = DEMO_NAME_TO_CUSTOMER_ID[row.customerName ?? ''];
     return customerId ? `/segment/${customerId}` : null;
@@ -102,7 +116,8 @@ type OutboundQueueTableProps = {
 type LoadStatus = 'loading' | 'ready' | 'error';
 
 // ─── SSOT adm-table header + row styles ──────────────────────────────────────
-const GRID_COLS = '2.2fr 1fr 1.3fr 1.1fr 1.1fr .9fr .8fr';
+// Trailing `36px` track holds the per-row delete (휴지통) action.
+const GRID_COLS = '2.2fr 1fr 1.3fr 1.1fr 1.1fr .9fr .8fr 36px';
 
 export function OutboundQueueTable({
   disableLiveData = false,
@@ -111,6 +126,7 @@ export function OutboundQueueTable({
   const router = useRouter();
   const storeRows = useQueueStore((s) => s.rows);
   const setQueue = useQueueStore((s) => s.setQueue);
+  const removeRow = useQueueStore((s) => s.removeRow);
   // When live data is disabled (tests seed the store), treat as ready.
   const [status, setStatus] = useState<LoadStatus>(disableLiveData ? 'ready' : 'loading');
 
@@ -143,6 +159,19 @@ export function OutboundQueueTable({
     };
   }, [disableLiveData, setQueue]);
 
+  // 휴지통 클릭: 낙관적으로 행을 즉시 제거하고 백엔드 영구 삭제를 호출한다.
+  // 실패하면 스냅샷을 재조회해 행을 되살린다(낙관 제거 롤백).
+  const handleDelete = (callId: string) => {
+    removeRow(callId);
+    if (disableLiveData) return; // 테스트/오프라인: 로컬 제거만.
+    deleteQueueRow(callId).catch((err) => {
+      console.error('queue row 삭제 실패', err);
+      fetchQueue()
+        .then(setQueue)
+        .catch((e) => console.error('삭제 롤백용 재조회 실패', e));
+    });
+  };
+
   // Use filteredRows from parent when provided; otherwise fall back to all store rows.
   const rows = filteredRows ?? storeRows;
 
@@ -165,12 +194,13 @@ export function OutboundQueueTable({
         }}
       >
         <span>고객</span>
-        <span>상태</span>
-        <span>현 단계</span>
-        <span>이탈위험</span>
-        <span>담당</span>
-        <span>통화시간</span>
+        <span>연결 상태</span>
+        <span>상담 단계</span>
+        <span>이탈 가능성</span>
+        <span>담당 Agent</span>
+        <span>통화 시간</span>
         <span>채널</span>
+        <span className="sr-only">삭제</span>
       </div>
 
       {/* ── rows ── */}
@@ -295,6 +325,42 @@ export function OutboundQueueTable({
             <span className="text-[12.5px]" style={{ color: 'var(--ink-dim)' }}>
               {row.channel || '전화'}
             </span>
+
+            {/* 삭제 — 휴지통: 행을 큐에서 제거. 행 네비게이션으로 버블링 막음.
+                시연 보호 행(c-demo-01 등)은 버튼을 아예 렌더하지 않아 삭제 불가. */}
+            {UNDELETABLE_CALL_IDS.has(row.callId) ? (
+              <span aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                data-testid={`queue-delete-${row.callId}`}
+                aria-label={`${row.customerName ?? row.callId} 큐에서 삭제`}
+                title="큐에서 삭제"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(row.callId);
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="flex-none w-[26px] h-[26px] grid place-items-center rounded-md text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
           </div>
           );
         })

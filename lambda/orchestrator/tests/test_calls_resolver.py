@@ -29,11 +29,41 @@ def test_dial_call_creates_dialing():
     assert stored["state"] == "DIALING"
 
 
-def test_dial_call_duplicate_rejected():
-    calls.resolve_dial_call({}, {"customerId": "cust1"})
+def test_dial_call_rejected_when_connected():
+    """이미 연결된(IN_CALL/TRANSFER_PENDING) 콜이 있으면 재발신 거부."""
+    first = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    dynamo.update_fields(dynamo.pk_call(first["id"]), "META", {"state": "IN_CALL"})
     with pytest.raises(OrchestratorError) as ei:
         calls.resolve_dial_call({}, {"customerId": "cust1"})
     assert ei.value.error_type == "INVALID_STATE"
+
+
+def test_dial_call_supersedes_stale_dialing():
+    """묵은 DIALING(연결 안 됨) 콜은 종료하고 재발신을 진행한다.
+
+    DIALING 으로 남은 콜은 ACTIVE_CALL 인덱스를 영구히 잠가 재발신을 막으므로,
+    다시 발신하면 묵은 콜을 ENDED 처리하고 새 콜을 만든다.
+    """
+    # 묵은 DIALING 콜 + 활성 인덱스를 고정 id 로 시드 (new_call_id 는 ms 기반이라
+    # 같은 ms 안의 연속 발신은 id 가 충돌하므로 시간에 의존하지 않게 직접 구성).
+    stale_id = "c-stale-0001"
+    dynamo.put_item({
+        "PK": dynamo.pk_call(stale_id), "SK": "META",
+        "callId": stale_id, "customerId": "cust1", "state": "DIALING",
+    })
+    dynamo.put_item({
+        "PK": dynamo.pk_cust("cust1"), "SK": "ACTIVE_CALL", "callId": stale_id,
+    })
+
+    second = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    # 새 콜이 생성되고 DIALING 으로 발신된다.
+    assert second["state"] == "DIALING"
+    assert second["id"] != stale_id
+    # 묵은 콜은 ENDED 처리된다.
+    assert dynamo.get_item(dynamo.pk_call(stale_id), "META")["state"] == "ENDED"
+    # 활성 콜 인덱스는 새 콜을 가리킨다.
+    active = calls._active_call_for_customer("cust1")
+    assert active["callId"] == second["id"]
 
 
 def test_create_call_does_not_dial():

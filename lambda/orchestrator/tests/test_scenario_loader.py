@@ -43,9 +43,23 @@ def test_s1_file_exists():
     assert _S1_PATH.exists(), f"missing {_S1_PATH}"
 
 
-def test_s1_loads_18_turns(s1_raw):
+def test_s1_loads_19_turns(s1_raw):
+    # 아웃바운드 인사("여보세요?") greet 턴 추가로 19턴. expected_turns 선언으로
+    # 18턴 기본값을 오버라이드(S2의 15턴 방식과 동일).
     data = sl.load_from_str(s1_raw)
-    assert len(data["turns"]) == sl.EXPECTED_TURNS == 18
+    assert data["expected_turns"] == 19
+    assert len(data["turns"]) == 19
+
+
+def test_s1_opens_with_customer_greet(s1_data):
+    # 아웃바운드: 연결 시 고객이 먼저 "여보세요?". 분석/MOT 트리거 안 함.
+    first = s1_data["turns"][0]
+    assert first["speaker"] == "customer"
+    assert first.get("greet") is True
+    assert "mot" not in first
+    # 두 번째 턴이 봇 인사.
+    assert s1_data["turns"][1]["speaker"] == "bot"
+    assert "현대캐피탈" in s1_data["turns"][1]["text"]
 
 
 def test_s1_passes_schema_validation(s1_data):
@@ -100,7 +114,7 @@ def test_missing_required_field_detected(s1_data):
 def test_wrong_turn_count_detected(s1_data):
     bad = copy.deepcopy(s1_data)
     bad["turns"].pop()
-    with pytest.raises(sl.ScenarioValidationError, match="17"):
+    with pytest.raises(sl.ScenarioValidationError, match="18"):
         sl.validate_scenario(bad)
 
 
@@ -120,7 +134,8 @@ def test_invalid_compliance_state_detected(s1_data):
 
 def test_consecutive_customer_turns_detected(s1_data):
     bad = copy.deepcopy(s1_data)
-    bad["turns"][2]["speaker"] = "customer"  # seq 1,2 모두 customer
+    # turns[2]=customer(이미), turns[3]=bot → turns[3]을 customer로 바꿔 연속 위반.
+    bad["turns"][3]["speaker"] = "customer"  # seq 2,3 모두 customer
     with pytest.raises(sl.ScenarioValidationError, match="교대"):
         sl.validate_scenario(bad)
 
@@ -131,15 +146,56 @@ def test_s2_file_exists():
     assert _S2_PATH.exists(), f"missing {_S2_PATH}"
 
 
-def test_s2_loads_15_turns_via_declared_count(s2_raw):
-    # JSON 최상위 expected_turns=15 선언으로 18턴 기본값을 오버라이드해야 함.
+def test_s2_loads_16_turns_via_declared_count(s2_raw):
+    # JSON 최상위 expected_turns=16 선언으로 18턴 기본값을 오버라이드해야 함.
+    # (인사 greet 턴 1 + 대화 15)
     data = sl.load_from_str(s2_raw)
-    assert data["expected_turns"] == 15
-    assert len(data["turns"]) == 15
+    assert data["expected_turns"] == 16
+    assert len(data["turns"]) == 16
 
 
 def test_s2_passes_schema_validation(s2_data):
     assert sl.validate_scenario(s2_data) is s2_data
+
+
+def test_s2_starts_with_greet_turn(s2_data):
+    # 아웃바운드 발신 — 고객이 먼저 "여보세요?"로 받는 인사 턴으로 시작(s1과 정합).
+    first = s2_data["turns"][0]
+    assert first["greet"] is True
+    assert first["speaker"] == "customer"
+    # 인사 턴은 분석/사기 파이프라인을 트리거하지 않는다(tokens 비고 fraud 없음).
+    assert first["tokens"] == []
+    assert "fraud_suspected" not in first
+
+
+def test_invalid_greet_type_detected(s2_data):
+    bad = copy.deepcopy(s2_data)
+    bad["turns"][0]["greet"] = "yes"
+    with pytest.raises(sl.ScenarioValidationError, match="greet"):
+        sl.validate_scenario(bad)
+
+
+def test_s2_nodes_are_valid_stages(s2_data):
+    # s2의 모든 node가 정식 Stage enum이어야 함(비표준 SAFETY 제거 확인).
+    assert all(t["node"] in sl._NODES for t in s2_data["turns"])
+    assert "SAFETY" not in {t["node"] for t in s2_data["turns"]}
+
+
+# -- node enum 검증 ------------------------------------------------------------
+
+def test_invalid_node_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    bad["turns"][1]["node"] = "SAFETY"  # Stage에 없는 값
+    with pytest.raises(sl.ScenarioValidationError, match="invalid node"):
+        sl.validate_scenario(bad)
+
+
+def test_all_scenario_nodes_within_stage_enum():
+    # 등록된 모든 시나리오의 node가 Stage enum 안에 있어야 함(AGENT stage 추론 정합).
+    for sid in sl.KNOWN_SCENARIOS:
+        data = sl.load_scenario(sid)
+        for t in data["turns"]:
+            assert t["node"] in sl._NODES, f"{sid} seq{t['seq']}: {t['node']}"
 
 
 def test_s2_uses_fraud_flag_not_mot(s2_data):
@@ -195,7 +251,7 @@ def test_load_from_s3_getobject(s1_raw):
     fake = _FakeS3(s1_raw)
     data = sl.load_from_s3("assets-bucket", "scenarios/scenario.json",
                            s3_client=fake)
-    assert len(data["turns"]) == 18
+    assert len(data["turns"]) == 19
     assert fake.calls == [("assets-bucket", "scenarios/scenario.json")]
 
 
@@ -216,7 +272,7 @@ def test_s3_key_for():
 
 def test_load_scenario_local_known_ids():
     # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
-    for sid, turns in (("s1", 18), ("s2", 15)):
+    for sid, turns in (("s1", 19), ("s2", 16)):
         data = sl.load_scenario(sid)
         assert data["scenario_id"] == sid
         assert len(data["turns"]) == turns
@@ -246,3 +302,29 @@ def test_known_scenarios_all_loadable():
     # KNOWN_SCENARIOS에 등록된 ID는 전부 로컬에서 로드 가능해야 함.
     for sid in sl.KNOWN_SCENARIOS:
         assert sl.load_scenario(sid)["scenario_id"] == sid
+
+
+# -- Mock 재생 화이트리스트 (s1만 mock, s2는 AGENT 전용) -----------------------
+
+def test_mock_scenarios_is_s1_only():
+    # 박서준 s1만 유일한 mock(데모) 재생 시나리오여야 한다.
+    assert sl.MOCK_SCENARIOS == ("s1",)
+
+
+def test_load_mock_scenario_allows_s1():
+    data = sl.load_mock_scenario("s1")
+    assert data["scenario_id"] == "s1"
+
+
+def test_load_mock_scenario_rejects_s2():
+    # s2(보이스피싱)는 AGENT 이상탐지용 — mock 재생 경로로 소비 불가.
+    with pytest.raises(sl.MockScenarioError, match="not a mock scenario"):
+        sl.load_mock_scenario("s2")
+
+
+def test_load_mock_scenario_rejects_non_whitelisted_before_load(s2_raw):
+    # 화이트리스트 검사가 S3/파일 로드보다 먼저라 s3_client를 건드리지 않는다.
+    fake = _FakeS3(s2_raw)
+    with pytest.raises(sl.MockScenarioError):
+        sl.load_mock_scenario("s2", bucket="b", s3_client=fake)
+    assert fake.calls == []

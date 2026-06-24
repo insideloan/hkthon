@@ -112,6 +112,50 @@ describe('queueStore ← onQueueUpdate', () => {
     useQueueStore.getState().mergeChurn('c1', 88);
     expect(useQueueStore.getState().rows[0].churnRisk).toBe(88);
   });
+
+  it('prependRow inserts at the top and bumps summary.total (체험 플로우)', () => {
+    useQueueStore.getState().setQueue(queueResult);
+    const beforeRows = useQueueStore.getState().rows.length;
+    const beforeTotal = useQueueStore.getState().summary!.total;
+    useQueueStore.getState().prependRow({
+      callId: 'exp-1', customerName: '체험고객', state: 'DIALING',
+      stage: '발신 대기', churnRisk: 12, assignee: 'AI 코파일럿',
+      channel: '아웃바운드', elapsedSec: 0, highlight: null,
+    });
+    const state = useQueueStore.getState();
+    expect(state.rows[0].callId).toBe('exp-1'); // 최상단
+    expect(state.rows[0].state).toBe('DIALING'); // 발신중
+    expect(state.rows).toHaveLength(beforeRows + 1);
+    expect(state.summary?.total).toBe(beforeTotal + 1); // 서버 total + 체험 1
+  });
+
+  it('experience rows survive a setQueue refresh (mock ticker / refetch)', () => {
+    useQueueStore.getState().setQueue(queueResult);
+    useQueueStore.getState().prependRow({
+      callId: 'exp-1', customerName: '체험고객', state: 'DIALING',
+      stage: '발신 대기', churnRisk: 12, assignee: 'AI 코파일럿',
+      channel: '아웃바운드', elapsedSec: 0, highlight: null,
+    });
+    // 주기적 큐 새로고침(목 ticker)이 와도 체험 행은 최상단에 유지돼야 한다.
+    useQueueStore.getState().setQueue(queueResult);
+    const state = useQueueStore.getState();
+    expect(state.rows[0].callId).toBe('exp-1');
+    expect(state.rows.filter((r) => r.callId === 'exp-1')).toHaveLength(1);
+  });
+
+  it('prependRow replaces an existing row with the same callId (no dupes)', () => {
+    useQueueStore.getState().setQueue(queueResult);
+    const row = {
+      callId: 'exp-1', customerName: 'A', state: 'DIALING' as const,
+      stage: '발신 대기', churnRisk: 12, assignee: 'AI 코파일럿',
+      channel: '아웃바운드', elapsedSec: 0, highlight: null,
+    };
+    useQueueStore.getState().prependRow(row);
+    useQueueStore.getState().prependRow({ ...row, customerName: 'B' });
+    const matches = useQueueStore.getState().rows.filter((r) => r.callId === 'exp-1');
+    expect(matches).toHaveLength(1);
+    expect(matches[0].customerName).toBe('B');
+  });
 });
 
 describe('callStore ← onIndexUpdate', () => {

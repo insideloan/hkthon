@@ -28,6 +28,7 @@ import {
   CallEndedSchema,
   type CallEnded,
 } from '@/types/realtime';
+import { isMockLiveCall, subscribeMockLive } from '@/lib/mockLive';
 
 let configured = false;
 
@@ -153,18 +154,18 @@ function mockQueue(): QueueResult {
   // Mirrors the SSOT demo call-list (docs/consult_redesigned-3.html CALLS) and
   // the backend seed (lambda/orchestrator/seed.py SEED_QUEUE_ROWS) so the admin
   // table drill-in flow is demoable offline. The 박서준 row carries state DIALING
-  // + the 사전 고객분석 stage so it routes to the segment analysis screen.
+  // + the 사전 분석중 stage so it routes to the segment analysis screen.
   const rows: QueueRow[] = [
-    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 고객분석',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
-    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 풀기',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
-    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 쌓기',
-      assignee: 'AI 코파일럿', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
+    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 분석중',
+      assignee: 'AI Agent1', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
+    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 해소중',
+      assignee: 'AI Agent2', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
+    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 형성중',
+      assignee: 'AI Agent5', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
     { callId: 'c-demo-04', customerName: '정민서', state: 'TRANSFER_PENDING', stage: '연결 대기',
       assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 55 },
-    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '상담사 연결',
-      assignee: '김도현', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
+    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '문자 URL발송',
+      assignee: 'AI Agent3', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
   ];
   const summary: QueueSummary = {
     total: rows.length,
@@ -256,6 +257,32 @@ export function subscribeQueueUpdates(
   );
 }
 
+// ── deleteQueueRow mutation — admin manual queue clear ───────────────────────
+// SDL: deleteQueueRow(callId: ID!): DeleteQueueRowResult! — permanently removes a
+// call from the queue (index + META + customer ACTIVE_CALL pointer). Idempotent.
+// Other admin clients refresh via the onQueueUpdate delta the resolver emits.
+const DELETE_QUEUE_ROW_MUTATION = /* GraphQL */ `
+  mutation DeleteQueueRow($callId: ID!) {
+    deleteQueueRow(callId: $callId) {
+      ok
+      callId
+    }
+  }
+`;
+
+export async function deleteQueueRow(callId: string): Promise<{ ok: boolean; callId: string }> {
+  if (USE_MOCK) return { ok: true, callId };
+  const res = await getClient().graphql({
+    query: DELETE_QUEUE_ROW_MUTATION,
+    variables: { callId },
+  });
+  if ('data' in res && res.data) {
+    const d = (res.data as { deleteQueueRow: { ok: boolean; callId: string } }).deleteQueueRow;
+    return { ok: d.ok, callId: d.callId };
+  }
+  throw new Error('deleteQueueRow 응답을 받지 못했습니다.');
+}
+
 // ── onComplianceState (realtime) — FRONTEND-008 / #37 ────────────────────────
 // Drives the compliance panel state machine (drafting → reviewing → redacting →
 // redrafting → approved). Producer: AGENT-010 (#18); contract pending in
@@ -273,6 +300,7 @@ const ON_COMPLIANCE_STATE_SUB = /* GraphQL */ `
     }
   }
 `;
+// 주의: phase는 wire에서 대문자 enum(DRAFTING…). violatedPolicies는 [String]. (SDL 정합)
 
 type OnComplianceState = { onComplianceState: ComplianceState };
 
@@ -285,6 +313,9 @@ export function subscribeComplianceState(
   onData: (state: ComplianceState) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'compliance', (p) => onData(p as ComplianceState));
+  }
   return subscribeWithReconnect(
     { query: ON_COMPLIANCE_STATE_SUB, variables: { callId } },
     (d) => (d as OnComplianceState | undefined)?.onComplianceState,
@@ -316,6 +347,10 @@ export function subscribeTurns(
   onData: (turn: Turn) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  // mock 빌드의 체험 라이브 콜(exp-*)은 로컬 시뮬레이터에서 이벤트를 받는다.
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'turn', (p) => onData(p as Turn));
+  }
   return subscribeWithReconnect(
     { query: ON_TURN_SUB, variables: { callId } },
     (d) => (d as OnTurn | undefined)?.onTurn,
@@ -375,6 +410,9 @@ export function subscribeSpeechAnalysis(
   onData: (analysis: SpeechAnalysis) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'speech', (p) => onData(p as SpeechAnalysis));
+  }
   return subscribeWithReconnect(
     { query: ON_SPEECH_ANALYSIS_SUB, variables: { callId } },
     (d) => (d as OnSpeechAnalysis | undefined)?.onSpeechAnalysis,
@@ -391,12 +429,8 @@ const ON_STRATEGY_UPDATE_SUB = /* GraphQL */ `
     onStrategyUpdate(callId: $callId) {
       callId
       turnSeq
-      headline
+      strategyHeadline
       rationale
-      data {
-        live { lastIntent }
-        static { creditScore }
-      }
     }
   }
 `;
@@ -409,6 +443,9 @@ export function subscribeStrategyUpdate(
   onData: (strategy: StrategyUpdate) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'strategy', (p) => onData(p as StrategyUpdate));
+  }
   return subscribeWithReconnect(
     { query: ON_STRATEGY_UPDATE_SUB, variables: { callId } },
     (d) => (d as OnStrategyUpdate | undefined)?.onStrategyUpdate,
@@ -539,6 +576,45 @@ export async function createCall(customerId: string): Promise<CreateCallResult> 
   throw new Error('createCall 응답을 받지 못했습니다.');
 }
 
+// ── 라이브 오디오 뮤테이션 (체험 라이브 세션) ────────────────────────────────
+// SDL: startAudio(callId): Boolean / audioChunk(callId, data): Boolean / nextTurn(callId): Turn.
+// 라이브 모드(ORCHESTRATOR_MODE=live) 백엔드에서 STT→agent→TTS를 구동한다.
+// mock 빌드/스크립트 모드에서는 백엔드가 no-op이므로 클라이언트도 안전하게 단락한다.
+const START_AUDIO_MUTATION = /* GraphQL */ `
+  mutation StartAudio($callId: ID!) {
+    startAudio(callId: $callId)
+  }
+`;
+
+const AUDIO_CHUNK_MUTATION = /* GraphQL */ `
+  mutation AudioChunk($callId: ID!, $data: String!) {
+    audioChunk(callId: $callId, data: $data)
+  }
+`;
+
+/** 라이브 오디오 세션 시작. mock 모드는 true(로컬 시뮬레이션 경로). */
+export async function startAudio(callId: string): Promise<boolean> {
+  if (USE_MOCK) return true;
+  const res = await getClient().graphql({ query: START_AUDIO_MUTATION, variables: { callId } });
+  if ('data' in res && res.data) {
+    return Boolean((res.data as { startAudio: boolean }).startAudio);
+  }
+  return false;
+}
+
+/**
+ * base64 PCM(16kHz mono) 오디오 청크를 전송. 백엔드가 STT→customer Turn→agent→bot Turn.
+ * mock 모드는 no-op(true) — 전송할 실제 백엔드가 없다.
+ */
+export async function audioChunk(callId: string, data: string): Promise<boolean> {
+  if (USE_MOCK) return true;
+  const res = await getClient().graphql({ query: AUDIO_CHUNK_MUTATION, variables: { callId, data } });
+  if ('data' in res && res.data) {
+    return Boolean((res.data as { audioChunk: boolean }).audioChunk);
+  }
+  return false;
+}
+
 // ── customer query — FRONTEND-003 / #32 ──────────────────────────────────────
 // Fetches basic customer info for the pre-analysis screen.
 // SDL: customer(id: ID!): Customer! — arg is `id`, and Customer exposes `id`
@@ -611,6 +687,9 @@ export function subscribeCallEnded(
   onData: (ended: CallEnded) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'callended', (p) => onData(p as CallEnded));
+  }
   return subscribeWithReconnect(
     { query: ON_CALL_ENDED_SUB, variables: { callId } },
     (d) => (d as OnCallEnded | undefined)?.onCallEnded,
