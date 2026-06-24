@@ -17,6 +17,8 @@ import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
 import { startPcmCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/pcmCapture';
+import { useExperienceStore } from '@/stores/experienceStore';
+import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
 import type { Turn } from '@/types/realtime';
 
 const IS_MOCK =
@@ -156,15 +158,19 @@ export function LiveSession({ callId }: LiveSessionProps) {
 
   // mock 데모: 마이크 권한이 잡히면(listening) 백엔드가 없으므로 캔드 교환을 시뮬레이션.
   // 실 배포(live 백엔드)에서는 onTurn 실데이터가 들어오므로 이 분기는 건너뛴다.
+  // 인사말 이름은 체험 고객 입력값(experienceStore) 우선, 없으면 기본 박서준.
   useEffect(() => {
     if (!IS_MOCK || micState !== 'listening') return;
+    const custName =
+      useExperienceStore.getState().getCustomer(callId)?.name || SCENARIO_CUSTOMER_NAME;
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms));
     at(900, () => pushTurn({ seq: 1, speaker: 'customer', text: '여보세요?' }));
-    at(2200, () => pushTurn({ seq: 2, speaker: 'bot', text: '안녕하세요, 현대캐피탈 AI 상담원입니다. 박서준 고객님 맞으실까요?' }));
+    at(2200, () => pushTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. ${custName} 고객님 맞으실까요?` }));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
-  }, [micState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micState, callId]);
 
   // 새 말풍선 도착 시 하단 스크롤.
   useEffect(() => {

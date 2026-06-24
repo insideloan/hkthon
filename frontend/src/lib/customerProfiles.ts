@@ -8,6 +8,7 @@
 // 신원(이름·나이·KCB·이탈위험)은 가능한 한 실제 큐 레코드에서 끌어오고, 금융 프로필
 // (대출·금리·자산·니즈)은 데모용 fixture다. 대화 흐름(시나리오) 자체는 공용이다.
 import type { QueueRow } from '@/types/queue';
+import { formatAmountManwon, type ExperienceCustomer } from '@/lib/experience';
 
 export type ProfileVariant = '' | 'hot' | 'ok' | 'warn';
 export type CustomerNeed = { label: string; variant: ProfileVariant };
@@ -160,12 +161,42 @@ function fallbackProfile(callId: string, row?: QueueRow): CustomerProfile {
   };
 }
 
+// ── 체험 고객 → 프로필 ────────────────────────────────────────────────────────
+// 모달 입력값(이름·성별·나이·대출·자산)과 자동 배정값(신용점수·금리)으로 CRM 프로필을
+// 구성한다. 보유대출/자산이 '없음'이면 그대로 '없음' 표기. 이탈위험은 체험 고정(낮음).
+export function profileFromExperience(c: ExperienceCustomer): CustomerProfile {
+  const loan =
+    c.loanType === '없음' ? '없음' : `${c.loanType} ${formatAmountManwon(c.loanAmount)}`;
+  const asset =
+    c.assetType === '없음' ? '없음' : `${c.assetType} ${formatAmountManwon(c.assetAmount)}`;
+  return {
+    name: c.name,
+    genderAge: `${c.gender} · ${c.age}세`,
+    kcb: `KCB ${c.creditScore}`,
+    loan,
+    rate: `${c.rate.toFixed(2)}%`,
+    rateVariant: '',
+    asset,
+    churnLabel: c.churnLabel,
+    churnVariant: 'ok',
+    needs: [
+      { label: '체험 상담 고객', variant: '' },
+      { label: '금리 비교 요청', variant: '' },
+    ],
+    nextAction: '입력 정보 기반 맞춤 금리 비교 → 상담사 연결 제안',
+  };
+}
+
 /**
- * callId(+선택적 큐 행)로 고객 프로필을 해석한다.
- * 데모 fixture가 있으면 그것을 쓰고(신원은 큐 행 값으로 보정), 없으면 큐 행에서
- * 신원만 추출한 폴백 프로필을 반환한다.
+ * callId(+선택적 큐 행/체험 고객)로 고객 프로필을 해석한다.
+ * 우선순위: 체험 고객(exp-*) > 데모 fixture > 큐 행 신원 폴백.
  */
-export function resolveCustomerProfile(callId: string, row?: QueueRow): CustomerProfile {
+export function resolveCustomerProfile(
+  callId: string,
+  row?: QueueRow,
+  experience?: ExperienceCustomer,
+): CustomerProfile {
+  if (experience) return profileFromExperience(experience);
   const fixture = DEMO_PROFILES[callId];
   if (!fixture) return fallbackProfile(callId, row);
   // fixture 우선. 단, 큐 행에 신원 값이 있으면(이름/이탈위험) 실제 레코드로 보정.
@@ -183,9 +214,15 @@ export const SCENARIO_CUSTOMER_NAME = '박서준';
 
 /**
  * AI 상담 화면에서 인사말에 넣을 고객 이름을 해석한다.
- * fixture(데모 행) → 큐 행 이름 → 기본값(박서준) 순. 데모 경로(callId가 큐 행/
- * fixture에 없는 mock-* 등)는 기본값을 유지해 기존 시연이 깨지지 않는다.
+ * 체험 고객 → fixture(데모 행) → 큐 행 이름 → 기본값(박서준) 순. 데모 경로(callId가
+ * 큐 행/fixture에 없는 mock-* 등)는 기본값을 유지해 기존 시연이 깨지지 않는다.
  */
-export function resolveScenarioCustomerName(callId: string, row?: QueueRow): string {
-  return DEMO_PROFILES[callId]?.name || row?.customerName || SCENARIO_CUSTOMER_NAME;
+export function resolveScenarioCustomerName(
+  callId: string,
+  row?: QueueRow,
+  experience?: ExperienceCustomer,
+): string {
+  return (
+    experience?.name || DEMO_PROFILES[callId]?.name || row?.customerName || SCENARIO_CUSTOMER_NAME
+  );
 }
