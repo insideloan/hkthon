@@ -154,7 +154,7 @@ function mockQueue(): QueueResult {
   // Mirrors the SSOT demo call-list (docs/consult_redesigned-3.html CALLS) and
   // the backend seed (lambda/orchestrator/seed.py SEED_QUEUE_ROWS) so the admin
   // table drill-in flow is demoable offline. The 박서준 row carries state DIALING
-  // + the 사전 분석중 stage so it routes to the segment analysis screen.
+  // + the 사전 분석 중 stage so it routes to the segment analysis screen.
   const rows: QueueRow[] = [
     { callId: 'c-demo-01', customerName: '박서준', subtitle: '38세·KCB744', state: 'DIALING', stage: '사전 분석 중',
       assignee: 'Agent #3', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
