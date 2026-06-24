@@ -499,16 +499,24 @@
   gap: 8px;
   /* 하단 영역을 약 20px 낮춤(콘텐츠 박스 높이 축소). */
   margin-bottom: 20px;
-  /* 파란 프레임 — 세 카드(#card-emo/#card-db/#card-strat .cmp)의 하단 영역을
-     하나의 강조 패널로. (기존 DB .dbanner.ok 프레임을 카드 하단으로 승격.) */
-  border: 1.5px solid #3551d6;
+  /* 파란 프레임 — 카드 콘텐츠가 모두 렌더된 뒤(.card.ok)에만 보이게 한다.
+     투명 테두리 + 패딩을 미리 깔아 프레임 등장 시 레이아웃이 밀리지 않게 하고,
+     border-color/box-shadow만 .ok에서 켜 부드럽게 페이드인한다. */
+  border: 1.5px solid transparent;
   border-radius: 12px;
   padding: 10px 12px;
+  transition: border-color .4s ease, box-shadow .4s ease;
+}
+/* 파란 프레임 발동 — 세 카드(#card-emo/#card-db/#card-strat .cmp)의 콘텐츠가
+   전부 렌더된 ok 단계에서만. (기존 DB .dbanner.ok 프레임을 카드 하단으로 승격.) */
+.cc__cards .card.ok .card-bottom {
+  border-color: #3551d6;
   box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3);
 }
 
-/* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임. */
-#card-emo .card-scroll { gap: 0; }
+/* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임.
+   단, card-scroll(상단/하단 영역 사이) 간격은 다른 두 카드와 동일하게 8px 유지해야
+   .card-bottom 최상단 위치가 세 카드 정렬된다(gap:0이면 card① 하단만 8px 높아짐). */
 #card-emo .card-bottom { gap: 0; }
 #card-emo .cseclbl { margin: 0; }
 #card-emo .stratg { padding: 0; }
@@ -535,11 +543,10 @@
 .dbanner.on { opacity: 1; transform: none; }
 .dbanner span:not(.dbic) { font-size: 12.5px; }
 .dbanner .dbic { flex: none; width: 17px; height: 17px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
-.dbanner.ok { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
+/* DB 분석결과 ok 배너("✓ 타사 13% 확인 …") — 배너 자체는 그대로 표시하되,
+   border/box-shadow만 제거(강조 프레임은 카드 하단 .card-bottom으로 이동했으므로). */
+.dbanner.ok { background: #fff; border: none; box-shadow: none; }
 .dbanner.ok .dbic { background: #2E9E6E; color: #fff; }
-/* DB 분석결과 ok 배너("✓ 타사 13% 확인 …")는 숨긴다 — 강조 프레임을 카드 하단(.card-bottom)
-   으로 올렸으므로 배너 자체는 표시하지 않는다(초록 ✓ 박스 그림은 아래 .check-badge로 재사용). */
-.dbanner.ok.on { display: none; }
 
 /* check-badge — DB ok 배너의 .dbic(초록 V 박스)와 동일한 모양.
    선택 전략 번호(.scard.sel .sno) 왼쪽, 최종 발화(.cmp-final) 왼쪽에 재사용한다. */
