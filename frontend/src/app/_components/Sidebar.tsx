@@ -188,6 +188,35 @@ export function Sidebar() {
         />
         LIVE
       </div>
+
+      {/* 모바일 체험(/m) QR — 사이드바 최하단에 폭 꽉 차게(좌우/하단 패딩 풀블리드).
+          클릭 시 데스크탑에서도 /m을 새 탭으로 연다. QR 흰 모듈은 투명이라 카드
+          배경이 비치고 파랑(rgb(37,99,235)) 모듈과 대비되어 스캔 가능. */}
+      <Link
+        href="/m"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="모바일 체험 QR — 휴대폰으로 스캔하세요"
+        title="모바일 체험 QR"
+        className="block cursor-pointer transition-opacity duration-200 hover:opacity-80"
+        style={{
+          // aside 패딩(12px 8px)을 상쇄해 좌우·하단 가장자리까지 꽉 채운다.
+          margin: '8px -8px -12px',
+          // 하단 모서리는 카드 라운드(18px)에 맞춤.
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          borderBottomLeftRadius: '18px',
+          borderBottomRightRadius: '18px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/qr.png"
+          alt="모바일 체험 QR 코드"
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+        />
+      </Link>
     </aside>
   );
 }
