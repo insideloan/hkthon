@@ -578,3 +578,73 @@ def test_classify_respond_fused_exception_returns_none():
 
         r._chat = None  # noqa: SLF001
         assert r.classify_respond_fused("sys", "user") is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. 멀티턴 입력 정규화 — _user_messages / 마지막 user = 현재 발화
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _load_router():
+    import sys
+
+    if "orchestrator.llm.router" in sys.modules:
+        del sys.modules["orchestrator.llm.router"]
+    from orchestrator.llm import router as r
+
+    return r
+
+
+def test_user_messages_wraps_plain_string():
+    """str 입력은 단일 user 메시지로 감싼다(레거시 경로)."""
+    r = _load_router()
+    msgs = r._user_messages("고객: 안녕하세요")  # noqa: SLF001
+    assert msgs == [{"role": "user", "content": "고객: 안녕하세요"}]
+
+
+def test_user_messages_passes_through_multiturn_list():
+    """list 입력은 role/content만 추려 멀티턴 그대로 전달, 마지막은 현재 user 발화."""
+    r = _load_router()
+    history = [
+        {"role": "user", "content": "고객: 여보세요?"},
+        {"role": "assistant", "content": "상담봇: 안녕하세요"},
+        {"role": "user", "content": "고객: 금리 얼마예요?"},
+    ]
+    msgs = r._user_messages(history)  # noqa: SLF001
+    assert msgs == history
+    assert msgs[-1]["role"] == "user" and "금리" in msgs[-1]["content"]
+
+
+def test_user_messages_filters_unknown_roles_and_empty():
+    """알 수 없는 role/빈 content는 제거. 전부 비면 안전한 빈 user로 폴백."""
+    r = _load_router()
+    msgs = r._user_messages(  # noqa: SLF001
+        [{"role": "system", "content": "x"}, {"role": "user", "content": ""}]
+    )
+    assert msgs == [{"role": "user", "content": ""}]
+
+
+def test_converse_forwards_multiturn_messages_with_last_user_current():
+    """converse가 멀티턴 리스트를 받으면 system 뒤에 history를 그대로 잇고
+    마지막 메시지가 현재 user 발화여야 한다(과거 발화 뭉치기 회귀 방지)."""
+    mock_instance = MagicMock()
+    mock_instance.invoke.return_value = MagicMock(content="응답")
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        r = _load_router()
+        r._chat = None  # noqa: SLF001
+        history = [
+            {"role": "user", "content": "고객: 여보세요?"},
+            {"role": "assistant", "content": "상담봇: 안녕하세요"},
+            {"role": "user", "content": "고객: 금리 얼마예요?"},
+        ]
+        out = r.converse("시스템", history)
+
+    assert out == "응답"
+    sent = mock_instance.invoke.call_args.args[0]
+    assert sent[0]["role"] == "system"
+    # system 1개 + history 3개.
+    assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]
+    assert sent[-1]["content"] == "고객: 금리 얼마예요?"
