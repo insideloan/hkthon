@@ -205,10 +205,19 @@ const CUSTOMER_ID_TO_FIXTURE: Record<string, string> = {
   'cust-001': 'c-demo-01',
 };
 
+// 박서준 데모 시나리오의 단 하나의 발신 고객 fixture.
+const SCENARIO_DEMO_FIXTURE = 'c-demo-01';
+
 function fixtureKeyFor(callId: string): string | undefined {
   if (DEMO_PROFILES[callId]) return callId;
   for (const [custId, key] of Object.entries(CUSTOMER_ID_TO_FIXTURE)) {
     if (callId.includes(custId)) return key;
+  }
+  // 데모 고정행(c-demo-*)도 체험(exp-*)도 아닌 callId = 발신(dialCall)으로 생성된 콜.
+  // 시연에서 AI가 전화상담하는 고객은 박서준뿐이므로, 그 발신 흐름의 마지막 상담
+  // 요약 CRM은 mock·라이브 모두 무조건 박서준 데모 프로필을 보여준다.
+  if (!callId.startsWith('c-demo-') && !callId.startsWith('exp-')) {
+    return SCENARIO_DEMO_FIXTURE;
   }
   return undefined;
 }
