@@ -1,5 +1,5 @@
 // Churn-risk gauge bar wrapper (shared `*`). SSOT .adm-risk styling.
-// Track: rgba(82,66,44,.12) — warm brownish semi-transparent to blend with beige canvas.
+// Track: rgba(17,24,39,.08) — cool neutral semi-transparent to blend with light canvas.
 // Fill: var(--route) solid — SSOT riskColor() returns 'var(--route)' for all values (unified brand blue).
 // Pct text: font-mono 11px bold w-[30px] text-right, color matches fill (var(--route)).
 
@@ -16,7 +16,7 @@ export function RiskBar({ value }: { value: number }) {
     <div className="flex items-center gap-2">
       <div
         className="h-[6px] flex-1 overflow-hidden rounded-full min-w-[34px]"
-        style={{ background: 'rgba(82,66,44,.12)' }}
+        style={{ background: 'rgba(17,24,39,.08)' }}
         role="progressbar"
         aria-valuenow={clamped}
         aria-valuemin={0}

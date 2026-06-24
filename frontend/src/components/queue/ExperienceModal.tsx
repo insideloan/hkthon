@@ -104,7 +104,7 @@ export function ExperienceModal({ open, onClose, onConfirm }: ExperienceModalPro
           width: 'min(460px, calc(100vw - 32px))',
           borderRadius: 18,
           padding: '20px 22px',
-          background: 'var(--card, #F9F6EE)',
+          background: 'var(--card, #ffffff)',
           boxShadow: 'var(--shadow)',
         }}
         onClick={(e) => e.stopPropagation()}
