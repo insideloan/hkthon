@@ -321,3 +321,58 @@ def test_persist_approved_has_final_for_fanout(monkeypatch, _fake_table):
     assert approved["final_text"] == "정정된 안내입니다"
     assert approved["final"] == "정정된 안내입니다"  # 모델 필드도 동일
     assert approved["draft"] == "무조건 됩니다"       # 원문 보존
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# fused confidence 게이트 — 고신뢰 + 룰 클린이면 Bedrock 왕복 생략
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_confidence_gate_skips_bedrock_when_high_and_rule_clean(monkeypatch):
+    """신뢰도 >= 임계값이고 룰 검수가 깨끗하면 Bedrock apply_guardrail을 호출하지 않는다."""
+    fake = _FakeBedrock(response={"action": "NONE", "assessments": []})
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    monkeypatch.setattr(c, "_COMPLIANCE_CONF_THRESHOLD", 0.8)
+
+    log, final = c.review_loop("안녕하세요, 무엇을 도와드릴까요?", {"_compliance_confidence": 0.95})
+    assert final == "안녕하세요, 무엇을 도와드릴까요?"
+    assert fake.calls == []   # Bedrock 미호출(네트워크 왕복 생략)
+
+
+def test_confidence_gate_runs_bedrock_when_low(monkeypatch):
+    """신뢰도 < 임계값이면 기존대로 Bedrock을 호출한다."""
+    fake = _FakeBedrock(response={"action": "NONE", "assessments": []})
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+    monkeypatch.setattr(c, "_COMPLIANCE_CONF_THRESHOLD", 0.8)
+
+    c.review_loop("응답 문장", {"_compliance_confidence": 0.4})
+    assert len(fake.calls) >= 1   # 저신뢰 → Bedrock 검수 수행
+
+
+def test_apply_guardrails_skip_bedrock_still_runs_rule(monkeypatch):
+    """skip_bedrock=True여도 결정적 룰 검수는 수행되어 위반을 잡는다(자가평가가 룰을 약화 못 함)."""
+    fake = _FakeBedrock(response={"action": "NONE", "assessments": []})
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+
+    # 룰 패턴(_POLICY_PATTERNS)에 걸리는 단정 표현 — Bedrock 생략해도 룰이 blocked로 잡아야 함.
+    verdict = c._apply_guardrails("무조건 됩니다 고객님", skip_bedrock=True)
+    assert verdict["blocked"] is True       # 룰이 위반 포착
+    assert fake.calls == []                 # Bedrock 왕복은 생략됨
+
+    # 깨끗한 텍스트는 skip_bedrock에서 통과(approved)
+    clean = c._apply_guardrails("심사 결과에 따라 안내해 드리겠습니다.", skip_bedrock=True)
+    assert clean["blocked"] is False
+    assert fake.calls == []
+
+
+def test_no_confidence_runs_bedrock_as_before(monkeypatch):
+    """신뢰도 미설정(비-fused 경로)이면 기존 동작 그대로 Bedrock 호출."""
+    fake = _FakeBedrock(response={"action": "NONE", "assessments": []})
+    _use_fake(monkeypatch, fake)
+    monkeypatch.setattr(c, "_GUARDRAIL_ID", "gr-123")
+
+    c.review_loop("응답", {})   # _compliance_confidence 없음
+    assert len(fake.calls) >= 1

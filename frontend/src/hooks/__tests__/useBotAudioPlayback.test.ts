@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
+import { stopBotAudio } from '@/lib/botAudioControl';
 import type { Turn } from '@/types/realtime';
 
 // AppSync onTurn 구독을 손으로 구동.
@@ -125,6 +126,23 @@ describe('useBotAudioPlayback', () => {
     });
     // 큐가 진행돼 두 번째 src로 전환됐는지(막히지 않음).
     expect(audios[0].play.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('barge-in: stopBotAudio()로 재생을 멈추고 대기 큐를 비운다', async () => {
+    renderHook(() => useBotAudioPlayback('c1'));
+    await act(async () => {
+      emitTurn?.(bot(2, 'https://s3/a.mp3'));
+      emitTurn?.(bot(3, 'https://s3/b.mp3')); // 큐 대기
+    });
+    expect(audios[0].src).toBe('https://s3/a.mp3');
+    // 고객이 다시 말함 → 현재 클립 일시정지 + 큐 비움.
+    await act(async () => { stopBotAudio(); });
+    expect(audios[0].pause).toHaveBeenCalled();
+    // 중단 후 첫 클립이 끝나도(onended는 떼였으므로) 대기 클립 b.mp3로 넘어가지 않는다.
+    const playsBefore = audios[0].play.mock.calls.length;
+    await act(async () => { audios[0].onended?.(); });
+    expect(audios[0].play.mock.calls.length).toBe(playsBefore);
+    expect(audios[0].src).toBe('https://s3/a.mp3');
   });
 
   it('언마운트 시 구독 해제 + 일시정지', () => {

@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { LiveSession } from '@/components/consult/LiveSession';
 
 // onTurn 구독을 손으로 구동할 수 있게 콜백을 보관.
-let emitTurn: ((t: { seq: number; speaker: string; text: string }) => void) | null = null;
+let emitTurn: ((t: { seq: number; speaker: string; text: string; audioUrl?: string | null }) => void) | null = null;
 const startAudio = vi.fn().mockResolvedValue(true);
 const audioChunk = vi.fn().mockResolvedValue(true);
 
@@ -65,19 +65,26 @@ async function renderLive(callId = 'exp-1') {
 describe('LiveSession', () => {
   it('requests mic and starts the audio session on entry', async () => {
     await renderLive();
-    expect(getUserMedia).toHaveBeenCalledWith({ audio: true });
+    // 봇 TTS 되먹임(echo) 자기-barge-in/유령 turn 방지 — AEC 등 오디오 제약 활성.
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
     await waitFor(() => expect(startAudio).toHaveBeenCalledWith('exp-1'));
     expect(screen.getByTestId('live-session')).toHaveAttribute('data-mic-state', 'listening');
   });
 
   it('renders customer and bot bubbles from onTurn', async () => {
+    vi.useFakeTimers();
     await renderLive();
     await act(async () => {
       emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
       emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요, 현대캐피탈입니다.' });
     });
+    // bot 텍스트는 타자기로 점진 노출 — 타이머를 끝까지 돌려 전체 텍스트 완성.
+    await act(async () => { vi.runAllTimers(); });
     expect(screen.getByTestId('live-bubble-customer')).toHaveTextContent('여보세요?');
     expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('현대캐피탈');
+    vi.useRealTimers();
   });
 
   it('dedupes re-emitted turns by seq', async () => {
@@ -111,26 +118,26 @@ describe('LiveSession', () => {
     expect(push).toHaveBeenCalledWith('/crm/exp-9');
   });
 
-  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.006, 함수형 임계값으로 전달', async () => {
+  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.140, 함수형 임계값으로 전달', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider') as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.006');
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.140');
     // startPcmCapture는 함수형 vadThreshold를 받아 매 프레임 현재값을 읽어야 한다.
     expect(typeof lastCaptureOpts?.vadThreshold).toBe('function');
-    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.006, 3);
+    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.14, 3);
   });
 
-  it('슬라이더를 낮추면 임계값이 즉시(재시작 없이) 낮아진다', async () => {
+  it('슬라이더를 움직이면 임계값이 즉시(재시작 없이) 반영된다', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider');
     const getThreshold = lastCaptureOpts!.vadThreshold as () => number;
     await act(async () => {
-      fireEvent.change(slider, { target: { value: '0.003' } });
+      fireEvent.change(slider, { target: { value: '0.1' } });
     });
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.003');
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.100');
     // 동일 함수가 갱신된 값을 반환(캡처 재시작 없음 → stopCapture 미호출).
-    expect(getThreshold()).toBeCloseTo(0.003, 3);
+    expect(getThreshold()).toBeCloseTo(0.1, 3);
     expect(stopCapture).not.toHaveBeenCalled();
   });
 
@@ -139,5 +146,47 @@ describe('LiveSession', () => {
     expect(screen.getByTestId('vad-threshold-control')).toBeInTheDocument();
     await act(async () => { emitEnded?.(); });
     expect(screen.queryByTestId('vad-threshold-control')).not.toBeInTheDocument();
+  });
+
+  describe('타이핑 인디케이터 + 타자기 스트리밍', () => {
+    it('고객 턴 도착 시 "..." 인디케이터를 노출하고 bot 턴 도착 시 사라진다', async () => {
+      await renderLive();
+      await act(async () => { emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' }); });
+      expect(screen.getByTestId('live-bubble-typing')).toBeInTheDocument();
+
+      vi.useFakeTimers();
+      await act(async () => { emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.' }); });
+      expect(screen.queryByTestId('live-bubble-typing')).not.toBeInTheDocument();
+      await act(async () => { vi.runAllTimers(); });
+      vi.useRealTimers();
+    });
+
+    it('bot 텍스트를 타자기로 한 글자씩 노출해 완료 시 전체 텍스트가 보인다', async () => {
+      vi.useFakeTimers();
+      await renderLive();
+      await act(async () => {
+        emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
+        emitTurn?.({ seq: 2, speaker: 'bot', text: 'ABCDEFG' });
+      });
+      await act(async () => { vi.runAllTimers(); });
+      expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('ABCDEFG');
+      vi.useRealTimers();
+    });
+
+    it('MODIFY 재발화(같은 seq + audioUrl)는 타자기를 재시작하거나 말풍선을 복제하지 않는다', async () => {
+      vi.useFakeTimers();
+      await renderLive();
+      await act(async () => {
+        emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
+        emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.' });
+      });
+      await act(async () => { vi.runAllTimers(); }); // reveal 완료
+      // 백엔드 MODIFY: 같은 seq에 audioUrl만 추가되어 재발화.
+      await act(async () => { emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.', audioUrl: 'https://x/a.mp3' }); });
+      await act(async () => { vi.runAllTimers(); });
+      expect(screen.getAllByTestId('live-bubble-bot')).toHaveLength(1);
+      expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('안녕하세요.');
+      vi.useRealTimers();
+    });
   });
 });

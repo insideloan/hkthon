@@ -55,6 +55,11 @@ export type PcmCaptureOptions = {
   vadThreshold?: number | (() => number);
   /** 발화 후 이만큼(ms) 연속 침묵하면 발화 종료로 보고 flush(=한 발화). */
   silenceMs?: number;
+  /**
+   * 새 발화가 시작될 때(침묵→음성 전환) 1회 호출. barge-in 용 — 상담원(봇) 음성이
+   * 나가는 중 고객이 다시 말하면 즉시 재생을 끊는 데 쓴다(onDebug와 달리 프로덕션 훅).
+   */
+  onSpeechStart?: () => void;
   /** 한 발화가 이 길이(ms)를 넘으면 침묵 없이도 강제 flush(끊김 방지 안전장치). */
   maxUtteranceMs?: number;
   /**
@@ -88,9 +93,10 @@ export function startPcmCapture(
   // 음성 인식이 안 되던 문제. 함수형이면 매 프레임 현재값을 읽어 슬라이더로 실시간 조절.
   const vt = options.vadThreshold ?? 0.006;
   const getThreshold = typeof vt === 'function' ? vt : () => vt;
-  const silenceMs = options.silenceMs ?? 800;
+  const silenceMs = options.silenceMs ?? 1200;
   const maxUtteranceMs = options.maxUtteranceMs ?? 15000;
   const onDebug = options.onDebug;
+  const onSpeechStart = options.onSpeechStart;
 
   type WindowWithWebkit = Window & { webkitAudioContext?: typeof AudioContext };
   const Ctx = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
@@ -137,6 +143,7 @@ export function startPcmCapture(
         speaking = true;
         utteranceStart = t;
         onDebug?.({ type: 'speech-start' });
+        onSpeechStart?.(); // barge-in: 발화 시작 즉시 봇 음성 중단 트리거
       }
       lastVoiceAt = t;
       for (let i = 0; i < input.length; i++) buffer.push(input[i]);

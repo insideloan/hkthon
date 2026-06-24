@@ -313,7 +313,7 @@ export function OtagText({ text }: { text: string }) {
 }
 
 function EngineCard1() {
-  const { psy, intent, obstacle, stratPhase, picked, solveArrow } = useCard1Store();
+  const { psy, intent, obstacle, stratPhase, picked } = useCard1Store();
   const orbByKey = { psy, intent, obstacle } as const;
   const resolved = stratPhase === 'resolved';
 
@@ -321,7 +321,7 @@ function EngineCard1() {
     // SSOT docs/consult_redesigned-3.html #card-emo .card-scroll (lines 1080–1086):
     // 발화분류 → bins → solvearrow(▼) → 대표 전략 20 → stratg.
     <div className="card-scroll" role="region" aria-label="고객발화분석" data-testid="speech-analysis">
-      <div className="cseclbl"><span>발화분류</span><span className="ln" /></div>
+      {/* 첫 섹션 라벨 제거됨 */}
 
       {/* orb bins — 감정/니즈/이용가능성 */}
       <div className="bins" id="emoBins">
@@ -342,12 +342,9 @@ function EngineCard1() {
         })}
       </div>
 
-      {/* solveArrow — SSOT: ▼ 아이콘만 (텍스트 없음) */}
-      <div className={clsx('solvearrow', solveArrow && 'on')} id="solveArrow">
-        <span className="dn">▼</span>
-      </div>
+      {/* solveArrow(▼) 제거됨 — 발화분류 → 대표 전략 20 바로 연결 */}
 
-      <div className="cseclbl"><span>대표 전략 20</span><span className="ln" /></div>
+      <div className="cseclbl cseclbl--sec"><span>전략 선택 (20종)</span><span className="ln" /></div>
 
       {/* 전략 그리드 20장 → swiping → resolved */}
       <div
@@ -430,7 +427,7 @@ function LiveSpeechAnalysis({
     if (typeof sub !== 'function') return;
     const unsub = sub(
       callId,
-      (index) => setEmotion(index.emotion),
+      (index) => { if (index.emotion != null) setEmotion(index.emotion); },
       (err) => console.error('onIndexUpdate(SpeechAnalysis) 구독 오류', err),
     );
     return unsub;
@@ -486,7 +483,7 @@ function LiveSpeechAnalysis({
     >
       {/* 발화분류 section label */}
       <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-        발화분류
+        분석 결과
       </div>
 
       {/* SSOT #emoBins — 감정/니즈/이용가능성 bins; EMOTION bin shows callStore emotion */}
@@ -513,7 +510,7 @@ function LiveSpeechAnalysis({
 
       {/* 대표 전략 20 section label */}
       <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-        대표 전략 20
+        전략 선택 (20종)
       </div>
 
       {/* STRAT20 pipeline — resolved shows enlarged selected card */}

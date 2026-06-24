@@ -136,6 +136,14 @@ export class HkthonStack extends cdk.Stack {
         LLM_MODEL: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
+        // 융합 턴(분석+응답+컴플라이언스 신뢰도 단일 호출) 활성 — 실 Bedrock A/B에서
+        // 직렬 2콜 대비 ~27%/~1.2s 단축, 품질 동등 확인(PR#214). 코드 기본값은 OFF라
+        // 테스트/로컬은 영향 없이, 라이브 Lambda만 여기서 명시적으로 켠다. 끄려면 '0'.
+        // nodes.classify가 router.classify_respond_fused로 1콜 처리, 파싱 실패 시 직렬 폴백.
+        FUSED_TURN: '1',
+        // compliance confidence 게이트 임계값(기본 0.8) / history 윈도잉(기본 8)은
+        // 코드 기본값을 그대로 쓴다 — 조정이 필요하면 COMPLIANCE_CONF_THRESHOLD /
+        // HISTORY_WINDOW 를 여기에 추가.
         TRANSCRIBE_LANGUAGE: 'ko-KR',
         TYPECAST_SECRET_ARN: typecastSecret.secretArn,
         TYPECAST_MODEL: 'ssfm-v30',
@@ -445,17 +453,27 @@ export class HkthonStack extends cdk.Stack {
         // recently published transitive deps (e.g. semver), breaking CI while
         // local installs pass. Pinning keeps local == CI.
         '            - corepack enable',
+        // pnpm store도 캐시해(아래 cache.paths) 의존성 미변경 시 install을 거의 무비용으로.
+        '            - pnpm config set store-dir .pnpm-store',
         '            - pnpm install --frozen-lockfile',
         '        build:',
         '          commands:',
+        // 빌드 텔레메트리 비활성(소폭 단축, 네트워크 왕복 제거).
+        '            - export NEXT_TELEMETRY_DISABLED=1',
         '            - pnpm run build',
         '      artifacts:',
         '        baseDirectory: .next',
         '        files:',
         '          - "**/*"',
+        // 캐시: node_modules + pnpm store + **.next/cache**.
+        // .next/cache는 Next의 증분 컴파일 캐시(webpack 모듈/컴파일된 페이지)다. 이게
+        // 없으면 코드 한 줄만 바꿔도 매 빌드가 전체 콜드 컴파일이라 느리다(Next 공식이
+        // Amplify 캐시에 넣으라고 명시하는 항목). 추가만으로 증분 빌드가 되어 큰 절감.
         '      cache:',
         '        paths:',
         '          - node_modules/**/*',
+        '          - .pnpm-store/**/*',
+        '          - .next/cache/**/*',
       ].join('\n'),
     });
 

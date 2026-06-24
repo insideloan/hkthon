@@ -58,14 +58,17 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefix: '/',
   },
   {
-    href: '/calls/demo',
+    // 데모는 관리자 큐 → 세그먼트 → 상담으로 내부 이동하므로 이 메뉴는 쓰지 않는다.
+    // 메뉴로 직접 진입하면 발신중(DIALING) 큐를 먼저 띄워 행을 고르게 한다.
+    href: '/calls',
     icon: <ConsultIcon />,
     labelLine1: 'AI 상담',
     labelLine2: '화면',
     matchPrefix: '/calls',
   },
   {
-    href: '/crm/demo',
+    // 메뉴로 직접 진입하면 종료(ENDED) 큐를 먼저 띄워 행을 고르게 한다.
+    href: '/crm',
     icon: <CrmIcon />,
     labelLine1: '상담',
     labelLine2: 'CRM',

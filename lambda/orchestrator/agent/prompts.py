@@ -166,6 +166,57 @@ def classify_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
     ).strip()
 
 
+# 금지표현 사전주입 블록 — respond/fused 공용(컴플라이언스 룰 검수에 자주 걸리는 표현 예방).
+_FORBIDDEN_BLOCK = (
+    "[금지 표현 — 절대 출력 금지]\n"
+    "- 단정/약속: 무조건 / 반드시 됩니다 / 제가 해드릴게요 / 확정입니다 / 보장합니다·보장됩니다(약속 의미)\n"
+    "- 리스크 무마: 불이익 없 / 그럴 일 없 / 문제 전혀 없 / 걱정 안 하셔도 됩니다\n"
+    "- 금리 불변 단정: 금리는 안 오릅니다 / 절대 오르지 않습니다\n"
+    "- 수치(금리·한도·절감액·월 납입 등)는 단정 금지 — 반드시 '(예시)' 또는 '심사 결과에 따라 달라집니다'를 함께."
+)
+
+
+def fused_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
+    """nodes.classify(FUSED_TURN 모드)용 — 분류 + 응답 생성 + 컴플라이언스 자가신뢰도를 한 번에.
+
+    classify_system + respond_system을 한 호출로 합친다. 모델이 같은 추론 패스에서 전략을
+    고르고 그 전략대로 응답을 생성하므로, 별도 _strategy_block 주입 없이도 tactic/emotion
+    스티어링이 자연히 반영된다(speculative blind draft와 달리 품질 손실 없음). 추가로 자신이
+    생성한 응답의 금소법 준수 신뢰도(0~1)를 자가 평가해, 호출측이 낮을 때만 Guardrail을 태운다.
+    """
+    return "\n\n".join(
+        [
+            PERSONA,
+            COMMON_RULES,
+            STAGE_GUIDE.get(stage, ""),
+            _signal_catalog(),
+            _customer_block(customer),
+            _FORBIDDEN_BLOCK,
+            (
+                "[작업 — 아래 세 가지를 한 번에 수행]\n"
+                "1) 분석(classify): 위 단계 지침·공통요건·신호 카탈로그에 비추어 마지막 고객 발화를 분석.\n"
+                "   - intent: 정규화된 고객 의도\n"
+                "   - route: RESPOND | TRANSFER | CLOSE | SILENCE (상담원/한도조회 요청은 TRANSFER, 거절은 CLOSE)\n"
+                "   - emotion / need / usability: 위 카탈로그 라벨 중 정확히 하나\n"
+                "   - fraud_suspected: 보이스피싱/사기 의심 여부 (true여도 통화는 종료하지 않음)\n"
+                "   - churn_adjust: 사전 점수 대비 보정 제안 (-10~+10 정수)\n"
+                "   - strategy_tactic / strategy_headline: 전략 카탈로그 라벨 + 카드 제목 한 줄\n"
+                "   - rationale: 판단 근거 한 문장(40자 이내)\n"
+                "2) 응답(response): 위 분석으로 택한 전략의 '방향'을 따라 고객에게 들려줄 다음 한 마디를 생성.\n"
+                "   한국어 존댓말, 음성용 2~3문장 이내, 수치는 예시/가정 + 심사 필요를 함께. route가 CLOSE/SILENCE면\n"
+                "   설득 없이 짧고 정중히 마무리(SILENCE는 빈 문자열 가능).\n"
+                "3) 신뢰도(compliance_confidence): 위에서 생성한 response가 공통요건·금지표현·금소법을 지켰다는\n"
+                "   확신을 0.0~1.0으로 자가 평가. 단정/약속/과장/수치 단정/리스크 무마가 조금이라도 의심되면 낮게.\n\n"
+                "아래 JSON 객체 **하나만** 출력하세요(코드펜스·설명 금지, `{`로 시작 `}`로 끝):\n"
+                '{"classify": {"intent": "...", "route": "RESPOND|TRANSFER|CLOSE|SILENCE", '
+                '"emotion": "", "need": "", "usability": "", "fraud_suspected": false, '
+                '"churn_adjust": 0, "strategy_tactic": "", "strategy_headline": "", "rationale": ""}, '
+                '"response": "...", "compliance_confidence": 0.0}'
+            ),
+        ]
+    ).strip()
+
+
 def _strategy_block(tactic: Tactic | None, emotion: Emotion | None) -> str:
     """classify가 고른 전략·감정을 respond에 주입. 신호가 없으면 빈 블록(stage 지침만으로 응대)."""
     if not tactic and not emotion:
@@ -200,13 +251,7 @@ def respond_system(
             _customer_block(customer),
             # 금지표현 사전주입(예방) — 컴플라이언스 룰 검수(_POLICY_PATTERNS)에 자주 걸리는
             # 표현을 draft 단계에서 미리 차단해 redraft LLM 호출(턴당 ~2-5s)을 줄인다.
-            (
-                "[금지 표현 — 절대 출력 금지]\n"
-                "- 단정/약속: 무조건 / 반드시 됩니다 / 제가 해드릴게요 / 확정입니다 / 보장합니다·보장됩니다(약속 의미)\n"
-                "- 리스크 무마: 불이익 없 / 그럴 일 없 / 문제 전혀 없 / 걱정 안 하셔도 됩니다\n"
-                "- 금리 불변 단정: 금리는 안 오릅니다 / 절대 오르지 않습니다\n"
-                "- 수치(금리·한도·절감액·월 납입 등)는 단정 금지 — 반드시 '(예시)' 또는 '심사 결과에 따라 달라집니다'를 함께."
-            ),
+            _FORBIDDEN_BLOCK,
             (
                 "[작업]\n"
                 "위 지침을 지켜 고객에게 들려줄 다음 한 마디를 한국어 존댓말로 생성하세요. "

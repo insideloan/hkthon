@@ -73,6 +73,32 @@ def test_create_call_does_not_dial():
     assert calls._active_call_for_customer("cust1") is None
 
 
+def test_create_call_is_idempotent_per_customer():
+    """분석 화면 재진입마다 createCall이 호출돼도 CREATED 콜이 누적되지 않는다.
+
+    회귀 방지: new_call_id()로 매번 c{timestamp}를 새로 박아 박서준(booth) 데모를
+    돌릴 때마다 CREATED 콜이 DynamoDB에 무한 추가되던 버그. 고객당 결정적 id로
+    같은 레코드를 덮어쓴다.
+    """
+    first = calls.resolve_create_call({}, {"customerId": "cust-001"})
+    second = calls.resolve_create_call({}, {"customerId": "cust-001"})
+    # 같은 고객 → 같은(결정적) callId, 새 레코드 안 만듦.
+    assert first["id"] == second["id"]
+    # CALL#/META 스캔 결과 cust-001 분석 콜은 정확히 1개.
+    metas = dynamo.scan(sk=dynamo.SK_META)
+    analysis = [
+        m for m in metas
+        if str(m.get("PK", "")).startswith(dynamo.SK_PREFIX_CALL)
+        and m.get("customerId") == "cust-001"
+    ]
+    assert len(analysis) == 1
+    # 분석 콜은 큐에 뜨지 않는다(CREATED는 발신 전).
+    assert queue.resolve_queue({}, {})["rows"] == []
+    # 다른 고객은 별도 레코드.
+    other = calls.resolve_create_call({}, {"customerId": "cust-002"})
+    assert other["id"] != first["id"]
+
+
 # ── call snapshot query ─────────────────────────────────────────────────────────
 
 

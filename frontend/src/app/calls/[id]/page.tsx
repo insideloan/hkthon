@@ -19,6 +19,9 @@ import { LiveSession } from '@/components/consult/LiveSession';
 import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
+import { useQueueStore } from '@/stores/queueStore';
+import { useExperienceStore } from '@/stores/experienceStore';
+import { resolveScenarioCustomerName } from '@/lib/customerProfiles';
 
 // 목/스크립트 데모 게이트 (lib/appsync.ts의 USE_MOCK과 동일 규약).
 const IS_MOCK =
@@ -34,8 +37,8 @@ function cardCls(phase: CardPhase): string {
 
 const CARD_BASE = 'flex flex-col min-h-0 overflow-hidden';
 const CARD_STYLE: React.CSSProperties = {
-  position: 'relative', gap: '9px', border: '1px solid var(--hair)', borderRadius: '14px',
-  background: 'rgba(255,255,255,.50)', padding: '11px 12px',
+  position: 'relative', gap: '9px', border: '1px solid #d1d5db', borderRadius: '14px',
+  background: '#fff', padding: '11px 12px',
 };
 const CARD_NO_STYLE: React.CSSProperties = {
   width: '26px', height: '26px', borderRadius: '8px', fontSize: '14px', fontWeight: 700,
@@ -126,7 +129,13 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const mapRef = useRef<JourneyMapHandle | null>(null);
   const cardEmoRef = useRef<HTMLElement | null>(null);
 
-  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId });
+  // 클릭한 큐 레코드(callId)의 고객 이름으로 시나리오 인사말을 구성. 체험 고객(exp-*)은
+  // 입력 이름 우선, 스토어에 행이 없거나 데모 기본 경로면 원본 이름(박서준)을 유지한다.
+  const row = useQueueStore((s) => s.rows.find((r) => r.callId === callId));
+  const experience = useExperienceStore((s) => s.customers[callId]);
+  const customerName = resolveScenarioCustomerName(callId, row, experience);
+
+  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName });
 
   // 라이브 모드 봇 음성 재생: onTurn의 bot audioUrl(TTS mp3)을 순차 재생.
   // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 단, ?live=1 진입(체험 고객)은
@@ -161,7 +170,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
           <div className="act-bg flex flex-row items-center justify-between" style={{ padding: '10px 16px', background: 'rgba(231,236,252,.55)' }}>
             <span className="act-ai inline-flex items-center" style={{ gap: '9px' }}>
               <span className="ai-ic inline-grid place-items-center text-base flex-none" style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#fff', boxShadow: '0 4px 12px -5px rgba(53,81,214,.6)' }}>🤖</span>
-              <span className="ai-tx font-disp flex flex-col leading-tight" style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--route)', lineHeight: 1.2 }}>AI 상담<br />진행 중</span>
+              <span className="ai-tx font-disp flex flex-col leading-tight" style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--route)', lineHeight: 1.2 }}>실시간 상담중</span>
             </span>
             <span className="act-right inline-flex items-center flex-none" style={{ gap: '10px' }}>
               <span className="act-live font-mono inline-flex items-center" style={{ gap: '6px', fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', color: 'var(--danger)' }}>
@@ -222,9 +231,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       </div>
 
       {/* ═══ 우: rightcol ═══ */}
-      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '13px', height: 'max(560px, calc(100vh - 96px))' }}>
+      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '0px', height: 'max(560px, calc(100vh - 96px))' }}>
         {/* 우-상단: 여정 맵 */}
-        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: 'var(--card-solid)', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
+        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', zIndex: 1, borderRadius: '18px', border: '1px solid var(--glass-bd)', background: 'var(--glass)', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="map__title absolute flex items-center z-[6]" style={{ top: '11px', left: '12px', gap: '8px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
@@ -232,20 +241,20 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.9" />
               </svg>
             </span>
-            <span className="font-disp" style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--title)' }}>상담 여정</span>
+            <span className="font-disp" style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--title)' }}>대출 상담 여정</span>
           </div>
           <JourneyMap ref={mapRef} callId={callId} disableLiveData />
         </div>
 
         {/* 우-하단: AI 응답 준비 */}
-        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: 'var(--card-solid)', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow)' }}>
+        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100% + 13px)', marginTop: '-13px', position: 'relative', zIndex: 2, background: 'var(--glass)', border: '1px solid var(--glass-bd)', borderRadius: '18px', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="cc__head flex items-center" style={{ gap: '8px', padding: '3px 14px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
             </span>
-            <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 응답 준비</h2>
+            <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 판단 근거</h2>
           </div>
 
           <div className="cc__body flex flex-col flex-1 min-h-0" id="ccBody" style={{ gap: '11px', padding: '7px 8px 13px' }}>
@@ -254,7 +263,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               <div ref={cardEmoRef as React.Ref<HTMLDivElement>} className={clsx(cardCls(card1), CARD_BASE)} id="card-emo" data-testid="cc-card" style={CARD_STYLE}>
                 <div className="card__h flex items-center" style={{ gap: '8px' }}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>1</span>
-                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객발화분석</span>
+                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객 발화</span>
                 </div>
                 {/* 라이브: AppSync 구독(onSpeechAnalysis/onStrategyUpdate/onIndexUpdate).
                     데모: 시나리오 엔진(card1Store) 기반 engineMode. */}
@@ -265,9 +274,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               <div className={clsx(cardCls(card2), CARD_BASE)} id="card-db" data-testid="cc-card" style={CARD_STYLE}>
                 <div className="card__h flex items-center" style={{ gap: '8px' }}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
-                  <span className="card__t font-disp" style={CARD_T_STYLE}>DB 분석</span>
+                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객 DB</span>
                 </div>
-                <DbCard live={isLive} />
+                <DbCard live={isLive} callId={callId} />
               </div>
 
               {/* 카드③ 컴플라이언스 체크 */}

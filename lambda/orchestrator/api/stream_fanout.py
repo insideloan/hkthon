@@ -74,9 +74,9 @@ def _mot_payload(item: dict) -> dict:
 
 # 4규제 카탈로그 (SSOT-3 카드③ COMPLIANCE). 위반 정책 라벨 → 이 카탈로그의 flagged 매핑.
 _COMPLIANCE_LAWS = [
-    {"law": "금융소비자보호법", "desc": "확정·과장 표현 점검"},
+    {"law": "금융소비자보호법", "desc": "확정·허위·과장 표현 점검"},
     {"law": "개인정보법", "desc": "불필요 정보 요청 점검"},
-    {"law": "신용정보법", "desc": "활용 범위 준수 점검"},
+    {"law": "신용정보법", "desc": "동의 목적 외 활용 점검"},
     {"law": "표현리스크", "desc": "오해·강요 문구 점검"},
 ]
 
@@ -178,13 +178,21 @@ def _dispatch_record(record: dict) -> list[dict]:
                 "turnSeq": new.get("seq"),
                 "tokens": _token_inputs(tokens),
             }))
-        # 분석값이 함께 들어오면 index도 발화.
-        if new.get("churn_after") is not None or new.get("emotion") is not None:
-            emits.append(_emit("_emitIndexUpdate", {
+        # 분석값이 함께 들어오면 index도 발화. (체험 preset의 DB분석 칩/노드 포함)
+        db_chips = new.get("db_chips")
+        db_nodes = new.get("db_nodes")
+        if (new.get("churn_after") is not None or new.get("emotion") is not None
+                or db_chips or db_nodes):
+            payload = {
                 "callId": call_id,
                 "churnRisk": new.get("churn_after"),
                 "emotion": new.get("emotion"),
-            }))
+            }
+            if db_chips:
+                payload["dbChips"] = list(db_chips)
+            if db_nodes:
+                payload["dbNodes"] = _db_node_inputs(db_nodes)
+            emits.append(_emit("_emitIndexUpdate", payload))
     elif sk.startswith("MOT#") and event_name == "INSERT":
         emits.append(_emit("_emitMot", _mot_payload(new)))
     elif sk.startswith("CMPL#"):
@@ -208,6 +216,16 @@ def _dispatch_record(record: dict) -> list[dict]:
                 "rationale": new.get("rationale"),
             }))
     return emits
+
+
+def _db_node_inputs(nodes: list) -> list[dict]:
+    """db_nodes → DbNodeInput 형상(label/val/tone)으로 정규화(방어적)."""
+    out = []
+    for n in nodes:
+        if not isinstance(n, dict) or not n.get("label"):
+            continue
+        out.append({"label": n.get("label"), "val": n.get("val"), "tone": n.get("tone")})
+    return out
 
 
 def _token_inputs(tokens: list) -> list[dict]:

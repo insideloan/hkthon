@@ -9,6 +9,8 @@
 // 사용되지 않는다(USE_MOCK 게이트). 한 콜당 1회만 재생한다.
 import type { Turn, SpeechAnalysis, StrategyUpdate, CallEnded } from '@/types/realtime';
 import type { ComplianceState } from '@/types/compliance';
+import { useExperienceStore } from '@/stores/experienceStore';
+import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
 
 export type MockLiveChannel = 'turn' | 'speech' | 'strategy' | 'compliance' | 'callended';
 
@@ -74,6 +76,10 @@ function runScript(callId: string): void {
   if (!bus) return;
   const at = (ms: number, fn: () => void) => bus.timers.push(setTimeout(fn, ms));
 
+  // 체험 고객 이름으로 인사말을 구성(없으면 기본 박서준). 큐 wire에 못 담는 입력값을
+  // experienceStore에서 조회 — 라이브 인사말이 실제 입력 이름으로 나가게 한다.
+  const custName = useExperienceStore.getState().getCustomer(callId)?.name || SCENARIO_CUSTOMER_NAME;
+
   // seq 1 — 고객: "여보세요?"
   at(700, () => {
     emit(callId, 'turn', mkTurn(callId, 1, 'customer', '여보세요?'));
@@ -81,7 +87,7 @@ function runScript(callId: string): void {
 
   // seq 2 — AI 인사 + 발화분석/전략/컴플라이언스
   at(1900, () => {
-    emit(callId, 'turn', mkTurn(callId, 2, 'bot', '안녕하세요, 현대캐피탈 AI 상담원입니다. 박서준 고객님 맞으실까요?'));
+    emit(callId, 'turn', mkTurn(callId, 2, 'bot', `안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성을 통해 제공되며, 상담내용은 녹음됨을 안내드립니다. 실례지만 ${custName} 고객님이 맞으세요?`));
   });
   at(2200, () => {
     emit(callId, 'speech', mkSpeech(callId, 2, [

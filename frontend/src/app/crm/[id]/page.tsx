@@ -2,9 +2,16 @@
 
 // CRM 상담 요약 페이지 — SSOT: docs/consult_redesigned-3.html #view-summary (lines 1138-1190)
 // Next.js 15: params는 Promise — React use()로 언래핑.
+//
+// 프로필/니즈/권장액션은 클릭한 큐 레코드(callId)별로 구성한다(lib/customerProfiles).
+// 큐 스토어에 해당 행이 있으면 신원을 실제 레코드로 보정하고, 없으면(직접 로드)
+// fixture만으로도 동작한다. 상담 흐름(ConsultFlow)·대기 상담사 목록은 공용 데모.
 
 import { use } from 'react';
 import { ConsultFlow } from '@/components/crm/ConsultFlow';
+import { useQueueStore } from '@/stores/queueStore';
+import { useExperienceStore } from '@/stores/experienceStore';
+import { resolveCustomerProfile } from '@/lib/customerProfiles';
 
 // ── 정적 목 데이터 ─────────────────────────────────────────────────────────────
 const MOCK_AGENTS = [
@@ -42,24 +49,6 @@ const MOCK_AGENTS = [
     wait: '3분 후',
   },
 ];
-
-// ── 고객 프로필 KV 데이터 ──────────────────────────────────────────────────────
-const PROFILE_KV = [
-  { label: '고객', value: '박서준 · 남 · 38세', variant: '' },
-  { label: '신용점수', value: 'KCB 744', variant: '' },
-  { label: '보유 대출', value: '주택담보대출 2.4억', variant: '' },
-  { label: '현 금리', value: '4.85%', variant: 'hot' },
-  { label: '자산', value: '아파트 5.2억', variant: '' },
-  { label: '이탈 위험', value: '낮음', variant: 'ok' },
-] as const;
-
-// ── 핵심 니즈 칩 데이터 ───────────────────────────────────────────────────────
-const NEED_CHIPS = [
-  { label: '금리 인하 요구권', variant: '' },
-  { label: '조기 상환 우려', variant: 'warn' },
-  { label: '타행 이관 검토 중', variant: 'warn' },
-  { label: '장기 고객 우대 희망', variant: 'ok' },
-] as const;
 
 // ── SVG 아이콘 모음 ───────────────────────────────────────────────────────────
 function IconUser() {
@@ -147,6 +136,22 @@ function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
 export default function CrmDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
+  // 클릭한 큐 레코드(callId)별 프로필. 체험 고객(exp-*)은 입력값 전체 프로필을 쓰고,
+  // 그 외는 큐 행 신원으로 보정한 데모 fixture/폴백을 쓴다.
+  const row = useQueueStore((s) => s.rows.find((r) => r.callId === id));
+  const experience = useExperienceStore((s) => s.customers[id]);
+  const profile = resolveCustomerProfile(id, row, experience);
+
+  // 프로필 KV — 고객 신원 + 금융 프로필을 레코드별로 구성.
+  const profileKv = [
+    { label: '고객', value: `${profile.name} · ${profile.genderAge}`, variant: '' },
+    { label: '신용점수', value: profile.kcb, variant: '' },
+    { label: '보유 대출', value: profile.loan, variant: '' },
+    { label: '현 금리', value: profile.rate, variant: profile.rateVariant },
+    { label: '자산', value: profile.asset, variant: '' },
+    { label: '이탈 위험', value: profile.churnLabel, variant: profile.churnVariant },
+  ];
+
   return (
     <main className="p-6 min-h-screen" data-testid="crm-page">
       {/* .sum-head */}
@@ -169,7 +174,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
             <CardHeader icon={<IconUser />} title="고객 프로필" />
             {/* .sum-kv */}
             <div className="grid grid-cols-2 gap-[8px_18px]">
-              {PROFILE_KV.map(({ label, value, variant }) => (
+              {profileKv.map(({ label, value, variant }) => (
                 <div
                   key={label}
                   className="flex flex-col gap-[1px] border-b border-dashed border-[var(--hair)] pb-[6px]"
@@ -203,7 +208,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
             <CardHeader icon={<IconCheck />} title="핵심 니즈 · 다음 액션" />
             {/* .sum-chips */}
             <div className="flex flex-wrap gap-[6px]">
-              {NEED_CHIPS.map(({ label, variant }) => (
+              {profile.needs.map(({ label, variant }) => (
                 <span
                   key={label}
                   className={[
@@ -224,7 +229,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
             {/* .sum-next */}
             <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(37,99,235,0.06)] border-l-[3px] border-[var(--route)] rounded-[0_8px_8px_0] px-[12px] py-[9px]">
               ▶ 권장:{' '}
-              <b className="text-[var(--route)]">우대금리 0.3%p 적용 제안 → 금리 인하 요구권 안내</b>
+              <b className="text-[var(--route)]">{profile.nextAction}</b>
             </div>
           </div>
         </div>

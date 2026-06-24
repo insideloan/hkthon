@@ -160,6 +160,8 @@ function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
             : undefined,
       }}
     >
+      {/* 변곡점(그래프 선) → 마커 연결선 — 마커는 +MOT_Y_OFFSET 아래라 변곡점은 위(음수 dy). */}
+      <Leader dy={-MOT_Y_OFFSET} fromRadius={MOT_RY} color="var(--hazard)" />
       <RzCore id={id} state={markerState} />
       <text
         className="rz-label"
@@ -244,12 +246,12 @@ function MapFrame() {
       <rect x={585}  y={30} width={730} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={1335} y={30} width={258} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <g fontFamily="Inter,Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#111827">
-        <text x={297}  y={51}>본인확인</text>
-        <text x={950}  y={51}>상품제안</text>
-        <text x={1464} y={51}>채널선택</text>
+        <text x={297}  y={51}>본인 확인</text>
+        <text x={950}  y={51}>상품 제안</text>
+        <text x={1464} y={51}>대출 접수</text>
       </g>
       <g fontFamily="Pretendard,sans-serif" fontSize={12} fontWeight={700} fill="#9CAAB9">
-        <text x={1464} y={70}>상담원 연결 · 신청 URL 문자</text>
+        <text x={1464} y={70}>AI접수 · 신청문자발송</text>
       </g>
     </g>
   );
@@ -263,7 +265,7 @@ function AxisLines() {
       <g className="mapframe" fontFamily="JetBrains Mono,monospace" fontSize={10} fontWeight={700} letterSpacing={2} fill="#9CAAB9">
         <line x1={55} y1={412} x2={1560} y2={412} stroke="#C8D2DD" strokeWidth={1.5} strokeDasharray="2 5"/>
         <path d="M1560,412 l-9,-4 v8 z" fill="#C8D2DD"/>
-        <text x={55} y={404} textAnchor="start">상담 진행 (시간)</text>
+        <text x={55} y={404} textAnchor="start">상담 경과 시간</text>
       </g>
 
       {/* 세로축: 고객 상태 */}
@@ -310,6 +312,41 @@ function RoutePaths({ routeRef, routeInkRef, routeCoreRef }: RoutePathsProps) {
   );
 }
 
+// ── Leader — 변곡점(그래프 선) → 원을 잇는 연결선 ─────────────────────────────
+// 노드는 경로에서 떨어져 배치되므로, 원의 로컬 좌표(0,0)에서 그래프 변곡점까지
+// 선을 긋고 변곡점에 작은 점을 찍는다. dy = 변곡점.y − 노드.y (노드 로컬 기준).
+// pathLength=1 로 정규화해 CSS stroke-dashoffset 그리기 애니메이션을 길이 무관하게 적용.
+function Leader({ dy, fromRadius, color }: { dy: number; fromRadius: number; color: string }) {
+  // 원 가장자리에서 출발해 변곡점까지. dy 부호로 위/아래 모두 대응.
+  const start = dy >= 0 ? fromRadius : -fromRadius;
+  return (
+    <g className="leader" aria-hidden="true">
+      <line
+        className="leader-line"
+        x1={0}
+        y1={start}
+        x2={0}
+        y2={dy}
+        stroke={color}
+        strokeWidth={2}
+        strokeDasharray="3 4"
+        strokeLinecap="round"
+        pathLength={1}
+      />
+      <circle className="leader-dot" cx={0} cy={dy} r={4} fill={color} stroke="#fff" strokeWidth={1.5} />
+    </g>
+  );
+}
+
+// 그래프 변곡점 y (원래 경로상 위치). 노드는 여기서 떨어져 배치되고 Leader 가 이어준다.
+const CP_INFLECTION_Y: Record<string, number> = {
+  'cp-interest': 232,
+  'cp-trust': 205,
+  'cp-cond': 212,
+  'cp-limit': 214,
+  'cp-review': 178,
+};
+
 // ── CpNode — SSOT .cp checkpoint circle node ─────────────────────────────────
 type CpNodeProps = {
   id: string;
@@ -323,8 +360,8 @@ function CpNode({ id, x, y, label, isGoal = false }: CpNodeProps) {
   if (isGoal) {
     return (
       <g className="cp" id={id} transform={`translate(${x},${y})`}>
-        {/* cp-ring removed: outermost border ring deleted per user request.
-            globals.css may still contain .cp.now .cp-ring / @keyframes nowring — harmless orphan. */}
+        {/* cp-ring: 도달(.now) 시 nowring 파장 (SSOT goal: r=46, go 색). */}
+        <circle className="cp-ring" r={46} fill="none" stroke="var(--go)" strokeWidth={3}/>
         <circle className="cp-core" r={36} fill="#fff" stroke="var(--route)" strokeWidth={4} filter="url(#soft)"/>
         <path d="M-11,-16 v32 M-11,-16 h17 l-4,6 4,6 h-17" fill="var(--route)" stroke="var(--route)" strokeWidth={2} strokeLinejoin="round"/>
         <text
@@ -341,10 +378,15 @@ function CpNode({ id, x, y, label, isGoal = false }: CpNodeProps) {
       </g>
     );
   }
+  const inflectionY = CP_INFLECTION_Y[id];
   return (
     <g className="cp" id={id} transform={`translate(${x},${y})`}>
-      {/* cp-ring removed: outermost border ring deleted per user request.
-          globals.css may still contain .cp.now .cp-ring / @keyframes nowring — harmless orphan. */}
+      {/* 변곡점(그래프 선) → 원 연결선 — 원보다 먼저 그려 원 아래에 깔리게. */}
+      {inflectionY !== undefined && (
+        <Leader dy={inflectionY - y} fromRadius={42} color="#9FB0C4" />
+      )}
+      {/* cp-ring: 도달(.now) 시 nowring 파장이 퍼지는 링 (SSOT). 평소 opacity:0. */}
+      <circle className="cp-ring" r={50} fill="none" stroke="var(--route)" strokeWidth={3}/>
       <circle className="cp-core" r={42} fill="#fff" stroke="#9FB0C4" strokeWidth={3} filter="url(#soft)"/>
       <text className="cp-label" y={5} textAnchor="middle" fill="var(--ink-dim)"
         fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}
@@ -472,7 +514,8 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
       rafRef.current = requestAnimationFrame(step);
     },
     reach(cpId) {
-      const ORDER = ['interest', 'trust', 'cond', 'limit', 'review', 'goal'];
+      // s1.json 10턴 축약 정합: 실제 도달하는 체크포인트만(interest/trust/goal).
+      const ORDER = ['interest', 'trust', 'goal'];
       const idx = ORDER.indexOf(cpId);
       ORDER.forEach((n, j) => {
         const el = svgRef.current?.querySelector(`#cp-${n}`);
@@ -571,7 +614,7 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
     if (typeof sub !== 'function') return;
     const unsubscribe = sub(
       callId,
-      (index) => setChurnRisk(index.churnRisk),
+      (index) => { if (index.churnRisk != null) setChurnRisk(index.churnRisk); },
       (err) => console.error('onIndexUpdate(JourneyMap) 구독 오류', err),
     );
     return unsubscribe;
@@ -664,12 +707,11 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
 
         {/* 체크포인트 노드 (능선) — 경로 위(전환가능 쪽)로 올려 차량 원과 겹치지 않게.
             차량은 경로(y≈178–232)를 달리고, cp(core r=42)는 cpCy+42 ≤ 경로y−38 이 되도록 배치. */}
+        {/* s1.json 10턴 축약 정합: 도달하는 체크포인트만(시작·신뢰확보 + 목적지).
+            조건이해/한도조회/신청검토 cp는 해당 턴이 삭제되어 제거. */}
         <g fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}>
           <CpNode id="cp-interest" x={70}   y={150} label="시작"/>
           <CpNode id="cp-trust"    x={575}  y={123} label="신뢰확보"/>
-          <CpNode id="cp-cond"     x={800}  y={131} label="조건이해"/>
-          <CpNode id="cp-limit"    x={1095} y={131} label="한도조회"/>
-          <CpNode id="cp-review"   x={1410} y={97}  label="신청검토"/>
         </g>
 
         {/* 목적지 */}

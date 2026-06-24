@@ -41,6 +41,17 @@ def test_invalid_polarity_rejected():
         Turn(call_id="c1", seq=1, tokens=[{"text": "x", "polarity": "MAYBE"}])
 
 
+def test_neutral_polarity_normalized_to_null():
+    # "NEUTRAL"/"" 은 중립의 별칭 → null로 관용 정규화(persist가 ValueError로 죽지 않게).
+    # exp_presets가 토큰에 "NEUTRAL"을 쓰던 회귀를 방어한다.
+    t = Turn(call_id="c1", seq=1, tokens=[
+        {"text": "금리가 몇 퍼센트", "polarity": "NEUTRAL", "reason": "조건 질문"},
+        {"text": "음", "polarity": "", "reason": ""},
+    ])
+    assert t.tokens[0]["polarity"] is None
+    assert t.tokens[1]["polarity"] is None
+
+
 def test_tokens_map_roundtrip():
     t = Turn(call_id="c1", seq=2, speaker="customer", text="금리가 높네요",
              node="classify", churn_after=0.7, flag="risk",

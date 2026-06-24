@@ -129,6 +129,20 @@ describe('startPcmCapture VAD endpointing', () => {
     expect(onChunk).toHaveBeenCalledTimes(1);
   });
 
+  it('onSpeechStart: 발화 시작(침묵→음성 전환)마다 1회 호출(barge-in 트리거)', () => {
+    const onSpeechStart = vi.fn();
+    const h = startPcmCapture({} as MediaStream, vi.fn(), {
+      vadThreshold: 0.01, silenceMs: 800, onSpeechStart,
+    });
+    feed(0.2);            // 발화 시작 → 1회
+    nowMs += 100; feed(0.2); // 발화 지속 → 추가 호출 없음
+    expect(onSpeechStart).toHaveBeenCalledTimes(1);
+    nowMs += 900; feed(0.0); // 침묵 → flush(발화 종료)
+    nowMs += 500; feed(0.2); // 새 발화 시작 → 2회째
+    expect(onSpeechStart).toHaveBeenCalledTimes(2);
+    h.stop();
+  });
+
   it('onDebug 튜닝 훅: frame/speech-start/flush 이벤트와 reason을 보고한다', () => {
     const events: string[] = [];
     const h = startPcmCapture({} as MediaStream, vi.fn(), {

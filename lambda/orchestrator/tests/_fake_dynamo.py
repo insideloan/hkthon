@@ -11,13 +11,30 @@ from __future__ import annotations
 from typing import Any
 
 
+class _ConditionalCheckFailed(Exception):
+    """boto3 ClientError(ConditionalCheckFailedException)를 흉내내는 fake 예외.
+
+    dynamo._is_conditional_check_failed가 response.Error.Code로 판별하므로
+    동일 구조의 response 속성을 단다.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("ConditionalCheckFailedException")
+        self.response = {"Error": {"Code": "ConditionalCheckFailedException"}}
+
+
 class FakeTable:
     def __init__(self) -> None:
         self.store: dict[tuple, dict[str, Any]] = {}
 
     # -- boto3 Table API subset -------------------------------------------------
-    def put_item(self, Item: dict[str, Any]) -> dict:  # noqa: N803 (boto3 kw)
-        self.store[(Item["PK"], Item["SK"])] = dict(Item)
+    def put_item(self, Item: dict[str, Any], ConditionExpression=None, **kwargs) -> dict:  # noqa: N803 (boto3 kw)
+        key = (Item["PK"], Item["SK"])
+        # attribute_not_exists 조건부 write: 이미 있으면 boto3와 동일하게 거부.
+        if ConditionExpression is not None and "attribute_not_exists" in str(ConditionExpression):
+            if key in self.store:
+                raise _ConditionalCheckFailed()
+        self.store[key] = dict(Item)
         return {}
 
     def get_item(self, Key: dict[str, Any]) -> dict:  # noqa: N803

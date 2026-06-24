@@ -28,6 +28,12 @@ _GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID")
 _GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 
+# fused 모드 confidence 게이트: 모델 자가평가 신뢰도가 이 값 이상이고 룰 검수도 깨끗하면
+# Bedrock Guardrail 네트워크 왕복을 생략한다(라이브 임계경로 단축). 결정적 룰 검수
+# (_rule_guardrails)는 신뢰도와 무관하게 항상 실행되므로, 자가평가가 검수를 "약화"시킬 뿐
+# "제거"하지는 못한다(안전측). 신뢰도가 낮거나 룰이 위반을 잡으면 기존대로 Bedrock을 태운다.
+_COMPLIANCE_CONF_THRESHOLD = float(os.environ.get("COMPLIANCE_CONF_THRESHOLD", "0.8"))
+
 # bedrock-runtime 클라이언트 (모듈 1회 생성, 콜드스타트 간 재사용)
 _bedrock = None
 
@@ -66,20 +72,62 @@ _POLICY_PATTERNS: list[tuple[str, re.Pattern]] = [
 _FIGURE_SAFE = re.compile(r"예시|가정|심사\s*(?:결과|후|를\s*거)|달라질\s*수|예상")
 
 
+def _experience_compliance_draft(state: CallState) -> tuple[str | None, list[str]]:
+    """체험(exp-*) 콜이면 (preset 가안 텍스트, 위반표현 목록), 아니면 (None, [])."""
+    call_id = state.get("call_id")
+    if not call_id or not str(call_id).startswith("exp-"):
+        return None, []
+    try:
+        from . import exp_presets
+
+        preset = exp_presets.preset_for(state.get("intent"))
+        if preset is None or not preset.compliance_draft:
+            return None, []
+        return preset.compliance_draft, list(preset.compliance_violations)
+    except Exception:  # noqa: BLE001 — preset 실패가 컴플라이언스 루프를 막지 않게
+        logger.exception("experience compliance draft lookup failed")
+        return None, []
+
+
 def review_loop(draft: str, state: CallState) -> tuple[list[ComplianceStep], str]:
     """Guardrails 루프 실행 → (단계 로그, 최종 승인 텍스트).
+
+    체험(exp-*) 시나리오: 카드③ '가안(수정 전)'은 intent preset의 위반 표현이 든
+    연출용 draft를 쓰고, '최종(수정 후)'은 실제 LLM이 만든 응답(draft 인자)을 그대로
+    승인 결과로 쓴다. preset의 수정 후 텍스트는 사용하지 않는다(요구사항). 박서준은 분기 안 탐.
 
     Returns:
         (compliance_log, approved_text)
     """
+    preset_draft, preset_violations = _experience_compliance_draft(state)
+    if preset_draft is not None:
+        # 가안(연출)=preset, 최종=실 LLM 응답(draft). 한 번의 redacting→approved로 표현.
+        log: list[ComplianceStep] = [
+            _step("drafting", preset_draft, None, [], 0),
+            _step("reviewing", preset_draft, "blocked", preset_violations, 0),
+            _step("redacting", preset_draft, "blocked", preset_violations, 0),
+            _step("redrafting", draft, None, [], 1),
+            _step("reviewing", draft, "approved", [], 1),
+            _step("approved", preset_draft, "approved", [], 1, final_text=draft),
+        ]
+        return log, draft
+
     log: list[ComplianceStep] = []
     original = draft  # FRONTEND diff(cmpFinal)용 원문 — 재작성돼도 보존
     current = draft
 
+    # fused confidence 게이트: 모델 자가평가 신뢰도가 임계값 이상이면 초안(attempt 0) 검수에서
+    # Bedrock 왕복을 생략하도록 표시(룰 검수는 항상 수행). 재작성(redraft) 후 재검수는 신뢰도와
+    # 무관하게 Bedrock까지 정상 수행 — 자가평가가 한 번이라도 틀리면 그 다음 검수가 잡도록.
+    confidence = state.get("_compliance_confidence")
+    skip_bedrock_first = (
+        confidence is not None and confidence >= _COMPLIANCE_CONF_THRESHOLD
+    )
+
     log.append(_step("drafting", current, None, [], 0))
 
     for attempt in range(_MAX_RETRIES + 1):
-        verdict = _apply_guardrails(current)
+        verdict = _apply_guardrails(current, skip_bedrock=skip_bedrock_first and attempt == 0)
         log.append(_step("reviewing", current, verdict.get("action"), verdict.get("violated", []), attempt))
 
         if not verdict.get("blocked"):
@@ -101,12 +149,14 @@ def review_loop(draft: str, state: CallState) -> tuple[list[ComplianceStep], str
     return log, fallback
 
 
-def _apply_guardrails(text: str) -> dict:
+def _apply_guardrails(text: str, *, skip_bedrock: bool = False) -> dict:
     """검수 → {blocked, violated[], action}.
 
     BEDROCK_GUARDRAIL_ID 설정 시 Bedrock Guardrails 실호출, 아니면 룰 기반 폴백.
+    skip_bedrock=True(fused 고신뢰 케이스)면 Bedrock 설정이 있어도 결정적 룰 검수만 수행해
+    네트워크 왕복을 생략한다. 그 외 경로의 동작은 기존과 동일하다.
     """
-    if _GUARDRAIL_ID:
+    if _GUARDRAIL_ID and not skip_bedrock:
         bedrock = _bedrock_guardrails(text)
         if bedrock is not None:
             return bedrock

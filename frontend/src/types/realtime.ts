@@ -28,22 +28,45 @@ export type Turn = z.infer<typeof TurnSchema>;
 // ── onIndexUpdate — 이탈위험도·감정 (API.md §2.3) ─────────────────────────────
 // churnRisk: 0-100 정수, AGENT 산출 (SSOT: CHURN-RISK-LEXICON.md). FRONTEND 소비만.
 // emotion: 한국어 자연어 레이블 ("불안" | "관심" | "중립" | "저항" 등) — 자유 문자열.
+// dbChips/dbNodes: 체험 시나리오 preset의 카드② DB분석. 선택(없으면 미표시).
+export const DbNodeSchema = z.object({
+  label: z.string(),
+  val: z.string().nullable().optional(),
+  tone: z.string().nullable().optional(),
+});
+export type DbNode = z.infer<typeof DbNodeSchema>;
+
 export const IndexUpdateSchema = z.object({
   callId: z.string(),
-  churnRisk: z.number().int().min(0).max(100),
-  emotion: z.string(),
+  // churnRisk/emotion은 선택 — DB분석만 단독 발화될 수 있어 nullable로 완화.
+  churnRisk: z.number().int().min(0).max(100).nullable().optional(),
+  emotion: z.string().nullable().optional(),
+  dbChips: z.array(z.string()).nullable().optional(),
+  dbNodes: z.array(DbNodeSchema).nullable().optional(),
 });
 export type IndexUpdate = z.infer<typeof IndexUpdateSchema>;
 
 // ── onSpeechAnalysis — 발화 분석 토큰 (API.md §2.4) ───────────────────────────
-// polarity ∈ PRO(초록) | CONS(빨강) | NEUTRAL. reason = 1줄 근거 (한국어).
+// polarity ∈ PRO | CONS | NEUTRAL. reason = 1줄 근거 (한국어).
+// ⚠️ SSOT-3 wire contract (BACKEND #28 canonical / graphql Polarity 는 nullable):
+//   백엔드는 NEUTRAL/"" 를 wire 에서 null 로 정규화해 보낸다 (turn.py _ALLOWED_POLARITY).
+//   따라서 polarity 는 'PRO'|'CONS'|null(or 누락) 로 도착한다 — null 을 거부하면
+//   ZodError 가 onSpeechAnalysis 구독 전체 파싱을 죽여 발화분석 카드가 멈춘다.
+//   여기서 null/누락 → 'NEUTRAL' 로 정규화해 downstream(=== 'NEUTRAL') 분기를 보존한다.
 export const TOKEN_POLARITIES = ['PRO', 'CONS', 'NEUTRAL'] as const;
 export type TokenPolarity = (typeof TOKEN_POLARITIES)[number];
 
 export const SpeechTokenSchema = z.object({
   text: z.string(),
-  polarity: z.enum(TOKEN_POLARITIES),
-  reason: z.string(),
+  polarity: z
+    .enum(TOKEN_POLARITIES)
+    .nullish()
+    .transform((p) => p ?? 'NEUTRAL'),
+  // reason 도 wire 상 nullable(graphql String) — null/누락 시 빈 문자열로 완화.
+  reason: z
+    .string()
+    .nullish()
+    .transform((r) => r ?? ''),
 });
 export type SpeechToken = z.infer<typeof SpeechTokenSchema>;
 

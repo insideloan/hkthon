@@ -8,6 +8,7 @@ import { useQueueStore } from '@/stores/queueStore';
 import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
 import { ExperienceModal } from '@/components/queue/ExperienceModal';
 import { buildExperienceCustomer, experienceQueueRow, type ExperienceForm } from '@/lib/experience';
+import { useExperienceStore } from '@/stores/experienceStore';
 import type { CallState } from '@/types/queue';
 
 // ─── Filter definition ───────────────────────────────────────────────────────
@@ -78,16 +79,20 @@ export default function Home() {
   const rows = useQueueStore((s) => s.rows);
   const summary = useQueueStore((s) => s.summary);
   const prependRow = useQueueStore((s) => s.prependRow);
+  const addExperienceCustomer = useExperienceStore((s) => s.addCustomer);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [experienceOpen, setExperienceOpen] = useState(false);
 
   // 체험 모달 확인 — 입력값으로 체험 고객 생성(신용점수/금리 자동 배정) 후 큐
   // 최상단에 발신중(DIALING)으로 노출한다. 데모(mock) 모드라 db 저장은 큐 스토어
-  // prepend 로 대체(백엔드 DynamoDB 저장은 후속 작업).
+  // prepend 로 대체(백엔드 DynamoDB 저장은 후속 작업). 전체 프로필(큐 wire에 못 담는
+  // 성별·대출·자산·신용점수·금리)은 experienceStore에 저장 — CRM 상세·라이브 인사말이
+  // callId로 조회한다.
   const handleExperienceConfirm = (form: ExperienceForm) => {
     // 고유 시드 — 같은 ms 충돌을 피하려 시각 기반(렌더 외부 이벤트 핸들러라 안전).
     const seed = Date.now();
     const customer = buildExperienceCustomer(form, seed);
+    addExperienceCustomer(customer);
     prependRow(experienceQueueRow(customer));
     setActiveFilter('all'); // 새 행이 가려지지 않게 전체 필터로.
     setExperienceOpen(false);
