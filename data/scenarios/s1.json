@@ -1,10 +1,10 @@
 {
   "scenario_id": "s1",
   "title": "S1 — 대환대출 아웃바운드 (박서준, 차량보유)",
-  "description": "SSOT-3(docs/consult_redesigned-3.html const S) 직렬화 + 아웃바운드 고객 인사(여보세요?) 턴. 19턴. 이탈위험 5회(rz-rate/compare/pay/security/avoid) 전부 방어 후 상담원 전환 성공.",
+  "description": "SSOT-3(docs/consult_redesigned-3.html const S) 직렬화 + 아웃바운드 고객 인사(여보세요?) 턴. 10턴. 이탈위험 3회(rz-rate/compare/security) 방어 후 무서류 본 심사 진입.",
   "_notes": "token.polarity(PRO|CONS|null)는 키워드 색상용이 아니라 턴 레벨 flag('risk'|'def'|null) 배지 분기 신호다(DATA-003). mot/compliance/strategy 필드는 DATA-004/005/006 모델과 정합.",
   "customer_id": "cust-001",
-  "expected_turns": 19,
+  "expected_turns": 10,
   "turns": [
     {
       "seq": 0,
@@ -170,133 +170,6 @@
       "seq": 6,
       "speaker": "customer",
       "node": "PROPOSE",
-      "text": "지금 13%대 쓰고 있긴 한데, 그거보다 더 낮아질 수 있어요?",
-      "tokens": [
-        {
-          "text": "13%대",
-          "polarity": null,
-          "reason": ""
-        },
-        {
-          "text": "낮아질",
-          "polarity": "PRO",
-          "reason": "관심"
-        }
-      ],
-      "churn_after": 22,
-      "flag": "def"
-    },
-    {
-      "seq": 7,
-      "speaker": "bot",
-      "node": "PROPOSE",
-      "text": "신용대환이면 12%대도 가능하실 수 있어요. 다만 확정은 아니고 심사 후 결정됩니다.",
-      "tokens": [
-        {
-          "text": "12%대도",
-          "polarity": "PRO",
-          "reason": "관심"
-        },
-        {
-          "text": "심사",
-          "polarity": null,
-          "reason": ""
-        }
-      ],
-      "churn_after": 19,
-      "flag": "def",
-      "compliance": {
-        "draft": "신용대환이면 12%대도 가능합니다.",
-        "violated_policies": [
-          "FIXED_FIGURE"
-        ],
-        "final": "신용대환이면 12%대도 가능하실 수 있어요. 다만 확정은 아니고 심사 후 결정됩니다.",
-        "state": "approved"
-      }
-    },
-    {
-      "seq": 8,
-      "speaker": "customer",
-      "node": "PROPOSE",
-      "text": "낮아지긴 하는데… 생각보다 큰 차이는 아니네요.",
-      "tokens": [
-        {
-          "text": "큰",
-          "polarity": "CONS",
-          "reason": "가격저항"
-        },
-        {
-          "text": "차이는",
-          "polarity": "CONS",
-          "reason": "가격저항"
-        },
-        {
-          "text": "아니네요.",
-          "polarity": "CONS",
-          "reason": "가격저항"
-        }
-      ],
-      "churn_after": 44,
-      "flag": "risk",
-      "mot": {
-        "marker_id": "rz-pay",
-        "state": "alert",
-        "crm_stage": "우려 풀기"
-      }
-    },
-    {
-      "seq": 9,
-      "speaker": "bot",
-      "node": "PROPOSE",
-      "text": "숫자만 보면 작게 느껴지실 수 있어요. 우대 적용되면 10%대까지 내려갈 가능성도 있습니다.",
-      "tokens": [
-        {
-          "text": "우대",
-          "polarity": null,
-          "reason": ""
-        },
-        {
-          "text": "10%대까지",
-          "polarity": "PRO",
-          "reason": "관심"
-        }
-      ],
-      "churn_after": 29,
-      "flag": "def",
-      "strategy_headline": "우대 금리 제시",
-      "strategy_lead": "우대 금리로 월납입 우회"
-    },
-    {
-      "seq": 10,
-      "speaker": "bot",
-      "node": "PROPOSE",
-      "text": "혹시 명의 차량 있으시면 차량담보도 함께 보실 수 있어요. 담보가 잡히는 만큼 더 낮은 금리가 검토됩니다.",
-      "tokens": [
-        {
-          "text": "차량담보도",
-          "polarity": null,
-          "reason": ""
-        },
-        {
-          "text": "낮은",
-          "polarity": "PRO",
-          "reason": "관심"
-        },
-        {
-          "text": "금리가",
-          "polarity": "PRO",
-          "reason": "관심"
-        }
-      ],
-      "churn_after": 31,
-      "flag": "def",
-      "strategy_headline": "담보 옵션 안내",
-      "strategy_lead": "한도조회 — 차량담보 옵션 제시"
-    },
-    {
-      "seq": 11,
-      "speaker": "customer",
-      "node": "PROPOSE",
       "text": "담보요? 그런거 하다가 자동차 운행 못 하는거 아니에요?",
       "tokens": [
         {
@@ -324,7 +197,7 @@
       }
     },
     {
-      "seq": 12,
+      "seq": 7,
       "speaker": "bot",
       "node": "PROPOSE",
       "text": "대출 중에도 차량은 기존처럼 그대로 운행하실 수 있습니다. 다만, 본 상품은 차량에 저당이 설정되는 담보대출이므로, 상세한 설정 조건과 해지 절차는 심사 후 정확히 안내해 드리겠습니다.",
@@ -351,75 +224,7 @@
       "strategy_lead": "운행 가능 안내로 오해 우회"
     },
     {
-      "seq": 13,
-      "speaker": "customer",
-      "node": "PROPOSE",
-      "text": "괜히 담보 잡혔다가 불편해지는 건 싫은데요.",
-      "tokens": [
-        {
-          "text": "담보",
-          "polarity": "CONS",
-          "reason": "담보거부"
-        },
-        {
-          "text": "불편해지는",
-          "polarity": "CONS",
-          "reason": "담보거부"
-        },
-        {
-          "text": "싫은데요.",
-          "polarity": "CONS",
-          "reason": "담보거부"
-        }
-      ],
-      "churn_after": 62,
-      "flag": "risk",
-      "mot": {
-        "marker_id": "rz-avoid",
-        "state": "blocked",
-        "crm_stage": "전환 맺기"
-      }
-    },
-    {
-      "seq": 14,
-      "speaker": "bot",
-      "node": "CHANNEL",
-      "text": "그 마음 당연하세요. 강요 안 드려요. 신청 말고 조건만 비교해보는 것도 가능합니다. 결정은 고객님이 하시면 돼요.",
-      "tokens": [
-        {
-          "text": "강요",
-          "polarity": "PRO",
-          "reason": "자율성"
-        },
-        {
-          "text": "안",
-          "polarity": "PRO",
-          "reason": "자율성"
-        },
-        {
-          "text": "조건만",
-          "polarity": "PRO",
-          "reason": "자율성"
-        },
-        {
-          "text": "결정은",
-          "polarity": "PRO",
-          "reason": "자율성"
-        }
-      ],
-      "churn_after": 33,
-      "flag": "def",
-      "strategy_headline": "공감 + 자율성 부여",
-      "strategy_lead": "자율성 부여로 신청회피 우회",
-      "compliance": {
-        "draft": "신청 말고 조건만 비교해보는 것도 가능합니다.",
-        "violated_policies": [],
-        "final": "그 마음 당연하세요. 강요 안 드려요. 신청 말고 조건만 비교해보는 것도 가능합니다. 결정은 고객님이 하시면 돼요.",
-        "state": "approved"
-      }
-    },
-    {
-      "seq": 15,
+      "seq": 8,
       "speaker": "customer",
       "node": "CHANNEL",
       "text": "그럼 확인만 해볼게요. 근데 서류내고 귀찮은건 싫은데. 빠르게 해줄수 있는거죠?",
@@ -444,52 +249,7 @@
       "flag": "def"
     },
     {
-      "seq": 16,
-      "speaker": "bot",
-      "node": "CHANNEL",
-      "text": "네, 가능합니다. 최종 금리·한도는 심사로 정해지고, 진행은 다 들어보신 뒤 직접 결정하시면 돼요.",
-      "tokens": [
-        {
-          "text": "가능합니다.",
-          "polarity": "PRO",
-          "reason": "진행"
-        },
-        {
-          "text": "직접",
-          "polarity": "PRO",
-          "reason": "진행"
-        },
-        {
-          "text": "결정하시면",
-          "polarity": "PRO",
-          "reason": "진행"
-        }
-      ],
-      "churn_after": 12,
-      "flag": "def"
-    },
-    {
-      "seq": 17,
-      "speaker": "customer",
-      "node": "CHANNEL",
-      "text": "그럼 상담원 연결해주세요.",
-      "tokens": [
-        {
-          "text": "상담원",
-          "polarity": "PRO",
-          "reason": "전환"
-        },
-        {
-          "text": "연결해주세요.",
-          "polarity": "PRO",
-          "reason": "전환"
-        }
-      ],
-      "churn_after": 6,
-      "flag": "def"
-    },
-    {
-      "seq": 18,
+      "seq": 9,
       "speaker": "bot",
       "node": "CLOSING",
       "text": "네, 고객님, 대출은 별도 구비서류 없이 진행하실 수 있어요. 그럼 본 심사 시작하겠습니다. 정확한 본인확인을 위해 몇 가지 확인 후 진행해 드리겠습니다.",
@@ -512,8 +272,8 @@
       ],
       "churn_after": 4,
       "flag": "def",
-      "strategy_headline": "핸드오프 완료",
-      "strategy_lead": "전환 성공 — 상담원 연결"
+      "strategy_headline": "무서류 안내 · 본 심사 진입",
+      "strategy_lead": "전환 성공 — 본인확인 후 심사 시작"
     }
   ]
 }

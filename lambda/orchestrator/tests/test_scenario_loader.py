@@ -43,12 +43,12 @@ def test_s1_file_exists():
     assert _S1_PATH.exists(), f"missing {_S1_PATH}"
 
 
-def test_s1_loads_19_turns(s1_raw):
-    # 아웃바운드 인사("여보세요?") greet 턴 추가로 19턴. expected_turns 선언으로
-    # 18턴 기본값을 오버라이드(S2의 15턴 방식과 동일).
+def test_s1_loads_10_turns(s1_raw):
+    # 아웃바운드 인사("여보세요?") greet 턴 포함 10턴. expected_turns 선언으로
+    # 18턴 기본값을 오버라이드(S2의 16턴 방식과 동일).
     data = sl.load_from_str(s1_raw)
-    assert data["expected_turns"] == 19
-    assert len(data["turns"]) == 19
+    assert data["expected_turns"] == 10
+    assert len(data["turns"]) == 10
 
 
 def test_s1_opens_with_customer_greet(s1_data):
@@ -67,10 +67,9 @@ def test_s1_passes_schema_validation(s1_data):
     assert sl.validate_scenario(s1_data) is s1_data
 
 
-def test_s1_has_five_mot_markers(s1_data):
+def test_s1_has_three_mot_markers(s1_data):
     markers = [t["mot"]["marker_id"] for t in s1_data["turns"] if "mot" in t]
-    assert set(markers) == {"rz-rate", "rz-compare", "rz-pay",
-                            "rz-security", "rz-avoid"}
+    assert set(markers) == {"rz-rate", "rz-compare", "rz-security"}
 
 
 def test_s1_flag_values_valid(s1_data):
@@ -114,7 +113,7 @@ def test_missing_required_field_detected(s1_data):
 def test_wrong_turn_count_detected(s1_data):
     bad = copy.deepcopy(s1_data)
     bad["turns"].pop()
-    with pytest.raises(sl.ScenarioValidationError, match="18"):
+    with pytest.raises(sl.ScenarioValidationError, match="got 9"):
         sl.validate_scenario(bad)
 
 
@@ -251,7 +250,7 @@ def test_load_from_s3_getobject(s1_raw):
     fake = _FakeS3(s1_raw)
     data = sl.load_from_s3("assets-bucket", "scenarios/scenario.json",
                            s3_client=fake)
-    assert len(data["turns"]) == 19
+    assert len(data["turns"]) == 10
     assert fake.calls == [("assets-bucket", "scenarios/scenario.json")]
 
 
@@ -272,7 +271,7 @@ def test_s3_key_for():
 
 def test_load_scenario_local_known_ids():
     # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
-    for sid, turns in (("s1", 19), ("s2", 16)):
+    for sid, turns in (("s1", 10), ("s2", 16)):
         data = sl.load_scenario(sid)
         assert data["scenario_id"] == sid
         assert len(data["turns"]) == turns
