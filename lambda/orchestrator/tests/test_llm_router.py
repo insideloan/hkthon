@@ -294,3 +294,177 @@ def test_astream_converse_exception_yields_fallback():
     from orchestrator.llm.router import FALLBACK_TEXT
 
     assert result[0] == FALLBACK_TEXT
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. classify JSON 모드 — _parse_classify 견고 파싱
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _full_json() -> str:
+    return (
+        '{"intent": "INFO_REQUEST", "route": "RESPOND", "emotion": "불안", '
+        '"need": "금리문의", "usability": "", "fraud_suspected": false, '
+        '"churn_adjust": 3, "strategy_tactic": "안심제공", '
+        '"strategy_headline": "금리 인하 안내", "rationale": "고객이 금리를 물음"}'
+    )
+
+
+def test_parse_classify_plain_json():
+    """순수 JSON 객체를 그대로 파싱한다."""
+    from orchestrator.llm import router as r
+
+    result = r._parse_classify(_full_json())  # noqa: SLF001
+    assert result is not None
+    assert result.intent == "INFO_REQUEST"
+    assert result.route == "RESPOND"
+    assert result.emotion == "불안"
+    assert result.churn_adjust == 3
+    assert result.fraud_suspected is False
+
+
+def test_parse_classify_strips_code_fence():
+    """```json 코드펜스로 감싼 응답도 파싱한다."""
+    from orchestrator.llm import router as r
+
+    fenced = "```json\n" + _full_json() + "\n```"
+    result = r._parse_classify(fenced)  # noqa: SLF001
+    assert result is not None
+    assert result.route == "RESPOND"
+
+
+def test_parse_classify_strips_preamble_and_trailing_text():
+    """모델이 앞뒤로 설명을 덧붙여도 바깥 중괄호 구간만 떼어 파싱한다."""
+    from orchestrator.llm import router as r
+
+    noisy = "분석 결과입니다:\n" + _full_json() + "\n위와 같이 판단했습니다."
+    result = r._parse_classify(noisy)  # noqa: SLF001
+    assert result is not None
+    assert result.intent == "INFO_REQUEST"
+
+
+def test_parse_classify_broken_json_returns_none():
+    """깨진 JSON은 None을 반환(호출측 규칙 폴백)."""
+    from orchestrator.llm import router as r
+
+    assert r._parse_classify('{"intent": "X", "route": ') is None  # noqa: SLF001
+    assert r._parse_classify("응답이 JSON이 아닙니다") is None  # noqa: SLF001
+    assert r._parse_classify("") is None  # noqa: SLF001
+
+
+def test_parse_classify_out_of_range_churn_returns_none():
+    """churn_adjust가 -10~10 범위를 벗어나면 스키마 검증 실패 → None."""
+    from orchestrator.llm import router as r
+
+    over = '{"intent": "X", "route": "RESPOND", "churn_adjust": 99}'
+    assert r._parse_classify(over) is None  # noqa: SLF001
+
+
+def test_parse_classify_partial_keys_use_defaults():
+    """필수(intent/route)만 있고 나머지 누락 시 스키마 기본값으로 채운다."""
+    from orchestrator.llm import router as r
+
+    minimal = '{"intent": "UNCLEAR", "route": "RESPOND"}'
+    result = r._parse_classify(minimal)  # noqa: SLF001
+    assert result is not None
+    assert result.emotion == ""
+    assert result.churn_adjust == 0
+    assert result.fraud_suspected is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. classify_turn 게이트 — JSON 모드(기본) vs structured(0)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_classify_turn_json_mode_uses_invoke_not_structured():
+    """기본(JSON 모드): with_structured_output 없이 .invoke() 자유 텍스트를 파싱한다."""
+    mock_instance = MagicMock()
+    mock_instance.invoke.return_value = MagicMock(content=_full_json())
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        import sys
+
+        if "orchestrator.llm.router" in sys.modules:
+            del sys.modules["orchestrator.llm.router"]
+        from orchestrator.llm import router as r
+
+        r._chat = None  # noqa: SLF001
+        r._CLASSIFY_JSON_MODE = True  # noqa: SLF001
+        result = r.classify_turn("system prompt", "고객: 금리 알려줘")
+
+    assert result is not None
+    assert result.route == "RESPOND"
+    mock_instance.invoke.assert_called_once()
+    mock_instance.with_structured_output.assert_not_called()
+    # 시스템 프롬프트에 JSON 출력 지시가 덧붙었는지 확인.
+    sent_msgs = mock_instance.invoke.call_args.args[0]
+    assert "JSON" in sent_msgs[0]["content"]
+
+
+def test_classify_turn_json_mode_parse_failure_returns_none():
+    """JSON 모드에서 응답이 파싱 불가면 None(규칙 폴백)."""
+    mock_instance = MagicMock()
+    mock_instance.invoke.return_value = MagicMock(content="죄송하지만 모르겠습니다")
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        import sys
+
+        if "orchestrator.llm.router" in sys.modules:
+            del sys.modules["orchestrator.llm.router"]
+        from orchestrator.llm import router as r
+
+        r._chat = None  # noqa: SLF001
+        r._CLASSIFY_JSON_MODE = True  # noqa: SLF001
+        result = r.classify_turn("system", "user")
+
+    assert result is None
+
+
+def test_classify_turn_structured_mode_uses_with_structured_output():
+    """CLASSIFY_JSON_MODE=0: 기존 with_structured_output(tool-use) 경로를 쓴다."""
+    expected = MagicMock()
+    structured = MagicMock()
+    structured.invoke.return_value = expected
+    mock_instance = MagicMock()
+    mock_instance.with_structured_output.return_value = structured
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        import sys
+
+        if "orchestrator.llm.router" in sys.modules:
+            del sys.modules["orchestrator.llm.router"]
+        from orchestrator.llm import router as r
+
+        r._chat = None  # noqa: SLF001
+        r._CLASSIFY_JSON_MODE = False  # noqa: SLF001
+        result = r.classify_turn("system", "user")
+
+    assert result is expected
+    mock_instance.with_structured_output.assert_called_once()
+    mock_instance.invoke.assert_not_called()
+
+
+def test_classify_turn_json_mode_default_is_on():
+    """CLASSIFY_JSON_MODE env 미지정 시 기본값이 ON(=1)이다."""
+    import importlib
+
+    env_backup = os.environ.pop("CLASSIFY_JSON_MODE", None)
+    try:
+        from orchestrator.llm import router as r
+
+        # 다른 테스트가 모듈 상수를 변경했을 수 있으므로 env 미지정 상태로 강제 reload.
+        importlib.reload(r)
+        assert r._CLASSIFY_JSON_MODE is True  # noqa: SLF001
+    finally:
+        if env_backup is not None:
+            os.environ["CLASSIFY_JSON_MODE"] = env_backup
+        from orchestrator.llm import router as r2
+
+        importlib.reload(r2)

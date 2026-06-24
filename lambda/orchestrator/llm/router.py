@@ -15,17 +15,27 @@ AGENT 모듈. SSOT: hk-skills/reference/STACK.md §5(LLM), ARCHITECTURE.md §3.3
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+import re
 from typing import AsyncIterator, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 _FIRST_TOKEN_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "6"))
+
+# classify 출력 방식 게이트 — 기본 ON(prompted JSON):
+#   "1"(기본) → with_structured_output(Bedrock tool-use 강제) 대신 프롬프트로 JSON 출력을
+#               지시하고 .invoke() 자유 텍스트를 _parse_classify로 검증/파싱.
+#   "0"        → 기존 with_structured_output(tool-use) 경로(폴백/대조용).
+# tool-use 강제는 입력에 tool 스키마를 주입하고 제약 디코딩을 유발해 classify를 느리게 했다.
+# JSON 모드는 그 오버헤드를 제거하되 _parse_classify + nodes.classify 폴백으로 정합성 유지.
+_CLASSIFY_JSON_MODE = os.environ.get("CLASSIFY_JSON_MODE", "1") == "1"
 
 # LLM 장애 시 통화 흐름 유지용 한국어 기본 문구 (API.md §0.3 fallbackMessage)
 FALLBACK_TEXT = "잠시 후 다시 안내해 드리겠습니다."
@@ -39,10 +49,11 @@ FALLBACK_TEXT = "잠시 후 다시 안내해 드리겠습니다."
 class ClassifyResult(BaseModel):
     """classify 노드의 LLM 구조화 출력. 값은 state.Intent / state.Route 문자열과 일치.
 
-    레이턴시 주의: 이 스키마의 Field 설명은 매 classify 호출의 입력 토큰으로 주입되고
-    (with_structured_output가 tool schema로 변환), rationale 길이는 출력 토큰을 좌우한다.
-    라벨 카탈로그의 권위 소스는 prompts._signal_catalog(시스템 프롬프트)이므로, 여기 설명은
-    카탈로그를 중복 나열하지 않고 짧게 유지한다(입력 토큰 ↓ → 라이브 한 턴 레이턴시 ↓).
+    레이턴시 주의: rationale 길이는 출력 토큰을 좌우한다(짧게 유지). 라벨 카탈로그의 권위
+    소스는 prompts._signal_catalog(시스템 프롬프트)이므로, 여기 Field 설명은 카탈로그를
+    중복 나열하지 않고 짧게 유지한다.
+    기본 경로(CLASSIFY_JSON_MODE=1)는 이 모델을 _parse_classify로 검증하는 데만 쓰고,
+    구 경로(=0)는 with_structured_output이 이 스키마를 tool schema로 변환해 입력에 주입한다.
     """
 
     intent: str = Field(description="state.Intent 값")
@@ -58,6 +69,50 @@ class ClassifyResult(BaseModel):
     strategy_headline: str = Field(default="", description="전략 카드 제목 한 줄")
     # rationale은 관리자 화면 표시용(짧게). 길면 출력 토큰만 늘어 레이턴시 악화.
     rationale: str = Field(default="", description="판단 근거 한국어 한 문장(최대 40자)")
+
+
+# CLASSIFY_JSON_MODE=1에서 시스템 프롬프트 끝에 덧붙이는 출력 형식 지시.
+# tool-use 강제 없이 모델이 "오직 JSON 객체 하나"만 내도록 유도한다(코드펜스/설명 금지).
+# 키·허용값 설명은 시스템 프롬프트 본문(_signal_catalog 등)이 권위 소스이므로 여기선 형태만 못박는다.
+_JSON_INSTRUCTION = (
+    "\n\n[출력 형식 — 엄수]\n"
+    "위 분석 결과를 아래 키를 가진 JSON 객체 **하나만** 출력하세요. "
+    "코드펜스(```), 주석, 설명 문장을 절대 덧붙이지 말고 `{`로 시작해 `}`로 끝내세요.\n"
+    '{"intent": "...", "route": "RESPOND|TRANSFER|CLOSE|SILENCE", '
+    '"emotion": "", "need": "", "usability": "", '
+    '"fraud_suspected": false, "churn_adjust": 0, '
+    '"strategy_tactic": "", "strategy_headline": "", "rationale": ""}\n'
+    "emotion/need/usability/strategy_tactic은 위 신호 카탈로그 라벨 중 하나(미상이면 빈 문자열), "
+    "churn_adjust는 -10~10 정수, fraud_suspected는 boolean입니다."
+)
+
+
+def _parse_classify(text: str) -> Optional[ClassifyResult]:
+    """JSON 모드 LLM 자유텍스트 응답을 ClassifyResult로 견고 파싱.
+
+    모델이 코드펜스나 앞뒤 설명을 덧붙여도 첫 `{`~마지막 `}` 구간만 떼어 json.loads한다.
+    어느 단계든 실패하면 None을 반환해 호출측(nodes.classify)이 규칙 기반 기본값으로 폴백한다.
+    """
+    if not text:
+        return None
+    # ```json ... ``` 펜스 제거 후, 가장 바깥 중괄호 구간만 슬라이스.
+    stripped = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    start, end = stripped.find("{"), stripped.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        logger.warning("classify JSON 모드: 응답에서 JSON 객체를 찾지 못함")
+        return None
+    try:
+        data = json.loads(stripped[start : end + 1])
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("classify JSON 모드: json.loads 실패")
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        return ClassifyResult.model_validate(data)
+    except ValidationError:
+        logger.warning("classify JSON 모드: 스키마 검증 실패")
+        return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,9 +171,20 @@ def get_llm():
 def classify_turn(system: str, user: str) -> Optional[ClassifyResult]:
     """단일 Converse 호출로 의도/라우팅/감정/전략을 구조화 추출.
 
-    실패 시 None 반환 → 호출측(nodes.classify)이 보수적 기본값(UNCLEAR/RESPOND)으로 폴백.
+    CLASSIFY_JSON_MODE=1(기본): 프롬프트로 JSON 출력을 지시하고 .invoke() 자유 텍스트를
+    _parse_classify로 검증/파싱(tool-use 강제 제거 → 입력 토큰·제약 디코딩 오버헤드 감소).
+    CLASSIFY_JSON_MODE=0: 기존 with_structured_output(Bedrock tool-use) 경로.
+    어느 경로든 실패 시 None 반환 → 호출측(nodes.classify)이 보수적 기본값(UNCLEAR/RESPOND)으로 폴백.
     """
     try:
+        if _CLASSIFY_JSON_MODE:
+            raw = _client().invoke(
+                [
+                    {"role": "system", "content": system + _JSON_INSTRUCTION},
+                    {"role": "user", "content": user},
+                ]
+            )
+            return _parse_classify(_as_text(raw.content))
         structured = _client().with_structured_output(ClassifyResult)
         return structured.invoke(
             [
