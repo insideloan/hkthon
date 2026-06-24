@@ -830,7 +830,7 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
         viewBox="25 12 1610 418"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="상담 경로 여정 맵"
+        aria-label="상담 경로 재탐색 항법 맵"
         data-testid="journey-svg"
         style={{ display: 'block', width: '100%', height: '100%' }}
       >
