@@ -498,6 +498,12 @@
   gap: 8px;
   /* 하단 영역을 약 20px 낮춤(콘텐츠 박스 높이 축소). */
   margin-bottom: 20px;
+  /* 파란 프레임 — 세 카드(#card-emo/#card-db/#card-strat .cmp)의 하단 영역을
+     하나의 강조 패널로. (기존 DB .dbanner.ok 프레임을 카드 하단으로 승격.) */
+  border: 1.5px solid #3551d6;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3);
 }
 
 /* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임. */
@@ -530,6 +536,13 @@
 .dbanner .dbic { flex: none; width: 17px; height: 17px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
 .dbanner.ok { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
 .dbanner.ok .dbic { background: #2E9E6E; color: #fff; }
+/* DB 분석결과 ok 배너("✓ 타사 13% 확인 …")는 숨긴다 — 강조 프레임을 카드 하단(.card-bottom)
+   으로 올렸으므로 배너 자체는 표시하지 않는다(초록 ✓ 박스 그림은 아래 .check-badge로 재사용). */
+.dbanner.ok.on { display: none; }
+
+/* check-badge — DB ok 배너의 .dbic(초록 V 박스)와 동일한 모양.
+   선택 전략 번호(.scard.sel .sno) 왼쪽, 최종 발화(.cmp-final) 왼쪽에 재사용한다. */
+.check-badge { flex: none; width: 17px; height: 17px; border-radius: 6px; display: inline-grid; place-items: center; font-size: 11px; background: #2E9E6E; color: #fff; }
 .dbanner.alert { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
 .dbanner.alert .dbic { background: rgba(255,255,255,.22); }
 @media (prefers-reduced-motion: reduce) { .dnode.on { animation: none; } }
@@ -557,7 +570,10 @@
 /* cdesc(설명)을 claw(법명)와 같은 x에서 시작하게 들여쓰기 — cbx(18px)+gap(6px)=24px */
 .cmp-chk .cdesc { flex-basis: 100%; padding-left: 24px; font-size: 9px; font-weight: 600; color: #111827; line-height: 1.2; word-break: keep-all; text-align: left; }
 .cmp-chk .cflag { display: none; }
-.cmp-final { background: #fff; color: #000; border: 1px solid #C9CDD6; box-shadow: none; font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
+.cmp-final-row { display: flex; align-items: flex-start; gap: 8px; }
+.cmp-final-row .check-badge { margin-top: 11px; }
+.cmp-final-row .cmp-final { flex: 1; min-width: 0; }
+.cmp-final { background: #fff; color: #000; border: none; box-shadow: none; font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
 .cmp-final del { color: #9aa0ac; text-decoration: line-through; text-decoration-color: #c9b3b2; font-weight: 500; margin-right: 2px; }
 .cmp-final ins { color: #D6322E; font-weight: 700; text-decoration: none; background: none; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .cmp-final ins.add::before { content: "＋"; font-size: .78em; font-weight: 800; margin-right: 1px; opacity: .8; }
@@ -622,8 +638,8 @@
 .stratg.resolved { flex: 1; min-height: 0; height: 100%; overflow: hidden; display: flex; padding: 2px 0; }
 .stratg.resolved .strat-track { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; grid-template-rows: none; grid-template-columns: none; transform: none !important; animation: none; }
 .stratg.resolved .scard { display: none; }
-.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: 1px solid #C9CDD6; background: #fff; box-shadow: none; transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
-.stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: none; background: #fff; box-shadow: none; transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
+.stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; display: inline-flex; align-items: center; gap: 6px; }
 .stratg.resolved .scard.sel .stx { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
 .stratg.resolved .scard.sel .slead { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; -webkit-line-clamp: 3; line-clamp: 3; margin-top: 3px; }
 .stratg.resolved.one .scard.sel .slead { -webkit-line-clamp: 4; line-clamp: 4; }

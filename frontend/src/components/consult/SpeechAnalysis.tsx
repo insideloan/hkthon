@@ -359,7 +359,11 @@ function EngineCard1() {
               const isSel = resolved && picked.includes(idx);
               return (
                 <div className={clsx('scard', isSel && 'sel')} key={idx} data-i={idx} data-testid={isSel ? 'strat-sel' : undefined}>
-                  <span className="sno">{String(idx + 1).padStart(2, '0')}</span>
+                  <span className="sno">
+                    {/* 선택 전략 번호 왼쪽에 초록 V 박스(DB ok 배너 .dbic와 동일 모양) */}
+                    {isSel && <span className="check-badge" aria-hidden>✓</span>}
+                    {String(idx + 1).padStart(2, '0')}
+                  </span>
                   <span className="stx">{s.name}</span>
                   <span className="slead">{s.lead}</span>
                 </div>
