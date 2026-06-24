@@ -46,7 +46,12 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
     data = args["data"]
 
     text = _stt_chunk_to_text(data)
-    if not text:
+    # STT가 빈 문자열 또는 구두점·공백뿐인 잡음(예: ".")을 돌려주면 customer Turn도
+    # 만들지 않고 그래프(classify 2.5-4s)도 트리거하지 않는다 — 연속 오디오 스트림에서
+    # 무의미 청크가 매번 전체 그래프를 돌려 응답이 폭주하던 문제를 막는다.
+    # (단 "네"·"음" 같은 실제 최소 응답은 의미 글자가 있으므로 통과 → silence 노드가 처리.)
+    if not _has_speech(text):
+        logger.info("audioChunk: STT 무음/잡음 스킵 call=%s text=%r", call_id, text)
         return False
 
     # 다음 seq 계산 후 customer Turn 기록.
@@ -77,6 +82,17 @@ def _run_agent_turn(call_id: str, customer_text: str) -> None:
         run_turn(call_id, customer_text)
     except Exception:  # noqa: BLE001 — 데모 안정성: 그래프 장애가 customer Turn 기록을 무효화하지 않게
         logger.exception("audioChunk: agent turn failed for call=%s", call_id)
+
+
+def _has_speech(text: str) -> bool:
+    """STT 결과에 의미 있는 발화 글자가 있는지 — 구두점·공백뿐이면 False.
+
+    한글/영문/숫자가 하나라도 있으면 발화로 본다(예: "네", "음", "여보세요").
+    ".", " ", "...", "?" 등 잡음/구두점만 있으면 무음으로 간주해 그래프를 트리거하지 않는다.
+    """
+    import re
+
+    return bool(text and re.search(r"[0-9A-Za-z가-힣]", text))
 
 
 def _stt_chunk_to_text(data_b64: str) -> str:

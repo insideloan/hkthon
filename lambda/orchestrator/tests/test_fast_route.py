@@ -41,6 +41,24 @@ def test_silence_routes_to_silence():
     assert _route("네")["route"] == Route.SILENCE
 
 
+def test_greeting_routes_to_respond_without_llm():
+    """첫인사/통화 응답('여보세요')은 classify(LLM) 없이 RESPOND로 정상 진행.
+
+    회귀 방지: '여보세요'가 NEEDS_LLM으로 위임돼 간헐 오분류·NAME 가드레일 redraft
+    루프(→'정확한 내용은 상담원이…' fallback)를 유발하던 버그를 막는다.
+    """
+    for utt in ("여보세요", "여보세요?", "네 여보세요", "누구세요?"):
+        out = _route(utt)
+        assert out["route"] == Route.RESPOND, utt
+        assert out["classified_by"] == "rule", utt
+
+
+def test_greeting_with_transfer_keyword_still_transfers():
+    """'여보세요 상담원 바꿔주세요'는 인사보다 이관이 우선(거절·이관을 먼저 검사)."""
+    out = _route("여보세요 상담원 바꿔주세요")
+    assert out["route"] == Route.TRANSFER
+
+
 def test_ambiguous_defers_to_llm():
     out = _route("그게 무슨 대출인데요?")
     assert out["route"] == Route.NEEDS_LLM

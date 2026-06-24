@@ -75,6 +75,38 @@ def test_guardrail_extracts_pii_and_topic(monkeypatch):
     assert "KR_RRN" in v["violated"]
 
 
+def test_guardrail_pii_name_is_exempt_but_real_pii_blocks(monkeypatch):
+    """PII NAME(고객 이름 호명)은 위반에서 제외 — 인사/본인확인 멘트가 redraft 소진→fallback
+    되던 버그(live seq2 '정확한 내용은 상담원이…') 회귀 방지. 단 KR_RRN 등 진짜 PII는 유지."""
+    fake = _FakeBedrock({
+        "action": "GUARDRAIL_INTERVENED",
+        "assessments": [{
+            "sensitiveInformationPolicy": {"piiEntities": [
+                {"type": "NAME", "action": "ANONYMIZED"},
+                {"type": "KR_RRN", "action": "ANONYMIZED"},
+            ]},
+        }],
+    })
+    _use_fake(monkeypatch, fake)
+    v = c._bedrock_guardrails("안녕하세요 박서준님, 현대캐피탈입니다.")
+    assert "NAME" not in v["violated"]   # 이름 호명은 면제
+    assert "KR_RRN" in v["violated"]      # 주민번호 등 진짜 PII는 차단 유지
+
+
+def test_guardrail_only_name_pii_is_not_blocked(monkeypatch):
+    """위반이 PII NAME 하나뿐이면 blocked=False — 인사 멘트가 통과해야 한다."""
+    fake = _FakeBedrock({
+        "action": "GUARDRAIL_INTERVENED",
+        "assessments": [{
+            "sensitiveInformationPolicy": {"piiEntities": [{"type": "NAME", "action": "ANONYMIZED"}]},
+        }],
+    })
+    _use_fake(monkeypatch, fake)
+    v = c._bedrock_guardrails("안녕하세요 박서준님, 현대캐피탈입니다.")
+    assert v["violated"] == []
+    assert v["blocked"] is False
+
+
 def test_guardrail_exception_returns_none(monkeypatch):
     """API 예외 → None (호출측이 룰 폴백)."""
     fake = _FakeBedrock(raises=RuntimeError("network"))

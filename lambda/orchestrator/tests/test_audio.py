@@ -73,6 +73,40 @@ def test_live_mode_empty_text_no_turn(monkeypatch):
     assert dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN) == []
 
 
+def test_live_mode_punctuation_noise_no_turn(monkeypatch):
+    """STT가 구두점·공백뿐인 잡음('.')을 돌려주면 Turn도 그래프도 트리거 안 함(폭주 방지)."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    async def fake_stream_chunks(chunks, **kw):
+        async for _ in chunks:
+            pass
+        return []
+
+    async def fake_accumulate(results):
+        return "."  # 무음 구간을 STT가 구두점으로 인식한 케이스
+
+    ran = {"agent": False}
+    monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
+    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: ran.__setitem__("agent", True))
+    assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is False
+    assert dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN) == []
+    assert ran["agent"] is False  # 그래프 미실행
+
+
+def test_has_speech_helper():
+    """의미 글자(한/영/숫자)가 있으면 True, 구두점·공백뿐이면 False."""
+    assert audio._has_speech("여보세요") is True
+    assert audio._has_speech("네") is True
+    assert audio._has_speech("음.") is True       # 의미 글자 '음' 포함 → 통과(silence 노드가 처리)
+    assert audio._has_speech(".") is False
+    assert audio._has_speech("...") is False
+    assert audio._has_speech("  ?  ") is False
+    assert audio._has_speech("") is False
+
+
 def test_live_mode_start_audio(monkeypatch):
     monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
     config.get_settings.cache_clear()
