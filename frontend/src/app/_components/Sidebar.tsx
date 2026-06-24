@@ -89,9 +89,11 @@ export function Sidebar() {
 
   return (
     // SSOT .sidebar: flex:none; width:80px; frosted glass; border-radius:18px; padding:12px 8px
+    // 큐 테이블이 길어 페이지가 스크롤돼도 nav가 화면 밖으로 밀리지 않도록 sticky로
+    // 뷰포트에 고정한다. top/height는 컨테이너 상하 패딩(18px)을 상쇄해 뷰포트에 맞춤.
     <aside
-      className="glass-card flex flex-col gap-[6px] shrink-0 w-20 self-stretch p-3"
-      style={{ padding: '12px 8px' }}
+      className="glass-card flex flex-col gap-[6px] shrink-0 w-20 p-3 sticky self-start"
+      style={{ padding: '12px 8px', top: '18px', height: 'calc(100dvh - 36px)' }}
     >
       {/* SSOT .sb-brand: flex-col; align-center; border-bottom: 1px solid var(--hair); mb:8px */}
       <div
