@@ -12,11 +12,25 @@ from __future__ import annotations
 from orchestrator.agent import compliance, nodes
 from orchestrator.agent.exp_presets import EXP_PRESETS, preset_for
 from orchestrator.agent.state import Intent
+from orchestrator.models.turn import Turn
 
 
 def test_all_15_intents_have_presets():
     assert set(EXP_PRESETS) == set(Intent)
     assert len(EXP_PRESETS) == 15
+
+
+def test_every_preset_token_builds_a_valid_turn():
+    """모든 preset 토큰이 Turn(...) 생성을 통과해야 한다.
+
+    회귀 방어: preset이 polarity "NEUTRAL"을 쓰면 Turn 모델 검증이 ValueError를 던져
+    persist가 죽고 봇 Turn이 기록되지 않아 '답이 안 나옴/끊김'이 된다(실배포 로그 확인).
+    persist의 토큰 주입 경로(state['churn_tokens'] → Turn(tokens=...))를 그대로 재현한다.
+    """
+    for intent, preset in EXP_PRESETS.items():
+        turn = Turn(call_id="exp-9", seq=2, tokens=[dict(t) for t in preset.tokens])
+        for tok in turn.tokens:
+            assert tok["polarity"] in ("PRO", "CONS", None), (intent, tok)
 
 
 def test_is_experience_guard():

@@ -38,7 +38,13 @@ class ExpPreset:
     compliance_violations: list[str] = field(default_factory=list)
 
 
-def _tok(text: str, polarity: str, reason: str) -> dict:
+def _tok(text: str, polarity: str | None, reason: str) -> dict:
+    # polarity 계약은 PRO|CONS|null(=중립)뿐 — Turn 모델(_ALLOWED_POLARITY)과 wire
+    # SpeechAnalysis가 NEUTRAL을 별도 값으로 받지 않는다(중립=배지 없음=null). preset이
+    # 가독성으로 "NEUTRAL"을 적은 것은 null로 정규화한다(미정규화 시 persist에서
+    # Turn(...) 생성이 ValueError로 죽어 봇 Turn 자체가 기록되지 않는다).
+    if polarity == "NEUTRAL":
+        polarity = None
     return {"text": text, "polarity": polarity, "reason": reason}
 
 
@@ -104,7 +110,7 @@ EXP_PRESETS: dict[Intent, ExpPreset] = {
         rationale="금리·조건을 확인하려 한다. 확정 단정 없이 예시로 비교 안내한다.",
         tokens=[_tok("금리가 몇 퍼센트", "NEUTRAL", "조건 질문"), _tok("지금보다 나아요?", "PRO", "비교 의향")],
         db_chips=["보유 대출", "신용평가", "금리 비교"],
-        db_nodes=[_node("타사 금리", "13%대", "warn"), _node("대환 예상", "심사 후 확정", None)],
+        db_nodes=[_node("현재 금리", "13%대", "warn"), _node("대환 예상", "심사 후 확정", None)],
         compliance_draft="신용대출 12%, 담보대출 10%로 확정해드립니다.",
         compliance_violations=["12%, 담보대출 10%로 확정해드립니다"],
     ),
