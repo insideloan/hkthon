@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
-import ConsultCockpitPage from '@/app/calls/[id]/page';
+import ConsultCockpitPage from '@/app/(admin)/calls/[id]/page';
 
 vi.mock('@/lib/appsync', () => ({
   subscribeSpeechAnalysis: () => () => {},

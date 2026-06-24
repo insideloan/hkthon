@@ -19,7 +19,7 @@ vi.mock('@/lib/appsync', () => ({
 }));
 
 // Import page after mocks are wired up
-import SegmentPage from '@/app/segment/[customerId]/page';
+import SegmentPage from '@/app/(admin)/segment/[customerId]/page';
 
 const MOCK_CUSTOMER = {
   customerId: 'cust-001',
