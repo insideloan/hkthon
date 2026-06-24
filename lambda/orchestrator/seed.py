@@ -164,14 +164,14 @@ def seed_customers(customers: list[Customer] | None = None) -> int:
 SEED_QUEUE_ROWS: list[dict[str, Any]] = [
     # pre → DIALING
     {"id": "c-demo-01", "customer_name": "박서준", "state": "DIALING",
-     "stage": "사전 고객분석", "churn_risk": 34, "assignee": "AI 코파일럿",
+     "stage": "사전 분석중", "churn_risk": 34, "assignee": "AI Agent1",
      "channel": "아웃바운드", "elapsed_sec": 0},
     # live → IN_CALL
     {"id": "c-demo-02", "customer_name": "이정훈", "state": "IN_CALL",
-     "stage": "우려 풀기", "churn_risk": 48, "assignee": "AI 코파일럿",
+     "stage": "우려 해소중", "churn_risk": 48, "assignee": "AI Agent2",
      "channel": "아웃바운드", "elapsed_sec": 221},
     {"id": "c-demo-03", "customer_name": "김하늘", "state": "IN_CALL",
-     "stage": "신뢰 쌓기", "churn_risk": 34, "assignee": "AI 코파일럿",
+     "stage": "신뢰 형성중", "churn_risk": 34, "assignee": "AI Agent5",
      "channel": "인바운드", "elapsed_sec": 68},
     # wait → TRANSFER_PENDING (needs_agent highlight)
     {"id": "c-demo-04", "customer_name": "정민서", "state": "TRANSFER_PENDING",
@@ -182,17 +182,17 @@ SEED_QUEUE_ROWS: list[dict[str, Any]] = [
      "channel": "아웃바운드", "elapsed_sec": 0, "needs_agent": True},
     # done → ENDED
     {"id": "c-demo-06", "customer_name": "오세훈", "state": "ENDED",
-     "stage": "상담사 연결", "churn_risk": 18, "assignee": "김도현",
+     "stage": "문자 URL발송", "churn_risk": 18, "assignee": "AI Agent3",
      "channel": "인바운드", "elapsed_sec": 475},
     {"id": "c-demo-07", "customer_name": "배수지", "state": "ENDED",
-     "stage": "전환 성공", "churn_risk": 12, "assignee": "이서연",
+     "stage": "AI 대출접수", "churn_risk": 12, "assignee": "AI Agent4",
      "channel": "아웃바운드", "elapsed_sec": 330},
     # miss → ENDED
     {"id": "c-demo-08", "customer_name": "윤재호", "state": "ENDED",
-     "stage": "담보 오해 이탈", "churn_risk": 88, "assignee": "AI 코파일럿",
+     "stage": "담보거부 이탈", "churn_risk": 88, "assignee": "AI Agent6",
      "channel": "아웃바운드", "elapsed_sec": 134},
     {"id": "c-demo-09", "customer_name": "강예린", "state": "ENDED",
-     "stage": "초반 거부 이탈", "churn_risk": 94, "assignee": "AI 코파일럿",
+     "stage": "TM거부 이탈", "churn_risk": 94, "assignee": "AI Agent7",
      "channel": "인바운드", "elapsed_sec": 46},
 ]
 
