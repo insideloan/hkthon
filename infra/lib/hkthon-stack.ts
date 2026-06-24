@@ -33,6 +33,15 @@ export class HkthonStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // lambda/ 코드 번들에서 제외할 항목 — 가상환경/캐시/테스트는 런타임 불필요하고
+    // 번들을 키워 Lambda 250MB(압축해제) 한도를 깨뜨린다(예: 프로파일러가 만든
+    // .venv-prof 164MB로 배포 실패). git 미추적이라 .gitignore로는 못 막으므로
+    // (CDK asset은 파일시스템을 그대로 zip) 여기서 명시 제외한다.
+    const LAMBDA_BUNDLE_EXCLUDE = [
+      '**/.venv*', '**/venv', '**/__pycache__', '**/*.pyc',
+      '**/.pytest_cache', '**/.ruff_cache', 'tests', '**/tests',
+    ];
+
     // ── DynamoDB single table (+ Streams) ───────────────────────────────
     // Single-table design (PK/SK). Streams feed AppSync subscription fan-out.
     const table = new dynamodb.Table(this, 'CallTable', {
@@ -98,7 +107,7 @@ export class HkthonStack extends cdk.Stack {
       // Real orchestrator bundle (lambda/orchestrator + AGENT/BACKEND code).
       // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
       // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       // 라이브 한 턴(nextTurn/audioChunk)은 agent 그래프(Bedrock classify+respond,
       // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
       // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
@@ -258,7 +267,7 @@ export class HkthonStack extends cdk.Stack {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'orchestrator.api.stream_fanout.handler',
       layers: [depsLayer],
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
