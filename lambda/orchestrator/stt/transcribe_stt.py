@@ -172,6 +172,27 @@ async def accumulate_final_text(results: List[SttResult]) -> str:
     return " ".join(r.text for r in results if r.isFinal)
 
 
+def prewarm(*, region: str = "ap-northeast-2") -> bool:
+    """AWS Transcribe 클라이언트 임포트/생성을 미리 수행해 첫 청크 콜드 비용을 줄인다.
+
+    startAudio(세션 시작)에서 best-effort로 호출한다. amazon-transcribe 패키지 임포트는
+    콜드에서 수백 ms가 들 수 있고, 스트림 자체는 첫 audioChunk에서 열린다(여기선 임포트와
+    클라이언트 객체 생성까지만 당긴다 — 실제 start_stream_transcription은 비동기·청크 필요).
+
+    Returns:
+        True면 클라이언트 준비 완료, False면 미설치/실패(첫 청크에서 자연 재시도).
+    """
+    try:
+        from amazon_transcribe.client import TranscribeStreamingClient  # noqa: PLC0415
+
+        TranscribeStreamingClient(region=region)
+        logger.debug("transcribe_stt.prewarm: 클라이언트 준비 완료")
+        return True
+    except Exception:  # noqa: BLE001 — 미설치/환경 이슈는 prewarm 실패로만 처리.
+        logger.debug("transcribe_stt.prewarm: 스킵", exc_info=True)
+        return False
+
+
 async def best_effort_text(results: List[SttResult]) -> str:
     """화면 표시용 발화 텍스트 — 최종이 있으면 최종, 없으면 최신 partial로 폴백.
 

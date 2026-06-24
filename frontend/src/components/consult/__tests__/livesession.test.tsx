@@ -66,8 +66,13 @@ describe('LiveSession', () => {
   it('requests mic and starts the audio session on entry', async () => {
     await renderLive();
     // 봇 TTS 되먹임(echo) 자기-barge-in/유령 turn 방지 — AEC 등 오디오 제약 활성.
+    // 표준 3종은 필수, 추가 강화 힌트(google*/voiceIsolation)는 best-effort라 허용.
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: expect.objectContaining({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }),
     });
     await waitFor(() => expect(startAudio).toHaveBeenCalledWith('exp-1'));
     expect(screen.getByTestId('live-session')).toHaveAttribute('data-mic-state', 'listening');

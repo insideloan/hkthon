@@ -11,8 +11,13 @@
 
 import { useEffect, useRef } from 'react';
 import * as appsyncMod from '@/lib/appsync';
-import { setBotAudioStopper } from '@/lib/botAudioControl';
+import { setBotAudioStopper, setBotSpeaking } from '@/lib/botAudioControl';
 import type { Turn } from '@/types/realtime';
+
+// 봇 음성이 끝난 뒤에도 스피커 잔향이 마이크에 잠깐 남는다(특히 모바일 근접 배치).
+// 재생 종료 후 이만큼 더 '봇 발화 중'으로 유지해, 꼬리 에코가 VAD를 자극해도
+// 고객 발화로 오인되지 않게 한다(에코 게이팅 tail-guard).
+const BOT_SPEAKING_TAIL_MS = 250;
 
 type Options = {
   /** true면 구독/재생을 건너뛴다(스크립트·목 데모 화면). */
@@ -71,15 +76,29 @@ export function useBotAudioPlayback(callId: string, options: Options = {}): void
       gestureEvents.forEach((e) => document.addEventListener(e, onGesture, { passive: true }));
     }
 
+    // 재생 종료 후 tail-guard 동안만 살아있는 타이머(다음 클립 시작 시 취소).
+    let tailTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearTail = () => {
+      if (tailTimer) { clearTimeout(tailTimer); tailTimer = null; }
+    };
+
     const playNext = () => {
       if (playingRef.current) return;
       const url = queueRef.current.shift();
       if (!url) return;
       playingRef.current = true;
+      clearTail();
+      setBotSpeaking(true); // 에코 게이팅 ON — 캡처가 봇 발화 중 VAD 임계값을 올린다.
       audio.src = url;
       const done = () => {
         playingRef.current = false;
-        playNext();
+        // 큐에 다음 클립이 있으면 곧장 이어 재생(게이팅 유지). 없으면 tail-guard 후 해제.
+        if (queueRef.current.length > 0) {
+          playNext();
+        } else {
+          clearTail();
+          tailTimer = setTimeout(() => { setBotSpeaking(false); tailTimer = null; }, BOT_SPEAKING_TAIL_MS);
+        }
       };
       audio.onended = done;
       audio.onerror = done; // 한 클립 실패가 큐 전체를 막지 않게
@@ -107,6 +126,9 @@ export function useBotAudioPlayback(callId: string, options: Options = {}): void
       audio.onerror = null;
       audio.pause();
       playingRef.current = false;
+      // barge-in(고객이 끼어듦)은 즉시 게이팅 해제 — 고객 발화를 막으면 안 된다.
+      clearTail();
+      setBotSpeaking(false);
     };
     setBotAudioStopper(stopAll);
 
@@ -121,6 +143,8 @@ export function useBotAudioPlayback(callId: string, options: Options = {}): void
 
     return () => {
       setBotAudioStopper(null);
+      clearTail();
+      setBotSpeaking(false);
       removeGestureListeners();
       unsubscribe();
       audio.onended = null;

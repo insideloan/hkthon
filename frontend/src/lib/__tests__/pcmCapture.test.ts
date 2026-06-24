@@ -10,9 +10,12 @@ import { startPcmCapture } from '../pcmCapture';
 // ── 가짜 Web Audio ────────────────────────────────────────────────────────────
 let processor: { onaudioprocess: ((e: unknown) => void) | null; connect: () => void; disconnect: () => void };
 let nowMs = 0;
+let resumeSpy: ReturnType<typeof vi.fn>;
 
 class FakeAudioContext {
   sampleRate = 16000;
+  state = 'suspended';
+  resume = resumeSpy;
   createMediaStreamSource() {
     return { connect: vi.fn(), disconnect: vi.fn() };
   }
@@ -37,6 +40,7 @@ function feed(level: number, frames = 4096) {
 
 beforeEach(() => {
   nowMs = 0;
+  resumeSpy = vi.fn(() => Promise.resolve());
   vi.stubGlobal('AudioContext', FakeAudioContext as unknown as typeof AudioContext);
   // performance.now()를 우리가 제어 — 침묵 타이머를 결정적으로 검증.
   vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
@@ -90,6 +94,54 @@ describe('startPcmCapture VAD endpointing', () => {
     expect(onChunk).not.toHaveBeenCalled();
     nowMs += 600;
     feed(0.0); // 누적 900ms 침묵 ≥ 800 → flush
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    h.stop();
+  });
+
+  it('suspended AudioContext를 시작 시 resume한다(첫 발화 지연 워밍업)', () => {
+    const h = startPcmCapture({} as MediaStream, vi.fn());
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+    h.stop();
+  });
+
+  it('에코 게이팅: 봇 발화 중에는 임계값을 suppressGain 배로 올려 에코를 무시', () => {
+    let suppressed = true;
+    const onChunk = vi.fn();
+    const h = startPcmCapture({} as MediaStream, onChunk, {
+      vadThreshold: 0.05, silenceMs: 800, suppressGain: 4, isSuppressed: () => suppressed,
+    });
+    // 봇 발화 중(suppressed): 0.1 에코는 0.05*4=0.2 미만 → 발화로 안 잡힘.
+    feed(0.1); nowMs += 900; feed(0.0);
+    expect(onChunk).not.toHaveBeenCalled();
+    // 봇 발화 종료(suppressed=false): 같은 0.1이 임계값 0.05 초과 → 발화로 잡힘.
+    suppressed = false;
+    feed(0.1); nowMs += 900; feed(0.0);
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    h.stop();
+  });
+
+  it('에코 게이팅: 큰 목소리(suppressGain 임계값 초과)는 봇 발화 중에도 barge-in 통과', () => {
+    const onChunk = vi.fn();
+    const h = startPcmCapture({} as MediaStream, onChunk, {
+      vadThreshold: 0.05, silenceMs: 800, suppressGain: 4, isSuppressed: () => true,
+    });
+    // 0.3 > 0.05*4=0.2 → 봇 발화 중이어도 진짜 barge-in으로 통과.
+    feed(0.3); nowMs += 900; feed(0.0);
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    h.stop();
+  });
+
+  it('에코 게이팅: 이미 발화 중이면 게이팅하지 않아 말꼬리가 끊기지 않는다', () => {
+    let suppressed = false;
+    const onChunk = vi.fn();
+    const h = startPcmCapture({} as MediaStream, onChunk, {
+      vadThreshold: 0.05, silenceMs: 800, suppressGain: 4, isSuppressed: () => suppressed,
+    });
+    feed(0.1); // 발화 시작(0.1 > 0.05)
+    // 발화 도중 봇 클립이 시작돼 suppressed=true가 되어도, 이미 speaking이라 게이팅 제외.
+    suppressed = true;
+    nowMs += 100; feed(0.1); // 말꼬리 계속 잡힘
+    nowMs += 900; feed(0.0); // 종료 → flush
     expect(onChunk).toHaveBeenCalledTimes(1);
     h.stop();
   });
