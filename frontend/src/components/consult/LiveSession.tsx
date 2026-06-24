@@ -261,7 +261,7 @@ export function LiveSession({ callId }: LiveSessionProps) {
             <div
               key={`${b.speaker}-${b.seq}`}
               data-testid={`live-bubble-${b.speaker}`}
-              className={clsx('flex flex-col gap-0.5', b.speaker === 'customer' ? 'items-end' : 'items-start')}
+              className={clsx('flex flex-col gap-0.5', b.speaker === 'customer' ? 'items-start' : 'items-end')}
             >
               <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>
                 {b.speaker === 'customer' ? '👤 고객' : '🤖 AI'}
