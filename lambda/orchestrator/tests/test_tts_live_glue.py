@@ -39,12 +39,37 @@ def test_fanout_omits_audio_url_when_absent():
 # ── persist의 _synthesize_bot_audio (TTS 호출 격리) ─────────────────────────────
 
 
-def test_synthesize_skips_without_api_key(monkeypatch):
-    """TYPECAST_API_KEY 미설정 → 합성 시도 없이 None(무비용 경로)."""
+def test_synthesize_skips_without_credentials(monkeypatch):
+    """자격증명(키·ARN) 모두 미설정 → 합성 시도 없이 None(무비용 경로)."""
     from orchestrator.agent import nodes
 
     monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.delenv("TYPECAST_SECRET_ARN", raising=False)
     assert nodes._synthesize_bot_audio("안녕하세요", "c1", 2) is None
+
+
+def test_synthesize_attempts_with_secret_arn_only(monkeypatch):
+    """배포 환경 정합: TYPECAST_API_KEY 없이 TYPECAST_SECRET_ARN만 있어도 합성을 시도한다.
+
+    (회귀 방지: 가드가 env 키만 보면 ARN→Secrets Manager 폴백 경로가 차단돼 라이브
+    TTS가 조용히 스킵됐다 — 배포 검증에서 발견.)
+    """
+    from orchestrator.agent import nodes
+    from orchestrator.tts import typecast_tts
+
+    monkeypatch.delenv("TYPECAST_API_KEY", raising=False)
+    monkeypatch.setenv("TYPECAST_SECRET_ARN", "arn:aws:secretsmanager:...:secret:hkthon/typecast")
+
+    called = {}
+
+    def fake_synth(text, voice_name="혜라", *, s3_uploader=None, s3_key=None):
+        called["yes"] = True
+        return b"\xff\xfb", "https://s3/presigned/arn.mp3"
+
+    monkeypatch.setattr(typecast_tts, "synthesize", fake_synth)
+    url = nodes._synthesize_bot_audio("안내드릴게요", "c1", 2)
+    assert called.get("yes") is True  # 가드를 통과해 실제로 합성을 시도
+    assert url == "https://s3/presigned/arn.mp3"
 
 
 def test_synthesize_skips_empty_text(monkeypatch):

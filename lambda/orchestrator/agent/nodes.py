@@ -408,8 +408,11 @@ def _synthesize_bot_audio(text: str, call_id: str, seq: int) -> str | None:
 
     if not text or not text.strip():
         return None
-    # API 키 미설정이면 합성 자체를 시도하지 않는다(로컬/스크립트/CI 무비용 경로).
-    if not os.environ.get("TYPECAST_API_KEY"):
+    # 자격증명 미설정이면 합성 자체를 시도하지 않는다(로컬/스크립트/CI 무비용 경로).
+    # 배포 환경은 키를 env로 직접 넣지 않고 TYPECAST_SECRET_ARN만 주입하므로
+    # (시크릿을 코드/로그에 안 남김), 둘 중 하나라도 있으면 시도한다 —
+    # 실제 키 해석은 typecast_tts._resolve_api_key()가 ARN→Secrets Manager 폴백으로 처리.
+    if not (os.environ.get("TYPECAST_API_KEY") or os.environ.get("TYPECAST_SECRET_ARN")):
         return None
 
     try:
