@@ -28,6 +28,20 @@ function formatCombo(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+// 군집 분류 "탐색" 후보선 — 원천 데이터 9행(y=56..472)에서 4개 군집 후보
+// (y=82/186/316/446)로 가능한 모든 연결을 그린다. 분석 중에는 이 선들이
+// 깜빡이며 탐색하는 연출을 주고, 군집이 확정되면 fade-out 되어 실제 .ln-A~D
+// 만 남는다. 9×4=36 후보선.
+const SRC_YS = [56, 108, 160, 212, 264, 316, 368, 420, 472];
+const CLUSTER_YS = [82, 186, 316, 446];
+const PROBE_LINES: { d: string; delay: number }[] = SRC_YS.flatMap((sy, si) =>
+  CLUSTER_YS.map((cy, ci) => ({
+    d: `M214 ${sy} C242 ${sy},242 ${cy},270 ${cy}`,
+    // 시드 없는 결정적 stagger — index 기반(렌더마다 동일).
+    delay: ((si * 4 + ci) % 12) * 70,
+  })),
+);
+
 export default function SegmentPage({ params }: SegmentPageProps) {
   const { customerId } = use(params);
   const router = useRouter();
@@ -68,6 +82,8 @@ export default function SegmentPage({ params }: SegmentPageProps) {
     svg.querySelectorAll('.show, .dim, .lock').forEach((el) =>
       el.classList.remove('show', 'dim', 'lock'),
     );
+    // 탐색 후보선 초기화 — 다음 라인에서 다시 켠다(replay 시 깜빡임 방지).
+    svg.querySelector('.ln-probe')?.classList.remove('searching', 'settled');
     void svg.getBoundingClientRect(); // reflow flush
     svg.classList.remove('sg-reset');
 
@@ -101,11 +117,16 @@ export default function SegmentPage({ params }: SegmentPageProps) {
 
     // 원천 데이터 9행 — CSS data-i stagger 가 시차를 담당, 그룹만 show.
     show('.cat');
+    const probe = svg.querySelector('.ln-probe');
+    // 군집 탐색 시작 — 후보선들이 깜빡이며 가능한 연결을 탐색한다.
+    at(250, () => probe?.classList.add('searching'));
     // 군집 + 연결선 A~D 순차 등장 + combo 단계 감소.
     at(450, () => { show('.ln-A'); show(".clu[data-c='A']"); countTo(262_144, 900); });
     at(900, () => { show('.ln-B'); show(".clu[data-c='B']"); countTo(4_096, 900); });
     at(1350, () => { show('.ln-C'); show(".clu[data-c='C']"); countTo(64, 900); });
     at(1800, () => { show('.ln-D'); show(".clu[data-c='D']"); countTo(4, 900); });
+    // 군집 확정 — 탐색 후보선 fade-out, 실제 연결선 A~D 만 남는다.
+    at(2050, () => { probe?.classList.remove('searching'); probe?.classList.add('settled'); });
     // 세그먼트 후보 등장.
     at(2250, () => { show(".seg[data-s='top']"); show(".seg[data-s='bottom']"); });
     // 조합 → 선택 세그먼트 잠금 + 비선택 dim + 최종 연결선.
@@ -285,6 +306,21 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             <text className="ts" x="114" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">원천 데이터 (9항목)</text>
             <text className="ts" x="340" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">군집 (4대 분류)</text>
             <text className="ts" x="569" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">세그먼트</text>
+
+            {/* 군집 탐색 후보선 — 분석 중 깜빡이며 등장했다가 군집 확정 시 사라짐. */}
+            <g className="ln-probe" data-testid="cluster-probe" aria-hidden>
+              {PROBE_LINES.map((p, i) => (
+                <path
+                  key={i}
+                  d={p.d}
+                  pathLength={1}
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth={0.7}
+                  style={{ ['--probe-delay' as string]: `${p.delay}ms` }}
+                />
+              ))}
+            </g>
 
             {/* Connection lines — .ln groups */}
             <g className="ln ln-A">
@@ -521,17 +557,11 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                         신용대출
                       </span>
                       <i className="ti ti-arrow-right flow-ar not-italic text-[18px] text-ink-faint" aria-hidden></i>
-                      <span className="flow-chip strong rounded-[11px] border border-route bg-route px-[16px] py-[9px] text-base font-bold text-white shadow-[0_6px_16px_-8px_rgba(53,81,214,.6)]">
+                      {/* '자동차 담보대출' 칩 — rate-chip new(당사 자동차담보 박스)와 폰트·배경·
+                          테두리색을 일치. 박스 크기(padding)는 기존 유지. */}
+                      <span className="flow-chip strong rounded-[13px] border border-[rgba(53,81,214,.35)] bg-[var(--badge-bg)] px-[16px] py-[9px] text-base font-bold text-route">
                         자동차 담보대출
                       </span>
-                    </div>
-                    <div className="flow-sub mt-3 text-[12.5px] leading-[1.55] text-ink-dim">
-                      보유 <b className="font-bold text-ink">실물자산(차량)</b> 활용 · 상품 반응도{' '}
-                      <b className="hi font-bold text-route">HIGH</b>
-                    </div>
-                    <div className="strat-result mt-[12px] flex items-center gap-[7px] text-[13px] text-ink-dim">
-                      <i className="ti ti-shield-check not-italic flex-shrink-0 text-[18px] text-route" aria-hidden></i>
-                      <b className="font-bold text-ink">안정적 한도</b>&nbsp;·&nbsp;<b className="font-bold text-ink">최적 금리</b>&nbsp;제안
                     </div>
                   </div>
                 </div>
@@ -539,20 +569,8 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             )}
           </div>
 
-          {/* sg-btnwrap — 항상 표시. 발신하기는 분석 완료 전까지 비활성(CallButton 내부
-              처리). 다시 재생은 분석 완료 후에만 노출. */}
+          {/* sg-btnwrap — 항상 표시. 발신하기는 분석 완료 전까지 비활성(CallButton 내부 처리). */}
           <div className="sg-btnwrap flex justify-center gap-[10px]" data-testid="call-button-wrapper">
-            {analysisComplete && (
-              <button
-                type="button"
-                id="sgReplay"
-                className="sg-btn mt-[14px] inline-flex items-center gap-1.5 rounded-[10px] border border-[var(--card-bd)] bg-[var(--card-soft)] px-4 py-[8px] font-disp text-[12px] font-bold text-ink-dim transition-all duration-[180ms] hover:border-route hover:text-route cursor-pointer"
-                onClick={() => runAnimation()}
-              >
-                <i className="ti ti-refresh" aria-hidden="true" />
-                다시 재생
-              </button>
-            )}
             {callId && (
               <CallButton
                 customerId={customerId}
