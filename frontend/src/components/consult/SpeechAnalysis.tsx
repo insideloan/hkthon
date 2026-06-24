@@ -313,7 +313,7 @@ export function OtagText({ text }: { text: string }) {
 }
 
 function EngineCard1() {
-  const { psy, intent, obstacle, stratPhase, picked, solveArrow } = useCard1Store();
+  const { psy, intent, obstacle, stratPhase, picked } = useCard1Store();
   const orbByKey = { psy, intent, obstacle } as const;
   const resolved = stratPhase === 'resolved';
 
@@ -342,14 +342,7 @@ function EngineCard1() {
         })}
       </div>
 
-      {/* solveArrow — 크고 눈에 띄는 아래 화살표 아이콘 (SVG) */}
-      <div className={clsx('solvearrow', solveArrow && 'on')} id="solveArrow">
-        <span className="dn" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </div>
+      {/* solveArrow(▼) 제거됨 — 발화분류 → 대표 전략 20 바로 연결 */}
 
       <div className="cseclbl cseclbl--sec"><span>전략 선택 (20종)</span><span className="ln" /></div>
 
