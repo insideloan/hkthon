@@ -31,7 +31,7 @@ def test_live_mode_audio_chunk_records_turn(monkeypatch):
     monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
     config.get_settings.cache_clear()
 
-    # AGENT STT 브리지를 mock: stream_chunks → results, accumulate_final_text → text.
+    # AGENT STT 브리지를 mock: stream_chunks → results, best_effort_text → text.
     from orchestrator.stt import transcribe_stt
 
     async def fake_stream_chunks(chunks, **kw):
@@ -44,7 +44,7 @@ def test_live_mode_audio_chunk_records_turn(monkeypatch):
         return "금리가 높아요"
 
     monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
-    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
 
     data = base64.b64encode(b"\x00\x01").decode()
     ok = audio.resolve_audio_chunk({}, {"callId": "c1", "data": data})
@@ -68,7 +68,7 @@ def test_live_mode_empty_text_no_turn(monkeypatch):
         return ""
 
     monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
-    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
     assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is False
     assert dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN) == []
 
@@ -89,7 +89,7 @@ def test_live_mode_punctuation_noise_no_turn(monkeypatch):
 
     ran = {"agent": False}
     monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
-    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
     monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: ran.__setitem__("agent", True))
     assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is False
     assert dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN) == []
@@ -126,7 +126,7 @@ def test_audio_chunk_uses_max_seq_not_count(monkeypatch):
         return "다음 발화"
 
     monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
-    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
     monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: None)
 
     assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is True
@@ -151,7 +151,7 @@ def test_audio_chunk_seq_collision_retries(monkeypatch):
         return "내 발화"
 
     monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
-    monkeypatch.setattr(transcribe_stt, "accumulate_final_text", fake_accumulate)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
     monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: None)
 
     # 첫 put_item_if_absent 직전에 다른 invocation이 seq=1을 선점하도록 가로챈다.

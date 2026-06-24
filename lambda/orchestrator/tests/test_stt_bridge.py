@@ -9,6 +9,7 @@ from orchestrator.stt.transcribe_stt import (
     SttHandler,
     SttResult,
     accumulate_final_text,
+    best_effort_text,
     stream_chunks,
 )
 
@@ -202,6 +203,32 @@ def test_stream_chunks_with_mock_handler_factory():
     assert len(results) == 1
     assert results[0].text == "모의 발화"
     assert results[0].isFinal is True
+
+
+def test_best_effort_text_prefers_finals():
+    """best_effort_text: 최종이 있으면 최종만 연결(accumulate_final_text와 동일)."""
+    results = [
+        SttResult(text="안녕", isFinal=False),
+        SttResult(text="안녕하세요", isFinal=True),
+        SttResult(text="대출 문의", isFinal=False),
+        SttResult(text="대출 문의 드립니다", isFinal=True),
+    ]
+    assert asyncio.run(best_effort_text(results)) == "안녕하세요 대출 문의 드립니다"
+
+
+def test_best_effort_text_falls_back_to_last_partial():
+    """최종이 하나도 없으면 마지막(가장 완전한) partial로 폴백 — 턴 드롭 방지."""
+    results = [
+        SttResult(text="대", isFinal=False),
+        SttResult(text="대출", isFinal=False),
+        SttResult(text="대출 상담", isFinal=False),
+    ]
+    assert asyncio.run(best_effort_text(results)) == "대출 상담"
+
+
+def test_best_effort_text_empty_when_no_results():
+    """결과가 없으면 빈 문자열."""
+    assert asyncio.run(best_effort_text([])) == ""
 
 
 def test_stt_result_shape():

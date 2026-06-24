@@ -170,3 +170,29 @@ async def accumulate_final_text(results: List[SttResult]) -> str:
         최종 세그먼트들을 순서대로 연결한 전체 발화 문자열.
     """
     return " ".join(r.text for r in results if r.isFinal)
+
+
+async def best_effort_text(results: List[SttResult]) -> str:
+    """화면 표시용 발화 텍스트 — 최종이 있으면 최종, 없으면 최신 partial로 폴백.
+
+    accumulate_final_text는 isFinal=True 세그먼트만 쓰기 때문에, 발화가 짧거나
+    end_stream이 최종 확정 직전에 끊기면 partial만 남아 빈 문자열을 돌려준다.
+    그러면 audio.py의 _has_speech 가드에 걸려 customer Turn이 통째로 드롭되고,
+    사용자 입장에선 "발화했는데 화면에 텍스트가 영영 안 뜨는" 지연으로 보인다.
+
+    정확도가 높은 최종 결과를 우선하되, 최종이 하나도 없을 땐 가장 마지막(=가장
+    긴) partial 세그먼트로 폴백해 인식된 텍스트를 즉시 surface 한다. 최종 확정을
+    기다리지 않으므로 발화 끝~표시 지연도 줄어든다.
+
+    Args:
+        results: stream_chunks() 반환값 (중간 + 최종 순서대로).
+
+    Returns:
+        최종 세그먼트 연결 문자열. 최종이 없으면 마지막 partial 텍스트. 둘 다 없으면 "".
+    """
+    final_text = " ".join(r.text for r in results if r.isFinal)
+    if final_text:
+        return final_text
+    # 최종 미확정: 마지막 partial이 그 세그먼트의 가장 완전한 누적 인식 결과다.
+    partials = [r.text for r in results if not r.isFinal and r.text]
+    return partials[-1] if partials else ""
