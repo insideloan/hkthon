@@ -6,7 +6,7 @@ import type { DbDataEntry, DiagEntry } from '@/consult-engine/types';
 
 export const DBDATA: DbDataEntry[] = [
   {
-    use: ['타사 대출 기관명', '잔액', '공시금리'],
+    use: ['타사 기관명', '타사 잔액', '공시금리'],
     res: [
       '고객 신용점수에 맞는 타사 공시금리를 매핑하여 추정금리 산출',
       '현재 대출의 월 상환액 및 총 이자부담 계산 후 비교 가능 여부 판단',
@@ -32,24 +32,24 @@ export const DBDATA: DbDataEntry[] = [
 export const DIAG: DiagEntry[] = [
   {
     nodes: [
-      { val: '13%대', label: '현재 금리', ic: '🔥', tone: 'hot' },
-      { val: '41.2만', label: '월 이자', ic: '🧾', tone: 'warn' },
-      { val: '76만↓', label: '연 절감 여지', ic: '💰', tone: 'go' },
+      { val: '13%대', label: '타사 금리', ic: '🔥', tone: 'hot' },
+      { val: '41.2만', label: '타사 납부 이자', ic: '🧾', tone: 'warn' },
+      { val: '76만↓', label: '연 이자절감액', ic: '💰', tone: 'go' },
     ],
     banner: { text: '13%대 고금리 확인 — 대환 시 연 76만 절감 여지', tone: 'ok' },
   },
   {
     nodes: [
-      { val: '45.6만', label: '중도상환', ic: '💳', tone: 'warn' },
-      { val: '114만', label: '연 절감', ic: '📉', tone: 'go' },
+      { val: '45.6만', label: '중도상환 수수료', ic: '💳', tone: 'warn' },
+      { val: '114만', label: '연 이자절감액', ic: '📉', tone: 'go' },
       { val: '1년 내', label: '비용 회수', ic: '⏱️', tone: 'route' },
     ],
-    banner: { text: '비용 대비 절감 우위 — 대환 권장', tone: 'ok' },
+    banner: { text: '중도상환수수료 < 이자절감액 → 대환 권장', tone: 'ok' },
   },
   {
     nodes: [
-      { val: '점유 유지', label: '담보 방식', ic: '🚗', tone: 'go' },
-      { val: '운행 가능', label: '사용 제약', ic: '🟢', tone: 'go' },
+      { val: '점유 유지', label: '담보', ic: '🚗', tone: 'go' },
+      { val: '없음', label: '운행 제약', ic: '🟢', tone: 'go' },
     ],
     banner: { text: '운행 유지 담보 상품 — 사용 제약 없음', tone: 'ok' },
   },

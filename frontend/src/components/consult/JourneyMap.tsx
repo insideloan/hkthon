@@ -246,12 +246,12 @@ function MapFrame() {
       <rect x={585}  y={30} width={730} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={1335} y={30} width={258} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <g fontFamily="Inter,Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#111827">
-        <text x={297}  y={51}>본인확인</text>
-        <text x={950}  y={51}>상품제안</text>
-        <text x={1464} y={51}>채널선택</text>
+        <text x={297}  y={51}>본인 확인</text>
+        <text x={950}  y={51}>상품 제안</text>
+        <text x={1464} y={51}>대출 접수</text>
       </g>
       <g fontFamily="Pretendard,sans-serif" fontSize={12} fontWeight={700} fill="#9CAAB9">
-        <text x={1464} y={70}>상담원 연결 · 신청 URL 문자</text>
+        <text x={1464} y={70}>AI접수 · 신청문자발송</text>
       </g>
     </g>
   );
@@ -265,7 +265,7 @@ function AxisLines() {
       <g className="mapframe" fontFamily="JetBrains Mono,monospace" fontSize={10} fontWeight={700} letterSpacing={2} fill="#9CAAB9">
         <line x1={55} y1={412} x2={1560} y2={412} stroke="#C8D2DD" strokeWidth={1.5} strokeDasharray="2 5"/>
         <path d="M1560,412 l-9,-4 v8 z" fill="#C8D2DD"/>
-        <text x={55} y={404} textAnchor="start">상담 진행 (시간)</text>
+        <text x={55} y={404} textAnchor="start">상담 경과 시간</text>
       </g>
 
       {/* 세로축: 고객 상태 */}

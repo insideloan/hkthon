@@ -203,7 +203,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
         {/* 가안 발화 섹션 제거됨 — 규제 검토 + 최종 발화만 표시. */}
 
         {/* 컴플라이언스 규제 검토 — 4규제 2×2 */}
-        <div className="cseclbl"><span>컴플라이언스 규제 검토</span><span className="ln" /></div>
+        <div className="cseclbl"><span>법규 및 사내 규정 검토</span><span className="ln" /></div>
         <div className="cmp-checks" id="cmpChecks">
           {checks.map((c, idx) => {
             const reviewed = c.flagged !== null && c.flagged !== undefined;
@@ -229,7 +229,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
         {showFinal && (
           <>
             <div className="cseclbl cseclbl--sec">
-              <span>최종 발화 (수정 = <span style={{ color: '#D6322E' }}>빨강</span>)</span>
+              <span>최종 발화 (수정 부분 색인 표시)</span>
               <span className="ln" />
             </div>
             <div className="cmp-utter cmp-final" id="cmpFinal" data-testid="cmp-final">
@@ -313,7 +313,7 @@ function ComplianceView({ state }: { state: ComplianceState }) {
       {/* 컴플라이언스 규제 검토 */}
       {showChecks && (
         <div>
-          <div className={SECTION_LABEL}>컴플라이언스 규제 검토</div>
+          <div className={SECTION_LABEL}>법규 및 사내 규정 검토</div>
           <ul className="flex flex-col gap-1">
             {checks.map((c, i) => (
               <CheckRow key={`${c.law}-${i}`} check={c} />
@@ -336,7 +336,7 @@ function ComplianceView({ state }: { state: ComplianceState }) {
       {/* 최종 발화 (수정 = 빨강) */}
       {showFinal && (
         <div>
-          <div className={SECTION_LABEL}>최종 발화 (수정 = 빨강)</div>
+          <div className={SECTION_LABEL}>최종 발화 (수정 부분 색인 표시)</div>
           <FinalDiff segments={final} />
         </div>
       )}
