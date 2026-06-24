@@ -65,6 +65,11 @@ class Turn:
     @staticmethod
     def _normalize_token(tok: dict[str, Any]) -> dict[str, Any]:
         polarity = tok.get("polarity")  # 누락 시 None 허용
+        # "NEUTRAL"/"" 은 중립의 별칭 → null로 관용 정규화. wire(SpeechAnalysis)와
+        # UI는 PRO|CONS|null만 알고 null=중립(배지 없음)이므로 의미 동일하다. 이 관용
+        # 처리가 없으면 토큰 하나의 표기 차이가 persist 전체(봇 Turn write)를 죽인다.
+        if polarity in ("NEUTRAL", ""):
+            polarity = None
         if polarity not in _ALLOWED_POLARITY:
             raise ValueError(f"invalid token polarity: {polarity!r} (PRO|CONS|null)")
         return {
