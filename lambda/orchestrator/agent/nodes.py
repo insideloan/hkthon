@@ -71,6 +71,10 @@ def load_context(state: CallState) -> CallState:
     state.setdefault("stage", Stage.IDENTIFY)
     state.setdefault("next_seq", 1)
     state.setdefault("call_status", CallStatus.ACTIVE)
+    # 대출 상담 진행 단계 State(1~4 순차 + 거절 횟수)를 history로 재구성해 항상 싣는다.
+    # respond 프롬프트 주입 + fast_route 종료/방어 판정에 쓰인다.
+    from . import conversation_flow
+    state["flow"] = conversation_flow.reconstruct(state)
     return state
 
 
@@ -81,8 +85,23 @@ def load_context(state: CallState) -> CallState:
 
 def fast_route(state: CallState) -> CallState:
     """명확한 케이스를 LLM 없이 즉시 라우팅. 애매하면 Route.NEEDS_LLM."""
+    from . import conversation_flow
+
     text = (state.get("customer_text") or "").strip()
     low = text.lower()
+    flow = state.get("flow") or {}
+
+    # 대출 상담 진행 State 규칙 (공통요건보다도 우선 — 종료/방어 결정축).
+    # ① 1~4단계가 전부 Y면 상담 완료 → 종료(close_node가 5단계 결정대로 마무리).
+    # ② 거절 2회 이상이면 즉시 종료.
+    # ③ 거절 0→1(첫 거절)이면 종료가 아니라 방어(설득 1회) → RESPOND 유지.
+    if conversation_flow.all_steps_done(flow):
+        return {"intent": Intent.BUYING_INTENT, "route": Route.CLOSE, "classified_by": "rule"}
+    if flow.get("rejection_count", 0) >= 2:
+        return {"intent": Intent.REJECTION, "route": Route.CLOSE, "classified_by": "rule"}
+    if conversation_flow.is_first_rejection_defense(flow):
+        # 첫 거절 — 즉시 종료하지 않고 공감 후 전환(방어) 응답을 생성한다.
+        return {"intent": Intent.DEFER, "route": Route.RESPOND, "classified_by": "rule"}
 
     # 공통요건: 거절 최우선
     if any(k in text for k in _REJECTION_KW):
@@ -307,6 +326,7 @@ def respond(state: CallState) -> CallState:
         state.get("customer"),
         tactic=signals.to_tactic((state.get("strategy") or {}).get("tactic")),
         emotion=state.get("emotion"),
+        flow=state.get("flow"),
     )
     draft = router.converse(system, _render_history_messages(state), stream=False)
     return {"bot_draft": draft}
@@ -374,8 +394,32 @@ def intake_node(state: CallState) -> CallState:
 
 
 def close_node(state: CallState) -> CallState:
-    """거절/철회/보류 → 정중히 마무리. 즉시 수용, 재설득 금지. call_status=ENDED."""
+    """거절/철회/보류 또는 상담 완료(1~4 전부 Y) → 정중히 마무리. call_status=ENDED.
+
+    상담 완료로 종료할 때는 5단계(loan_decision)에 따라 마무리 멘트를 고른다:
+      - proceed: AI 본심사 즉시 접수 안내(무서류).
+      - decline: 재설득 없이 정중히 종료.
+    그 외(거절 2회/철회 등)는 기존 정중 종료 멘트.
+    """
+    from . import conversation_flow
+
     intent = state.get("intent")
+    flow = state.get("flow") or {}
+
+    # 1~4 전부 Y(상담 목표 달성) → 5단계 결정대로 마무리.
+    if conversation_flow.all_steps_done(flow):
+        if flow.get("loan_decision") == "decline":
+            text = "네, 알겠습니다. 오늘은 여기까지 안내드리겠습니다. 필요하시면 언제든 다시 연락 주세요. 감사합니다."
+        else:
+            text = (
+                "네, 그럼 별도 서류 제출 없이 AI 본심사로 바로 접수해 드리겠습니다. "
+                "최종 한도와 금리는 심사 결과에 따라 안내드립니다. 감사합니다."
+            )
+        result = {"bot_text": text, "stage": Stage.CLOSING, "call_status": CallStatus.ENDED}
+        if flow.get("loan_decision") != "decline":
+            result["result_type"] = "AI_본심사"
+        return result
+
     if intent == Intent.OPT_OUT:
         text = "네, 마케팅 수신 철회 요청 정상 접수했습니다. 더 이상 연락드리지 않겠습니다. 감사합니다."
     else:
