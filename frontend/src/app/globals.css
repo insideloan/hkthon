@@ -164,8 +164,9 @@
   background-repeat: no-repeat;
   pointer-events: none;
 }
-/* 카드① — homePlate(왼쪽 평평, 오른쪽만 뾰족). 왼쪽 꼬리가 없으므로 왼쪽 패딩 축소. */
-#card-emo .card__h { padding-left: 14px; }
+/* 카드① — homePlate(왼쪽 평평, 오른쪽만 뾰족). 왼쪽 꼬리는 없지만, 넘버 배지(1/2/3)
+   시작점을 카드②③과 동일하게 맞춰 세 카드가 같은 들여쓰기로 정렬되도록 26px 유지. */
+#card-emo .card__h { padding-left: 26px; }
 #card-emo .card__h::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H180 L196 20 L180 38 H2 Z' fill='none' stroke='%23C9CDD6' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
