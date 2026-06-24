@@ -134,10 +134,27 @@ def _require_call(call_id: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def analysis_call_id(customer_id: str) -> str:
+    """분석 전용 콜의 결정적 id — 고객당 1개.
+
+    createCall은 세그먼트 분석 화면 진입(/segment/{cust})마다 호출되는데, callId가
+    이후 발신(dialCall은 customerId로 별도 콜 생성)에 쓰이지 않고 단지 발신 버튼을
+    노출하는 게이트로만 쓰인다. 매번 new_call_id()로 c{timestamp}를 새로 박으면
+    화면 재진입/새로고침/StrictMode 더블마운트/데모 반복마다 CREATED 콜이 무한
+    누적된다(특히 박서준 booth 데모). 고객당 결정적 id를 쓰면 같은 레코드를
+    덮어쓰므로 누적되지 않는다.
+    """
+    return f"c-analysis-{customer_id}"
+
+
 def resolve_create_call(event: dict, args: dict) -> dict:
-    """분석 전용 콜 생성 (state=CREATED). 발신하지 않음."""
+    """분석 전용 콜 생성 (state=CREATED). 발신하지 않음.
+
+    고객당 결정적 id로 멱등 — 분석 화면 재진입 시 같은 레코드를 덮어써 누적을 막는다.
+    활성 콜 인덱스/큐 인덱스는 건드리지 않으므로(발신은 dialCall) 큐에도 안 뜬다.
+    """
     customer_id = args["customerId"]
-    call_id = new_call_id()
+    call_id = analysis_call_id(customer_id)
     item = {
         "PK": dynamo.pk_call(call_id),
         "SK": dynamo.SK_META,

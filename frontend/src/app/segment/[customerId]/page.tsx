@@ -1,5 +1,8 @@
 // 사전 고객분석 화면 — FRONTEND-003 / #32.
 // 진입 시 createCall(customerId) 뮤테이션으로 분석 전용 콜 생성 (발신 아님).
+// createCall은 백엔드에서 고객당 결정적 id로 멱등 — 화면 재진입/새로고침마다
+// 호출돼도 DynamoDB에 콜이 누적되지 않는다(반환 callId는 발신 버튼 게이트 용도뿐,
+// 실제 발신은 dialCall이 customerId로 별도 콜 생성).
 // customer 쿼리로 고객 정보 로드. 분석 완료 후 FRONTEND-002 CallButton 렌더.
 // 디자인 SSOT: docs/consult_redesigned-3.html #view-segment (세그먼트 분류 SVG + dial box)
 'use client';

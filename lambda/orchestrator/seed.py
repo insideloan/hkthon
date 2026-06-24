@@ -241,6 +241,32 @@ def seed_queue(rows: list[dict[str, Any]] | None = None) -> int:
     return len(rows)
 
 
+def cleanup_orphan_calls() -> int:
+    """누적된 분석 전용(CREATED) 고아 콜 META를 정리. 삭제한 아이템 수 반환.
+
+    배경: createCall이 예전엔 매 호출 c{timestamp} 새 id로 CREATED 콜을 박아,
+    박서준(booth) 세그먼트 화면을 재진입할 때마다 아무도 소비하지 않는 콜이
+    DynamoDB에 무한 누적됐다(이후 createCall은 고객당 결정적 id로 멱등 수정됨).
+    이 함수는 그 잔재를 일괄 삭제한다.
+
+    삭제 대상은 **CREATED 상태의 CALL#/META** 아이템만:
+      - 발신된 콜(DIALING/IN_CALL/.../ENDED)은 건드리지 않는다(상태가 CREATED 아님).
+      - 시드 데모 큐 행(c-demo-NN)은 QUEUE 인덱스 아이템이라 여기 안 걸린다.
+      - 결정적 분석 id(c-analysis-*)도 CREATED지만, 멱등이라 1개뿐이므로 같이 지워도
+        다음 진입 시 재생성된다 — 잔재 청소가 목적이라 전부 제거한다.
+    CREATED는 활성콜/큐 인덱스를 만들지 않으므로 META만 지우면 완전 정리된다.
+    """
+    metas = dynamo.scan(sk=dynamo.SK_META)
+    deleted = 0
+    for m in metas:
+        pk = str(m.get("PK", ""))
+        if pk.startswith(dynamo.SK_PREFIX_CALL) and m.get("state") == "CREATED":
+            dynamo.delete_item(pk, dynamo.SK_META)
+            deleted += 1
+    logger.info("cleanup_orphan_calls: %d CREATED call metas deleted", deleted)
+    return deleted
+
+
 if __name__ == "__main__":  # pragma: no cover — 수동 시드 실행 엔트리
     logging.basicConfig(level=logging.INFO)
     n = seed_customers()

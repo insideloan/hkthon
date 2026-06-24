@@ -120,3 +120,51 @@ def test_seed_queue_rerun_refreshes():
     seed.seed_queue()
     seed.seed_queue()
     assert queue.resolve_queue({}, {})["summary"]["total"] == 9
+
+
+# ── cleanup_orphan_calls (누적 CREATED 고아 콜 정리) ──────────────────────────
+
+
+def test_cleanup_removes_created_call_metas():
+    """누적된 CREATED 분석 콜 META를 일괄 삭제한다(박서준 booth 누적 청소)."""
+    from orchestrator.resolvers.calls import resolve_create_call
+
+    # 예전 동작을 흉내내 c{timestamp} CREATED 콜을 여러 개 직접 박는다.
+    for cid in ("c1700000000001", "c1700000000002", "c1700000000003"):
+        dynamo.put_item({
+            "PK": dynamo.pk_call(cid), "SK": dynamo.SK_META,
+            "callId": cid, "customerId": "cust-001", "state": "CREATED",
+        })
+    # 멱등 수정 후 경로(결정적 id)도 CREATED 1개 추가.
+    resolve_create_call({}, {"customerId": "cust-001"})
+
+    deleted = seed.cleanup_orphan_calls()
+    assert deleted == 4
+    # CREATED 콜 META가 모두 사라졌다.
+    metas = dynamo.scan(sk=dynamo.SK_META)
+    assert not [m for m in metas if m.get("state") == "CREATED"]
+
+
+def test_cleanup_preserves_active_calls_and_seed_rows():
+    """발신된 콜(DIALING 등)과 시드 큐 행은 건드리지 않는다."""
+    from orchestrator.resolvers import calls
+
+    # 발신된 콜 — 상태가 CREATED가 아니므로 보존돼야 한다.
+    dialed = calls.resolve_dial_call({}, {"customerId": "cust-002"})["id"]
+    # 시드 데모 큐 행(QUEUE 인덱스 아이템) — SK=CALL#... 이지만 PK=QUEUE라 META 아님.
+    seed.seed_queue()
+    # 정리 대상 CREATED 콜 1개.
+    dynamo.put_item({
+        "PK": dynamo.pk_call("c1700000000009"), "SK": dynamo.SK_META,
+        "callId": "c1700000000009", "customerId": "cust-001", "state": "CREATED",
+    })
+
+    deleted = seed.cleanup_orphan_calls()
+    assert deleted == 1
+    # 발신 콜 META 보존.
+    assert dynamo.get_item(dynamo.pk_call(dialed), dynamo.SK_META)["state"] == "DIALING"
+    # 큐 행: 시드 9 + 발신 콜 1 = 10 (정리가 큐를 건드리지 않음).
+    rows = {r["callId"] for r in queue.resolve_queue({}, {})["rows"]}
+    assert "c-demo-01" in rows          # 보호 시드 행 보존
+    assert dialed in rows               # 발신 콜 보존
+    assert len(rows) == 10
