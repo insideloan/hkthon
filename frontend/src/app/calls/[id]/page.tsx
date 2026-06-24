@@ -20,6 +20,7 @@ import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
 import { useQueueStore } from '@/stores/queueStore';
+import { useExperienceStore } from '@/stores/experienceStore';
 import { resolveScenarioCustomerName } from '@/lib/customerProfiles';
 
 // 목/스크립트 데모 게이트 (lib/appsync.ts의 USE_MOCK과 동일 규약).
@@ -128,10 +129,11 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const mapRef = useRef<JourneyMapHandle | null>(null);
   const cardEmoRef = useRef<HTMLElement | null>(null);
 
-  // 클릭한 큐 레코드(callId)의 고객 이름으로 시나리오 인사말을 구성. 스토어에 행이
-  // 없거나 데모 기본 경로면 원본 이름(박서준)을 유지한다.
+  // 클릭한 큐 레코드(callId)의 고객 이름으로 시나리오 인사말을 구성. 체험 고객(exp-*)은
+  // 입력 이름 우선, 스토어에 행이 없거나 데모 기본 경로면 원본 이름(박서준)을 유지한다.
   const row = useQueueStore((s) => s.rows.find((r) => r.callId === callId));
-  const customerName = resolveScenarioCustomerName(callId, row);
+  const experience = useExperienceStore((s) => s.customers[callId]);
+  const customerName = resolveScenarioCustomerName(callId, row, experience);
 
   const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName });
 

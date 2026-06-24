@@ -10,6 +10,7 @@
 import { use } from 'react';
 import { ConsultFlow } from '@/components/crm/ConsultFlow';
 import { useQueueStore } from '@/stores/queueStore';
+import { useExperienceStore } from '@/stores/experienceStore';
 import { resolveCustomerProfile } from '@/lib/customerProfiles';
 
 // ── 정적 목 데이터 ─────────────────────────────────────────────────────────────
@@ -135,9 +136,11 @@ function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
 export default function CrmDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
-  // 클릭한 큐 레코드(callId)별 프로필. 스토어에 행이 있으면 신원을 실제 값으로 보정.
+  // 클릭한 큐 레코드(callId)별 프로필. 체험 고객(exp-*)은 입력값 전체 프로필을 쓰고,
+  // 그 외는 큐 행 신원으로 보정한 데모 fixture/폴백을 쓴다.
   const row = useQueueStore((s) => s.rows.find((r) => r.callId === id));
-  const profile = resolveCustomerProfile(id, row);
+  const experience = useExperienceStore((s) => s.customers[id]);
+  const profile = resolveCustomerProfile(id, row, experience);
 
   // 프로필 KV — 고객 신원 + 금융 프로필을 레코드별로 구성.
   const profileKv = [
