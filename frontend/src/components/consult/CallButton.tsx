@@ -101,7 +101,7 @@ export function CallButton({ customerId, analysisComplete = true, onConnecting }
       data-testid="call-button"
       data-state={btnState}
     >
-      <i className="ti ti-phone-call" aria-hidden="true" />
+      <i className="ti ti-phone text-[15px]" aria-hidden="true" />
       {btnState === 'dialing' ? '발신 중…' : '발신하기'}
     </button>
   );

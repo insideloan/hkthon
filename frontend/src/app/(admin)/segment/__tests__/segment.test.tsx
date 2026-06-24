@@ -64,21 +64,33 @@ describe('SegmentPage', () => {
     expect(fetchCustomerMock).toHaveBeenCalledWith('cust-001');
   });
 
-  it('shows call button when analysis is complete', async () => {
+  it('enables call button when analysis is complete', async () => {
     vi.useFakeTimers();
     await renderAndAwaitInit('cust-001');
     // Advance past the full reveal timeline (completes at 3500ms → analysisComplete).
     await act(async () => {
       vi.advanceTimersByTime(4000);
     });
-    expect(screen.getByTestId('call-button')).toBeInTheDocument();
+    const btn = screen.getByTestId('call-button');
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
   });
 
-  it('does NOT show call button when analysis is incomplete', async () => {
+  it('shows call button disabled while analysis is incomplete', async () => {
     vi.useFakeTimers();
     await renderAndAwaitInit('cust-001');
-    // Don't advance timers — analysis not yet complete
-    expect(screen.queryByTestId('call-button')).not.toBeInTheDocument();
+    // Don't advance timers — analysis not yet complete. Button is visible from the
+    // start (right column renders during analysis) but stays disabled until done.
+    const btn = screen.getByTestId('call-button');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toBeDisabled();
+  });
+
+  it('shows the 상담 전략 pending placeholder while analysis is incomplete', async () => {
+    vi.useFakeTimers();
+    await renderAndAwaitInit('cust-001');
+    expect(screen.getByTestId('analysis-pending')).toBeInTheDocument();
+    expect(screen.queryByTestId('analysis-final')).not.toBeInTheDocument();
   });
 
   it('does not dial on mount (createCall is analysis-only)', async () => {
