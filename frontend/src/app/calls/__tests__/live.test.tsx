@@ -76,7 +76,9 @@ describe('ConsultCockpitPage — live mode (?live=1)', () => {
 
   it('requests microphone access on entry', async () => {
     await renderLive();
-    expect(getUserMedia).toHaveBeenCalledWith({ audio: true });
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
   });
 
   it('shows the 여보세요 waiting prompt once mic is granted', async () => {

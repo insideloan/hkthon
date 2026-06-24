@@ -131,7 +131,19 @@ export function LiveSession({ callId }: LiveSessionProps) {
     }
     setMicState('requesting');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // echoCancellation 필수 — 봇 TTS가 스피커로 나가면 마이크가 그 소리를 되먹어
+      // VAD가 '고객 발화'로 오인한다. 그러면 (1) onSpeechStart→stopBotAudio로 봇이
+      // 자기 음성에 스스로 barge-in 당해 잘리고 (2) 되먹은 봇 음성이 STT로 흘러
+      // 유령 customer turn을 만들어 그래프가 한 번 더 돈다. AEC가 참조신호(봇 출력)만
+      // 제거하므로 실제 고객 발화 barge-in은 그대로 동작한다. noiseSuppression/AGC도 켜
+      // 잡음 오탐을 줄인다.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
       setMicState('listening');
 
