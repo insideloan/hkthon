@@ -342,9 +342,6 @@ function Leader({ dy, fromRadius, color }: { dy: number; fromRadius: number; col
 const CP_INFLECTION_Y: Record<string, number> = {
   'cp-interest': 232,
   'cp-trust': 205,
-  'cp-cond': 212,
-  'cp-limit': 214,
-  'cp-review': 178,
 };
 
 // ── CpNode — SSOT .cp checkpoint circle node ─────────────────────────────────

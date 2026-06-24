@@ -54,33 +54,37 @@ function LiveDbCard({ callId }: { callId?: string }) {
 
   return (
     <div className="card-scroll" data-testid="db-card-live">
-      {/* 첫 섹션 라벨 제거됨 */}
-      <div className="usebox" data-testid="db-use">
-        {usedData.map((nm, i) => (
-          <div key={i} className="usecard on">
-            <DbIcon />
-            <b>{nm}</b>
-          </div>
-        ))}
+      {/* 카드 상단 영역(라벨 "분석 결과" 위) — 세 카드 동일 고정 높이 */}
+      <div className="card-top">
+        <div className="usebox" data-testid="db-use">
+          {usedData.map((nm, i) => (
+            <div key={i} className="usecard on">
+              <DbIcon />
+              <b>{nm}</b>
+            </div>
+          ))}
+        </div>
       </div>
-      {/* usedivider(▼) 제거됨 */}
-      <div className="cseclbl cseclbl--sec"><span>분석 결과</span><span className="ln" /></div>
-      <div className="resbox" data-testid="db-res">
-        {hasPreset && nodes.length ? (
-          <div className="flex flex-col gap-1.5 px-1 py-2">
-            {nodes.map((n, i) => (
-              <div key={i} className="flex items-center justify-between text-[12px]" data-testid="db-node">
-                <span className="text-ink-dim">{n.label}</span>
-                <b className={clsx('font-disp', n.tone ? TONE_CLASS[n.tone] : 'text-ink')}>{n.val ?? ''}</b>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[12px] leading-[1.6] text-ink-dim px-1 py-2">
-            통화 내용을 기반으로 고객 프로필·보유 대출·신용 조건을 실시간 조회하고 있습니다.
-            대환 가능 한도와 금리 비교 결과가 준비되는 대로 표시됩니다.
-          </p>
-        )}
+      {/* 카드 하단 영역(라벨 + 이하) */}
+      <div className="card-bottom">
+        <div className="cseclbl cseclbl--sec"><span>분석 결과</span><span className="ln" /></div>
+        <div className="resbox" data-testid="db-res">
+          {hasPreset && nodes.length ? (
+            <div className="flex flex-col gap-1.5 px-1 py-2">
+              {nodes.map((n, i) => (
+                <div key={i} className="flex items-center justify-between text-[12px]" data-testid="db-node">
+                  <span className="text-ink-dim">{n.label}</span>
+                  <b className={clsx('font-disp', n.tone ? TONE_CLASS[n.tone] : 'text-ink')}>{n.val ?? ''}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] leading-[1.6] text-ink-dim px-1 py-2">
+              통화 내용을 기반으로 고객 프로필·보유 대출·신용 조건을 실시간 조회하고 있습니다.
+              대환 가능 한도와 금리 비교 결과가 준비되는 대로 표시됩니다.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -98,46 +102,47 @@ function EngineDbCard() {
 
   return (
     <div className="card-scroll">
-      {/* 첫 섹션 라벨 제거됨 */}
-
-      {/* 사용데이터 칩 */}
-      <div className="usebox" id="dbUse" data-testid="db-use">
-        {use.map((nm, i) => (
-          <div key={i} className={clsx('usecard', 'on', flash && 'flash')}>
-            <DbIcon />
-            <b>{nm}</b>
-          </div>
-        ))}
+      {/* 카드 상단 영역(라벨 "분석 결과" 위) — 세 카드 동일 고정 높이 */}
+      <div className="card-top">
+        {/* 사용데이터 칩 */}
+        <div className="usebox" id="dbUse" data-testid="db-use">
+          {use.map((nm, i) => (
+            <div key={i} className={clsx('usecard', 'on', flash && 'flash')}>
+              <DbIcon />
+              <b>{nm}</b>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* 사용데이터 → 분석결과 전이 화살표(▼) — PPTX 레이아웃 8번 */}
-      <div className="usedivider on" id="dbBridge" aria-hidden="true"><span className="dn">▼</span></div>
+      {/* 카드 하단 영역(라벨 + 이하) */}
+      <div className="card-bottom">
+        <div className="cseclbl cseclbl--sec">
+          <span>분석 결과</span>
+          <span className="ln" />
+        </div>
 
-      <div className="cseclbl cseclbl--sec">
-        <span>분석 결과</span>
-        <span className="ln" />
-      </div>
-
-      {/* 분석결과 도식: 원형 노드 + 요약 배너 */}
-      <div className="resbox" id="dbRes" data-testid="db-res">
-        {diag && (
-          <div className="diag">
-            <div className="diag-row">
-              {diag.nodes.map((n, i) => (
-                <div key={i} className={clsx('dnode', n.tone, i < shownNodes && 'on')}>
-                  <div className="dcirc">
-                    <span className="dic">{n.label}</span>
-                    <span className="dval">{n.val}</span>
+        {/* 분석결과 도식: 원형 노드 + 요약 배너 */}
+        <div className="resbox" id="dbRes" data-testid="db-res">
+          {diag && (
+            <div className="diag">
+              <div className="diag-row">
+                {diag.nodes.map((n, i) => (
+                  <div key={i} className={clsx('dnode', n.tone, i < shownNodes && 'on')}>
+                    <div className="dcirc">
+                      <span className="dic">{n.label}</span>
+                      <span className="dval">{n.val}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className={clsx('dbanner', diag.banner.tone, bannerOn && 'on')}>
+                <span className="dbic">{diag.banner.tone === 'ok' ? '✓' : '!'}</span>
+                <span>{diag.banner.text}</span>
+              </div>
             </div>
-            <div className={clsx('dbanner', diag.banner.tone, bannerOn && 'on')}>
-              <span className="dbic">{diag.banner.tone === 'ok' ? '✓' : '!'}</span>
-              <span>{diag.banner.text}</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

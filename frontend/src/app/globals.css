@@ -361,9 +361,6 @@
 /* 선택 전략 카드 팝인 (SSOT 293) */
 @keyframes cellpop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1.04); } }
 
-/* solveArrow / usedivider 화살표 bob (SSOT 728) */
-@keyframes arrbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
-
 /* 다이어그램 노드 팝인 (SSOT 802 — 다이어그램용; dial용 dpop과 별개) */
 @keyframes dpop { 0% { transform: scale(.5); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
@@ -453,16 +450,33 @@
   box-sizing: border-box;
 }
 .cc__cards .cseclbl--sec .ln { display: none; }
-/* 높이 정렬 — 세 카드의 첫 콘텐츠 영역(.bins / .usebox / .cmp-checks)을
-   동일 높이로 통일 → 아래 섹션 라벨이 한 줄로 정렬.
-   기존 161px의 절반(80px)로 축소. (#card-db margin-top 스페이서 핵 제거.) */
-.cc__cards .bins,
-.cc__cards .usebox,
-.cc__cards .cmp-checks { height: 80px; min-height: 80px; overflow: hidden; }
 
-/* 카드① 내부 세로 간격 제거 — .bins → ▼ → 전략라벨 → .stratg 를 빈틈 없이 붙임. */
+/* ── 카드 2분할 (.card-top / .card-bottom) ──
+   세 카드(#card-emo/#card-db/#card-strat)를 세로로 2분할한다.
+   · .card-top: 섹션 라벨("전략 선택 (20종)"/"분석 결과"/"최종 발화…") 위 요소를
+     담는 상단 영역. 세 카드 동일 고정 높이(80px)로 통일 → 라벨이 한 줄로 정렬.
+     내부 콘텐츠(.bins / .usebox / .cmp-checks)가 넘치면 잘라낸다.
+   · .card-bottom: 라벨 + 이하 콘텐츠. 남은 높이를 채우는 flex 컬럼
+     (stratg.resolved 등 flex:1 자식이 부모 높이를 받도록). */
+.cc__cards .card-top {
+  height: 80px;
+  min-height: 80px;
+  overflow: hidden;
+  flex: none;
+  border-bottom: 1px solid var(--hair);
+  padding-bottom: 8px;
+}
+.cc__cards .card-bottom {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임. */
 #card-emo .card-scroll { gap: 0; }
-#card-emo .solvearrow { margin: 0; }
+#card-emo .card-bottom { gap: 0; }
 #card-emo .cseclbl { margin: 0; }
 #card-emo .stratg { padding: 0; }
 
@@ -473,10 +487,6 @@
 .usecard .di { width: 14px; height: 14px; flex: none; color: var(--route); }
 .usecard b { font-family: var(--disp); font-size: 10px; font-weight: 800; color: var(--title); letter-spacing: -.01em; line-height: 1.2; word-break: keep-all; }
 .usecard.flash { border-color: var(--route); background: #EAF0FF; box-shadow: 0 0 0 3px rgba(53,81,214,.16); }
-.usedivider { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-3px); transition: opacity .3s, transform .3s; }
-.usedivider.on { opacity: 1; transform: none; }
-.usedivider .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
-.usedivider .dn svg { width: 26px; height: 26px; display: block; }
 .resbox { display: flex; flex-direction: column; gap: 4px; }
 
 .diag { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
@@ -575,11 +585,6 @@
 .orb.drop { animation: orbDrop .72s cubic-bezier(.34,1.5,.5,1) forwards; }
 .orb .otag { font-family: var(--disp); font-size: 12.5px; font-weight: 800; line-height: 1.18; letter-spacing: -.02em; padding: 2px 1px; width: 100%; text-align: center; word-break: keep-all; color: #1d3a8f; }
 .orb.eased .otag { color: #1d3a8f; }
-
-.solvearrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
-.solvearrow.on { opacity: 1; transform: none; }
-.solvearrow .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
-.solvearrow .dn svg { width: 26px; height: 26px; display: block; }
 
 .stratg { position: relative; overflow: hidden; border-radius: 10px; padding: 2px 0; }
 .strat-track { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3,auto); align-content: start; gap: 5px; width: max-content; transition: transform .9s cubic-bezier(.22,.61,.36,1); }
