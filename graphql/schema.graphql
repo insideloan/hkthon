@@ -107,6 +107,7 @@ type QueueSummary { total: Int!, needsAgent: Int!, fraudSuspected: Int!, inCall:
 type QueueRow {
   callId: ID!
   customerName: String
+  subtitle: String          # 나이·신용점수 등 고객 부가정보 (예: "38세·KCB744")
   state: CallState
   stage: String
   churnRisk: Int

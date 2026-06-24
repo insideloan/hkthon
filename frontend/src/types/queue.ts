@@ -31,11 +31,12 @@ export const QueueSummarySchema = z.object({
 });
 export type QueueSummary = z.infer<typeof QueueSummarySchema>;
 
-// SDL: type QueueRow { callId, customerName, state, stage, churnRisk, assignee,
-// channel, elapsedSec, highlight }. All non-callId fields are nullable in the SDL.
+// SDL: type QueueRow { callId, customerName, subtitle, state, stage, churnRisk,
+// assignee, channel, elapsedSec, highlight }. All non-callId fields are nullable.
 export const QueueRowSchema = z.object({
   callId: z.string(),
   customerName: z.string().nullable().optional(),
+  subtitle: z.string().nullable().optional(),
   state: z.enum(CALL_STATES).nullable().optional(),
   stage: z.string().nullable().optional(),
   churnRisk: z.number().int().nullable().optional(),

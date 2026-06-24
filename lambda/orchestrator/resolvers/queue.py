@@ -47,6 +47,7 @@ def _row_out(item: dict) -> dict:
     return {
         "callId": item.get("callId"),
         "customerName": item.get("customer_name"),
+        "subtitle": item.get("subtitle"),
         "state": item.get("state"),
         "stage": item.get("stage"),
         "churnRisk": item.get("churn_risk"),
