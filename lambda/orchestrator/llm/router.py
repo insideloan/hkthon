@@ -21,15 +21,15 @@ import os
 import re
 from typing import AsyncIterator, Optional, Union
 
+from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
+
 # user 파라미터 타입: 단일 발화 문자열(레거시·compliance redraft 등) 또는 멀티턴
 # 메시지 리스트([{"role": "user"|"assistant", "content": str}, ...]).
 # 멀티턴 리스트면 마지막 user 메시지만 "지금 답할 발화"이고 앞선 turn은 history다 —
 # 과거 발화까지 한 user 블록에 뭉뚱그려 모델이 옛 발화에 답하던 문제를 구조로 해소한다.
 UserInput = Union[str, list[dict]]
-
-from pydantic import BaseModel, Field, ValidationError
-
-logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 _REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
