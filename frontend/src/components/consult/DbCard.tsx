@@ -63,11 +63,7 @@ function LiveDbCard({ callId }: { callId?: string }) {
           </div>
         ))}
       </div>
-      <div className="usedivider on"><span className="dn" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span></div>
+      {/* usedivider(▼) 제거됨 */}
       <div className="cseclbl cseclbl--sec"><span>분석 결과</span><span className="ln" /></div>
       <div className="resbox" data-testid="db-res">
         {hasPreset && nodes.length ? (
@@ -98,7 +94,7 @@ export function DbCard({ live = false, callId }: { live?: boolean; callId?: stri
 }
 
 function EngineDbCard() {
-  const { use, flash, bridge, diag, shownNodes, bannerOn } = useCard2Store();
+  const { use, flash, diag, shownNodes, bannerOn } = useCard2Store();
 
   return (
     <div className="card-scroll">
@@ -117,14 +113,7 @@ function EngineDbCard() {
         ))}
       </div>
 
-      {/* 사용데이터 → 분석결과 전이 화살표 */}
-      <div className={clsx('usedivider', bridge && 'on')} id="dbBridge">
-        <span className="dn" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </div>
+      {/* 사용데이터 → 분석결과 전이 화살표(▼) 제거됨 */}
 
       <div className="cseclbl cseclbl--sec">
         <span>분석 결과</span>
