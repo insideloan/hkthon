@@ -460,17 +460,35 @@ def persist(state: CallState) -> CallState:
     if mot:
         _persist_mot(call_id, seq, mot, ts, dynamo)
 
-    # 4) Call META — 분석 스냅샷(전략/근거/이탈위험/감정) + 상태 전이 + 사기 플래그.
+    # 종료 발화(close/silence가 call_status=ENDED)인지. 종료 턴은 META write가
+    # _emitCallEnded를 발화 → 프론트가 즉시 "상담 종료" 화면으로 전환(LiveSession은
+    # 마이크 정리, 모바일은 LiveSession 언마운트)한다. TTS(~2-8s)가 META 뒤에 오면
+    # 음성 audio_url MODIFY가 종료 화면 전환 후에야 도착해 재생되지 못한다(자막만 뜨고
+    # 음성 누락). 그래서 종료 턴에 한해 TTS를 META write보다 "먼저" 합성·emit해,
+    # audio_url MODIFY가 _emitCallEnded보다 앞서 프론트에 닿게 한다.
+    is_ending = _enum_value(state.get("call_status")) == "ENDED"
+
+    # 봇 발화 TTS: bot_text → Typecast mp3 → S3 → presigned URL → Turn MODIFY(audioUrl).
+    # 정상 턴은 임계 경로 밖(META 뒤, 6단계)에 두지만, 종료 턴은 위 사유로 META 앞에서 처리.
+    def _emit_bot_audio() -> None:
+        audio_url = _synthesize_bot_audio(bot_text, call_id, seq)
+        if audio_url:
+            state["audio_url"] = audio_url  # nextTurn 동기 응답(runner)에서 노출
+            _safe_update(dynamo, dynamo.pk_call(call_id), dynamo.sk_turn(seq),
+                         {"audio_url": audio_url}, "Turn.audio_url")
+
+    # 4) 종료 턴 TTS(임계 경로 안 — 종료 화면 전환보다 음성을 먼저 보내야 하므로).
+    if is_ending:
+        _emit_bot_audio()
+
+    # 5) Call META — 분석 스냅샷(전략/근거/이탈위험/감정) + 상태 전이 + 사기 플래그.
+    #    ENDED면 여기서 _emitCallEnded가 나간다(종료 턴은 4단계에서 audio를 이미 emit).
     _persist_call_meta(call_id, state, emotion, ts, dynamo)
 
-    # 5) 봇 발화 TTS(임계 경로 밖): bot_text → Typecast mp3 → S3 → presigned URL.
-    #    텍스트/분석은 위에서 이미 팬아웃됐으므로, 여기서 합성이 느려도 화면 텍스트는 안 막힌다.
-    #    완료 시 Turn 아이템을 update → MODIFY Streams → _emitTurn(audioUrl)로 음성만 뒤따라 붙는다.
-    audio_url = _synthesize_bot_audio(bot_text, call_id, seq)
-    if audio_url:
-        state["audio_url"] = audio_url  # nextTurn 동기 응답(runner)에서 노출
-        _safe_update(dynamo, dynamo.pk_call(call_id), dynamo.sk_turn(seq),
-                     {"audio_url": audio_url}, "Turn.audio_url")
+    # 6) 정상 턴 TTS(임계 경로 밖): 텍스트/분석은 위에서 이미 팬아웃됐으므로 합성이
+    #    느려도 화면 텍스트는 안 막힌다. 완료 시 audio_url MODIFY로 음성만 뒤따라 붙는다.
+    if not is_ending:
+        _emit_bot_audio()
 
     return state
 
