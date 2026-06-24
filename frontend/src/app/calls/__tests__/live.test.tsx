@@ -11,6 +11,7 @@ vi.mock('@/lib/appsync', () => ({
   subscribeMotDetected: () => () => {},
   subscribeIndexUpdate: () => () => {},
   subscribeTurns: () => () => {},
+  subscribeCallEnded: () => () => {},
   fetchMots: () => Promise.resolve([]),
   // 라이브 오디오 뮤테이션 — LiveSession이 마이크 권한 후 호출.
   startAudio: vi.fn().mockResolvedValue(true),

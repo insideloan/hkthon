@@ -7,10 +7,10 @@
 //
 // 실 배포(live 백엔드)에서는 subscribe* 가 실제 AppSync 소켓을 쓰므로 이 모듈은
 // 사용되지 않는다(USE_MOCK 게이트). 한 콜당 1회만 재생한다.
-import type { Turn, SpeechAnalysis, StrategyUpdate } from '@/types/realtime';
+import type { Turn, SpeechAnalysis, StrategyUpdate, CallEnded } from '@/types/realtime';
 import type { ComplianceState } from '@/types/compliance';
 
-export type MockLiveChannel = 'turn' | 'speech' | 'strategy' | 'compliance';
+export type MockLiveChannel = 'turn' | 'speech' | 'strategy' | 'compliance' | 'callended';
 
 type Handler = (payload: unknown) => void;
 
@@ -31,7 +31,10 @@ function getBus(callId: string): CallBus {
   let bus = buses.get(callId);
   if (!bus) {
     bus = {
-      handlers: { turn: new Set(), speech: new Set(), strategy: new Set(), compliance: new Set() },
+      handlers: {
+        turn: new Set(), speech: new Set(), strategy: new Set(),
+        compliance: new Set(), callended: new Set(),
+      },
       started: false,
       timers: [],
     };
@@ -99,6 +102,14 @@ function runScript(callId: string): void {
     ]));
     emit(callId, 'strategy', mkStrategy(callId, 3, '공감 후 전환 전략', '우려를 먼저 인정한 뒤 부담 낮은 다음 행동으로 연결한다'));
   });
+
+  // seq 4 — 상담원 연결로 마무리 + 통화 종료(초록 ✓ → CRM 전환 트리거)
+  at(5200, () => {
+    emit(callId, 'turn', mkTurn(callId, 4, 'bot', '네, 부담 없이 비교만 도와드릴게요. 담당 상담원에게 바로 연결해 드리겠습니다.'));
+  });
+  at(6400, () => {
+    emit(callId, 'callended', mkCallEnded(callId));
+  });
 }
 
 // ── payload 빌더 ──────────────────────────────────────────────────────────────
@@ -112,6 +123,10 @@ function mkSpeech(callId: string, turnSeq: number, tokens: SpeechAnalysis['token
 
 function mkStrategy(callId: string, turnSeq: number, headline: string, rationale: string): StrategyUpdate {
   return { callId, turnSeq, headline, rationale };
+}
+
+function mkCallEnded(callId: string): CallEnded {
+  return { callId, resultType: '한도조회_상담원연결', endedAt: '2026-06-23T00:00:00Z' };
 }
 
 function mkCompliance(callId: string, phase: ComplianceState['phase']): ComplianceState {
