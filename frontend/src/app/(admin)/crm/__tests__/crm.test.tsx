@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
-import CrmDetailPage from '@/app/crm/[id]/page';
+import CrmDetailPage from '@/app/(admin)/crm/[id]/page';
 
 // ── Mock AppSync so live subscriptions don't fire ──────────────────────────
 vi.mock('@/lib/appsync', () => ({

@@ -38,6 +38,11 @@ type Bubble = { seq: number; speaker: Turn['speaker']; text: string };
 
 type LiveSessionProps = {
   callId: string;
+  /**
+   * 통화 종료(초록 ✓) 클릭 시 동작. 미지정 시 관리자 CRM 상세(/crm/{callId})로 이동.
+   * 모바일 체험(/m)은 CRM이 없으므로 별도 종료 화면으로 보내는 등 호출자가 주입한다.
+   */
+  onEnded?: () => void;
 };
 
 // VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
@@ -67,8 +72,10 @@ function TypingDots() {
   );
 }
 
-export function LiveSession({ callId }: LiveSessionProps) {
+export function LiveSession({ callId, onEnded }: LiveSessionProps) {
   const router = useRouter();
+  // 종료 동작: 호출자 주입(onEnded) 우선, 없으면 관리자 CRM 상세로 이동(기존 동작).
+  const handleEnded = onEnded ?? (() => router.push(`/crm/${callId}`));
   const [micState, setMicState] = useState<MicState>('idle');
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [ended, setEnded] = useState(false);
@@ -434,8 +441,8 @@ export function LiveSession({ callId }: LiveSessionProps) {
           <button
             type="button"
             data-testid="live-ended-crm"
-            aria-label="상담 종료 · 상담 CRM 화면으로 이동"
-            onClick={() => router.push(`/crm/${callId}`)}
+            aria-label="상담 종료"
+            onClick={handleEnded}
             className="grid h-[56px] w-[56px] place-items-center rounded-full cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
             style={{ background: 'var(--go)', color: '#fff', boxShadow: '0 8px 20px -6px rgba(46,158,110,.55)' }}
           >
@@ -444,7 +451,7 @@ export function LiveSession({ callId }: LiveSessionProps) {
             </svg>
           </button>
           <span className="font-disp text-[12px] font-bold" style={{ color: 'var(--go)' }}>
-            상담 종료 · 상담 CRM 보기
+            {onEnded ? '상담 종료' : '상담 종료 · 상담 CRM 보기'}
           </span>
         </div>
       ) : (

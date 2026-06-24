@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import Home from '@/app/page';
+import Home from '@/app/(admin)/page';
 import { useQueueStore } from '@/stores/queueStore';
 
 // 테이블의 데이터 와이어링은 끄고(스토어 직접 시드), 라우터만 목.

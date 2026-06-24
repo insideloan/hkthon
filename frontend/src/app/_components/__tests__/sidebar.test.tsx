@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { Sidebar } from '@/app/_components/Sidebar';
 
 // Mock next/navigation so usePathname() works outside the Next.js runtime.
@@ -38,7 +38,10 @@ describe('Sidebar', () => {
 
   it('renders 3 nav links', () => {
     render(<Sidebar />);
-    const links = screen.getAllByRole('link');
+    // nav 내부 링크만 카운트 — footer의 모바일 체험 QR 링크(/m)는 네비게이션이
+    // 아니므로 제외한다.
+    const nav = screen.getByRole('navigation');
+    const links = within(nav).getAllByRole('link');
     expect(links).toHaveLength(3);
   });
 
