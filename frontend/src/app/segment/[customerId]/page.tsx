@@ -188,11 +188,11 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           {/* Fix #4: status-pre badge — purple color scheme */}
           {phase === 'analysing' && (
             <div
-              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(107,79,184,.32)] bg-[rgba(107,79,184,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-[#6B4FB8]"
+              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(99,102,241,.32)] bg-[rgba(99,102,241,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-[#6366f1]"
               data-testid="analysis-status"
             >
               <span
-                className="sp-spin h-[13px] w-[13px] animate-spin rounded-full border-2 border-[rgba(107,79,184,.3)] border-t-[#6B4FB8]"
+                className="sp-spin h-[13px] w-[13px] animate-spin rounded-full border-2 border-[rgba(99,102,241,.3)] border-t-[#6366f1]"
                 aria-hidden
               />
               사전 분석중
@@ -205,7 +205,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           )}
           {phase === 'complete' && (
             <div
-              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(107,79,184,.32)] bg-[rgba(107,79,184,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-[#6B4FB8]"
+              className="status-pre ml-auto inline-flex flex-none items-center gap-2 rounded-full border border-[rgba(99,102,241,.32)] bg-[rgba(99,102,241,.12)] px-[14px] py-[7px] font-disp text-[13px] font-bold text-[#6366f1]"
               data-testid="analysis-complete-badge"
             >
               ✓ 분석 완료
@@ -254,21 +254,21 @@ export default function SegmentPage({ params }: SegmentPageProps) {
 
             {/* Connection lines — .ln groups */}
             <g className="ln ln-A">
-              <path className="ln ln-A" pathLength="1" d="M214 56 C242 56,242 82,270 82" fill="none" stroke="#6B4A2A" strokeWidth="1" opacity="0.5"/>
-              <path className="ln ln-A" pathLength="1" d="M214 108 C242 108,242 82,270 82" fill="none" stroke="#6B4A2A" strokeWidth="1" opacity="0.5"/>
+              <path className="ln ln-A" pathLength="1" d="M214 56 C242 56,242 82,270 82" fill="none" stroke="#64748b" strokeWidth="1" opacity="0.5"/>
+              <path className="ln ln-A" pathLength="1" d="M214 108 C242 108,242 82,270 82" fill="none" stroke="#64748b" strokeWidth="1" opacity="0.5"/>
             </g>
             <g className="ln ln-B">
-              <path className="ln ln-B" pathLength="1" d="M214 160 C242 160,242 186,270 186" fill="none" stroke="#5168DB" strokeWidth="0.8" opacity="0.45"/>
-              <path className="ln ln-B" pathLength="1" d="M214 212 C242 212,242 186,270 186" fill="none" stroke="#5168DB" strokeWidth="0.8" opacity="0.45"/>
+              <path className="ln ln-B" pathLength="1" d="M214 160 C242 160,242 186,270 186" fill="none" stroke="#2563eb" strokeWidth="0.8" opacity="0.45"/>
+              <path className="ln ln-B" pathLength="1" d="M214 212 C242 212,242 186,270 186" fill="none" stroke="#2563eb" strokeWidth="0.8" opacity="0.45"/>
             </g>
             <g className="ln ln-C">
-              <path className="ln ln-C" pathLength="1" d="M214 264 C242 264,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
-              <path className="ln ln-C" pathLength="1" d="M214 316 C242 316,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
-              <path className="ln ln-C" pathLength="1" d="M214 368 C242 368,242 316,270 316" fill="none" stroke="#CF8A3C" strokeWidth="0.8" opacity="0.5"/>
+              <path className="ln ln-C" pathLength="1" d="M214 264 C242 264,242 316,270 316" fill="none" stroke="#d97706" strokeWidth="0.8" opacity="0.5"/>
+              <path className="ln ln-C" pathLength="1" d="M214 316 C242 316,242 316,270 316" fill="none" stroke="#d97706" strokeWidth="0.8" opacity="0.5"/>
+              <path className="ln ln-C" pathLength="1" d="M214 368 C242 368,242 316,270 316" fill="none" stroke="#d97706" strokeWidth="0.8" opacity="0.5"/>
             </g>
             <g className="ln ln-D">
-              <path className="ln ln-D" pathLength="1" d="M214 420 C242 420,242 446,270 446" fill="none" stroke="#6B4FB8" strokeWidth="0.8" opacity="0.45"/>
-              <path className="ln ln-D" pathLength="1" d="M214 472 C242 472,242 446,270 446" fill="none" stroke="#6B4FB8" strokeWidth="0.8" opacity="0.45"/>
+              <path className="ln ln-D" pathLength="1" d="M214 420 C242 420,242 446,270 446" fill="none" stroke="#6366f1" strokeWidth="0.8" opacity="0.45"/>
+              <path className="ln ln-D" pathLength="1" d="M214 472 C242 472,242 446,270 446" fill="none" stroke="#6366f1" strokeWidth="0.8" opacity="0.45"/>
             </g>
             <g className="ln ln-cv">
               <path className="ln ln-cv" pathLength="1" d="M410 82 C438 82,438 264,438 264" fill="none" stroke="#9AA0AC" strokeWidth="1" opacity="0.45"/>
@@ -279,61 +279,61 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             <g className="ln ln-sg">
               <path className="ln ln-sg" pathLength="1" d="M480 256 C492 210,494 158,500 150" fill="none" stroke="#9AA0AC" strokeWidth="0.8" opacity="0.35"/>
               <path className="ln ln-sg" pathLength="1" d="M480 272 C492 330,494 386,500 392" fill="none" stroke="#9AA0AC" strokeWidth="0.8" opacity="0.35"/>
-              <line className="ln ln-sg" pathLength="1" x1="482" y1="264" x2="500" y2="264" stroke="#5168DB" strokeWidth="2.5" markerEnd="url(#sgArrow)"/>
+              <line className="ln ln-sg" pathLength="1" x1="482" y1="264" x2="500" y2="264" stroke="#2563eb" strokeWidth="2.5" markerEnd="url(#sgArrow)"/>
             </g>
 
             {/* Source data rows — 9 .cat groups */}
             <g className="cat" data-i="0" data-testid="sg-categories">
               <g className="box"><rect x="14" y="39" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="56" r="4" fill="#6B4A2A"/>
+              <circle cx="28" cy="56" r="4" fill="#64748b"/>
               <text className="ts" x="42" y="56" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">차량 보유</text>
               <text className="th" x="204" y="56" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
             </g>
             <g className="cat" data-i="1">
               <g className="box"><rect x="14" y="91" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="108" r="4" fill="#6B4A2A"/>
+              <circle cx="28" cy="108" r="4" fill="#64748b"/>
               <text className="ts" x="42" y="108" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">주식 보유</text>
               <text className="th" x="204" y="108" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
             </g>
             <g className="cat" data-i="2">
               <g className="box"><rect x="14" y="143" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="160" r="4" fill="#5168DB"/>
+              <circle cx="28" cy="160" r="4" fill="#2563eb"/>
               <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">신용 평점</text>
               <text className="th" x="204" y="160" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">744점</text>
             </g>
             <g className="cat" data-i="3">
               <g className="box"><rect x="14" y="195" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="212" r="4" fill="#5168DB"/>
+              <circle cx="28" cy="212" r="4" fill="#2563eb"/>
               <text className="ts" x="42" y="212" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">부채(A저축)</text>
               <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">2,800만</text>
             </g>
             <g className="cat" data-i="4">
               <g className="box"><rect x="14" y="247" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="264" r="4" fill="#CF8A3C"/>
+              <circle cx="28" cy="264" r="4" fill="#d97706"/>
               <text className="ts" x="42" y="264" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">대출반응확률</text>
               <text className="th" x="204" y="264" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">자담 HIGH</text>
             </g>
             <g className="cat" data-i="5">
               <g className="box"><rect x="14" y="299" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="316" r="4" fill="#CF8A3C"/>
+              <circle cx="28" cy="316" r="4" fill="#d97706"/>
               <text className="ts" x="42" y="316" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">금리민감확률</text>
               <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">민감 HIGH</text>
             </g>
             <g className="cat" data-i="6">
               <g className="box"><rect x="14" y="351" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="368" r="4" fill="#CF8A3C"/>
+              <circle cx="28" cy="368" r="4" fill="#d97706"/>
               <text className="ts" x="42" y="368" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">부도확률</text>
               <text className="th" x="204" y="368" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">Low</text>
             </g>
             <g className="cat" data-i="7">
               <g className="box"><rect x="14" y="403" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="420" r="4" fill="#6B4FB8"/>
+              <circle cx="28" cy="420" r="4" fill="#6366f1"/>
               <text className="ts" x="42" y="420" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">대출비교 조회</text>
               <text className="th" x="204" y="420" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">1주내 3회</text>
             </g>
             <g className="cat" data-i="8">
               <g className="box"><rect x="14" y="455" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
-              <circle cx="28" cy="472" r="4" fill="#6B4FB8"/>
+              <circle cx="28" cy="472" r="4" fill="#6366f1"/>
               <text className="ts" x="42" y="472" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">앱 행태이력</text>
               <text className="th" x="204" y="472" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">한도 조회</text>
             </g>

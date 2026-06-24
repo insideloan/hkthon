@@ -5,12 +5,12 @@ import type { CSSProperties, ReactNode } from 'react';
 
 export type BadgeTone = 'active' | 'noanswer' | 'rejected' | 'signup' | 'escalate' | 'neutral';
 
-// SSOT color map per tone
-// live  = IN_CALL/ACCEPTED        → var(--route)=#3551D6, bg rgba(53,81,214,.1)
-// wait  = DIALING/RINGING         → var(--hazard-ink)=#8A5A1E, bg rgba(207,138,60,.14)
-// done  = ENDED                   → var(--go)=#2E9E6E, bg rgba(107,74,42,.12)  [SSOT .done]
-// miss  = needs_agent             → var(--danger)=#DB5350, bg rgba(219,83,80,.12)
-// pre   = TRANSFER_PENDING/JOINED → purple #6B4FB8, bg rgba(107,79,184,.12)
+// Color map per tone — premium SaaS light-neutral palette (mirrors :root tokens)
+// live  = IN_CALL/ACCEPTED        → route=#2563eb, bg rgba(37,99,235,.1)
+// wait  = DIALING/RINGING         → hazard-ink=#b45309, bg rgba(217,119,6,.12)
+// done  = ENDED                   → go=#16a34a, bg rgba(22,163,74,.1)
+// miss  = needs_agent             → danger=#ef4444, bg rgba(239,68,68,.1)
+// pre   = TRANSFER_PENDING/JOINED → indigo #6366f1, bg rgba(99,102,241,.1)
 // neutral = REJECTED              → ink-dim gray
 
 type ToneStyle = {
@@ -21,46 +21,46 @@ type ToneStyle = {
 };
 
 const TONE_STYLE: Record<BadgeTone, ToneStyle> = {
-  // live — IN_CALL, ACCEPTED
+  // live — IN_CALL, ACCEPTED (neutral blue accent)
   active: {
-    color: '#3551D6',
-    background: 'rgba(53,81,214,.1)',
-    dotBg: '#3551D6',
+    color: '#2563eb',
+    background: 'rgba(37,99,235,.1)',
+    dotBg: '#2563eb',
     pulse: true,
   },
-  // wait — DIALING, RINGING
+  // wait — DIALING, RINGING (warning amber)
   noanswer: {
-    color: '#8A5A1E',
-    background: 'rgba(207,138,60,.14)',
-    dotBg: '#CF8A3C',
+    color: '#b45309',
+    background: 'rgba(217,119,6,.12)',
+    dotBg: '#d97706',
     pulse: true,
   },
-  // miss — needs_agent / REJECTED-ish
+  // miss — needs_agent / REJECTED-ish (negative)
   rejected: {
-    color: '#DB5350',
-    background: 'rgba(219,83,80,.12)',
-    dotBg: '#DB5350',
+    color: '#ef4444',
+    background: 'rgba(239,68,68,.1)',
+    dotBg: '#ef4444',
     pulse: false,
   },
-  // pre — AGENT_JOINED
+  // pre — AGENT_JOINED (indigo)
   signup: {
-    color: '#6B4FB8',
-    background: 'rgba(107,79,184,.12)',
-    dotBg: '#6B4FB8',
+    color: '#6366f1',
+    background: 'rgba(99,102,241,.1)',
+    dotBg: '#6366f1',
     pulse: true,
   },
-  // escalate — TRANSFER_PENDING
+  // escalate — TRANSFER_PENDING (indigo)
   escalate: {
-    color: '#6B4FB8',
-    background: 'rgba(107,79,184,.12)',
-    dotBg: '#6B4FB8',
+    color: '#6366f1',
+    background: 'rgba(99,102,241,.1)',
+    dotBg: '#6366f1',
     pulse: true,
   },
-  // neutral — ENDED
+  // neutral — ENDED (positive green)
   neutral: {
-    color: '#2E9E6E',
-    background: 'rgba(107,74,42,.12)',
-    dotBg: '#2E9E6E',
+    color: '#16a34a',
+    background: 'rgba(22,163,74,.1)',
+    dotBg: '#16a34a',
     pulse: false,
   },
 };

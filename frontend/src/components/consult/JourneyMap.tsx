@@ -255,7 +255,7 @@ function MapFrame() {
       <rect x={30}   y={30} width={535} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={585}  y={30} width={730} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={1335} y={30} width={258} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
-      <g fontFamily="Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#23293A">
+      <g fontFamily="Inter,Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#111827">
         <text x={297}  y={51}>본인확인</text>
         <text x={950}  y={51}>상품제안</text>
         <text x={1464} y={51}>채널선택</text>
@@ -376,7 +376,7 @@ function SvgDefs() {
   return (
     <defs>
       <pattern id="dots" width={26} height={26} patternUnits="userSpaceOnUse">
-        <circle cx={2} cy={2} r={1.1} fill="#CBC2B2" opacity={0.55}/>
+        <circle cx={2} cy={2} r={1.1} fill="#cbd0d8" opacity={0.55}/>
       </pattern>
       <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
         <feDropShadow dx={0} dy={3} stdDeviation={4} floodColor="#26374e" floodOpacity={0.2}/>

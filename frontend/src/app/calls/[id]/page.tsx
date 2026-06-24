@@ -148,10 +148,10 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         className="stt flex flex-col overflow-hidden"
         style={{
           height: 'max(560px, calc(100vh - 96px))',
-          // STT 패널 배경 이미지 (public/phone_screen.png). 단색 #F9F6EE 대체.
+          // STT 패널 배경 이미지 (public/phone_screen.png). 단색 폴백.
           backgroundImage: 'url(/phone_screen.png)',
           backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
-          backgroundColor: '#F9F6EE', // 이미지 로드 전/투명 영역 폴백
+          backgroundColor: '#f8f9fb', // 이미지 로드 전/투명 영역 폴백
           border: '1px solid var(--card-bd)',
           borderRadius: '18px', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)',
           boxShadow: 'var(--shadow)',
@@ -224,7 +224,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       {/* ═══ 우: rightcol ═══ */}
       <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '13px', height: 'max(560px, calc(100vh - 96px))' }}>
         {/* 우-상단: 여정 맵 */}
-        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: '#F9F6EE', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
+        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: 'var(--card-solid)', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
           <div className="map__title absolute flex items-center z-[6]" style={{ top: '11px', left: '12px', gap: '8px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
@@ -238,7 +238,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         </div>
 
         {/* 우-하단: AI 응답 준비 */}
-        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: '#F9F6EE', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)', boxShadow: 'var(--shadow)' }}>
+        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: 'var(--card-solid)', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow)' }}>
           <div className="cc__head flex items-center" style={{ gap: '8px', padding: '3px 14px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
