@@ -342,9 +342,13 @@ function EngineCard1() {
         })}
       </div>
 
-      {/* solveArrow — SSOT: ▼ 아이콘만 (텍스트 없음) */}
+      {/* solveArrow — 크고 눈에 띄는 아래 화살표 아이콘 (SVG) */}
       <div className={clsx('solvearrow', solveArrow && 'on')} id="solveArrow">
-        <span className="dn">▼</span>
+        <span className="dn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </div>
 
       <div className="cseclbl"><span>대표 전략 20</span><span className="ln" /></div>

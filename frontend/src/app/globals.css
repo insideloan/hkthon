@@ -424,7 +424,8 @@
 .cmp-chk.ok.fix .cbx::after { content: "X"; font-size: 12px; font-weight: 800; line-height: 1; font-family: var(--disp); }
 .cmp-chk .claw { font-family: var(--disp); font-size: 10.5px; font-weight: 800; color: var(--ink); flex: none; }
 .cmp-chk.ok .claw { color: #5A3E22; }
-.cmp-chk .cdesc { flex-basis: 100%; font-size: 9px; font-weight: 600; color: #5A6170; line-height: 1.2; word-break: keep-all; text-align: left; }
+/* cdesc(설명)을 claw(법명)와 같은 x에서 시작하게 들여쓰기 — cbx(18px)+gap(6px)=24px */
+.cmp-chk .cdesc { flex-basis: 100%; padding-left: 24px; font-size: 9px; font-weight: 600; color: #5A6170; line-height: 1.2; word-break: keep-all; text-align: left; }
 .cmp-chk .cflag { display: none; }
 .cmp-final { background: #fff; color: #000; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
 .cmp-final del { color: #9aa0ac; text-decoration: line-through; text-decoration-color: #c9b3b2; font-weight: 500; margin-right: 2px; }
@@ -483,7 +484,8 @@
 
 .solvearrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
 .solvearrow.on { opacity: 1; transform: none; }
-.solvearrow .dn { font-size: 11px; animation: arrbob 1s ease-in-out infinite; }
+.solvearrow .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: var(--route); animation: arrbob 1s ease-in-out infinite; }
+.solvearrow .dn svg { width: 26px; height: 26px; display: block; filter: drop-shadow(0 1px 2px rgba(44,91,214,.35)); }
 
 .stratg { position: relative; overflow: hidden; border-radius: 10px; padding: 2px 0; }
 .strat-track { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3,auto); align-content: start; gap: 5px; width: max-content; transition: transform .9s cubic-bezier(.22,.61,.36,1); }
