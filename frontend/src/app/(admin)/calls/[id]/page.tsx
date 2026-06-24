@@ -44,7 +44,35 @@ const CARD_NO_STYLE: React.CSSProperties = {
   width: '26px', height: '26px', borderRadius: '8px', fontSize: '14px', fontWeight: 700,
   background: 'var(--badge-bg)', color: '#000',
 };
-const CARD_T_STYLE: React.CSSProperties = { fontSize: '14px', fontWeight: 800, color: 'var(--title)', lineHeight: 1.1 };
+const CARD_T_STYLE: React.CSSProperties = { fontSize: '14px', fontWeight: 800, color: 'var(--title)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+// 카드 헤더 — 3개 카드의 제목 시작 위치(높이)를 동일하게 고정해 본문도 같은 Y에서 시작.
+const CARD_H_STYLE: React.CSSProperties = { gap: '8px', height: '26px', flex: 'none' };
+
+// 카드 사이 흐름 화살표 — 고객 발화 → 고객 DB → 컴플라이언스 체크 순으로 분석이
+// 좌→우로 흐름을 보여준다. cc__cards(grid) 위에 절대배치, 카드 경계(leftPct) 중앙에
+// 헤더와 같은 높이로 띄운다. pointer-events 없음(클릭 통과).
+function FlowArrow({ leftPct }: { leftPct: number }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute z-10 grid place-items-center rounded-full"
+      style={{
+        left: `${leftPct}%`,
+        top: '24px',
+        width: '22px',
+        height: '22px',
+        transform: 'translate(-50%, -50%)',
+        background: 'var(--route)',
+        color: '#fff',
+        boxShadow: '0 4px 10px -3px rgba(53,81,214,.55)',
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13px', height: '13px' }}>
+        <path d="M5 12h13M13 6l6 6-6 6" />
+      </svg>
+    </div>
+  );
+}
 
 // ── 중앙 원형 재생/일시정지 버튼 ────────────────────────────────────────────
 // 발화 진행 컨트롤. 미디어 플레이어 메타포: 클릭 가능하면 ▶(play), 재생 중이면
@@ -258,10 +286,15 @@ export default function ConsultCockpitPage({ params }: PageProps) {
           </div>
 
           <div className="cc__body flex flex-col flex-1 min-h-0" id="ccBody" style={{ gap: '11px', padding: '7px 8px 13px' }}>
-            <div className="cc__cards flex-1 grid min-h-0" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }} data-testid="cc-cards">
+            <div className="cc__cards relative flex-1 grid min-h-0" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }} data-testid="cc-cards">
+              {/* 카드 간 흐름 화살표 — 좌→우로 분석이 이어짐을 표시. 카드 사이 gap 중앙,
+                  헤더 높이(카드 top+11px padding + 13px = 24px)에 맞춰 세로 정렬. */}
+              <FlowArrow leftPct={100 / 3} />
+              <FlowArrow leftPct={200 / 3} />
+
               {/* 카드① 고객발화분석 */}
               <div ref={cardEmoRef as React.Ref<HTMLDivElement>} className={clsx(cardCls(card1), CARD_BASE)} id="card-emo" data-testid="cc-card" style={CARD_STYLE}>
-                <div className="card__h flex items-center" style={{ gap: '8px' }}>
+                <div className="card__h flex items-center" style={CARD_H_STYLE}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>1</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>고객 발화</span>
                 </div>
@@ -272,7 +305,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
 
               {/* 카드② DB 분석 */}
               <div className={clsx(cardCls(card2), CARD_BASE)} id="card-db" data-testid="cc-card" style={CARD_STYLE}>
-                <div className="card__h flex items-center" style={{ gap: '8px' }}>
+                <div className="card__h flex items-center" style={CARD_H_STYLE}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>고객 DB</span>
                 </div>
@@ -281,7 +314,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
 
               {/* 카드③ 컴플라이언스 체크 */}
               <div className={clsx(cardCls(card3), CARD_BASE)} id="card-strat" data-testid="cc-card" style={CARD_STYLE}>
-                <div className="card__h flex items-center" style={{ gap: '8px' }}>
+                <div className="card__h flex items-center" style={CARD_H_STYLE}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>3</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>컴플라이언스 체크</span>
                 </div>
