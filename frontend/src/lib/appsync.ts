@@ -154,18 +154,18 @@ function mockQueue(): QueueResult {
   // Mirrors the SSOT demo call-list (docs/consult_redesigned-3.html CALLS) and
   // the backend seed (lambda/orchestrator/seed.py SEED_QUEUE_ROWS) so the admin
   // table drill-in flow is demoable offline. The 박서준 row carries state DIALING
-  // + the 사전 고객분석 stage so it routes to the segment analysis screen.
+  // + the 사전 분석중 stage so it routes to the segment analysis screen.
   const rows: QueueRow[] = [
-    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 고객분석',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
-    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 풀기',
-      assignee: 'AI 코파일럿', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
-    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 쌓기',
-      assignee: 'AI 코파일럿', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
+    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 분석중',
+      assignee: 'AI Agent1', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
+    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 해소중',
+      assignee: 'AI Agent2', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
+    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 형성중',
+      assignee: 'AI Agent5', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
     { callId: 'c-demo-04', customerName: '정민서', state: 'TRANSFER_PENDING', stage: '연결 대기',
       assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 55 },
-    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '상담사 연결',
-      assignee: '김도현', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
+    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '문자 URL발송',
+      assignee: 'AI Agent3', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
   ];
   const summary: QueueSummary = {
     total: rows.length,
