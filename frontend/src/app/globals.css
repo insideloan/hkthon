@@ -58,17 +58,20 @@
   body {
     font-family: var(--kr);
     color: var(--ink);
-    /* glossy 배경 — 베이스 #f6f7f9 위에 #dedee3 톤을 옅게 얹어 은은한 명암/광택을 준다.
-       (멀티컬러 블롭 대신 두 뉴트럴 톤 조합) 카드가 반투명이라 이 명암이 비쳐 보인다. */
-    background-color: #f6f7f9;
+    /* 유리(glass) 배경 — 흰색 베이스 위에 rgb(37 99 235) 블루를 아주 옅게/투명하게 얹어
+       은은한 블루→화이트 그라데이션을 만들고, 흰빛 조명 하이라이트로 유리 같은 광택·투명감을 준다.
+       블루는 모두 낮은 alpha라 카드(반투명) 너머로 은은하게만 비친다. */
+    background-color: #ffffff;
     background-image:
-      /* 상단 하이라이트 — 위쪽을 더 밝게(흰빛) 띄워 glossy한 광택감 */
-      linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 38%),
-      /* #dedee3 음영 블롭 — 모서리 쪽으로 옅게 깔아 입체감 */
-      radial-gradient(60rem 60rem at 82% 88%, #dedee3, transparent 60%),
-      radial-gradient(52rem 52rem at 16% 14%, #dedee3, transparent 58%),
-      /* 전체 베이스→#dedee3 대각 그라데이션(아주 옅게) */
-      linear-gradient(135deg, #f6f7f9 0%, #dedee3 100%);
+      /* 상단 화이트 조명 하이라이트 — 위쪽을 밝게 띄워 유리 표면의 반사광(glossy) */
+      linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 42%),
+      /* 우상단 광택 스팟 — 비스듬히 떨어지는 조명 반사 (투명 흰빛) */
+      radial-gradient(40rem 30rem at 88% 6%, rgba(255,255,255,.7), transparent 55%),
+      /* 블루 라이트 블롭 — rgb(37 99 235)를 옅게 깔아 입체감(은은하게, 낮은 투명도) */
+      radial-gradient(62rem 62rem at 84% 90%, rgba(37,99,235,.12), transparent 60%),
+      radial-gradient(54rem 54rem at 14% 12%, rgba(37,99,235,.08), transparent 58%),
+      /* 전체 베이스 — 흰색 → 옅은 블루 대각 그라데이션 (rgb(37 99 235) 저투명) */
+      linear-gradient(135deg, #ffffff 0%, rgba(37,99,235,.10) 100%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
