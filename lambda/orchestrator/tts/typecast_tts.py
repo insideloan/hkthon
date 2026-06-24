@@ -40,7 +40,7 @@ def _http_timeout() -> float:
 
 # 화자 이름 → Typecast voice_id 고정 매핑
 VOICE_MAP: dict[str, str] = {
-    "혜라": "tc_66504763aed05555cd12438c",
+    "혜라": "tc_68413e12459cfdf27b481183",
     "진서": "tc_65bb3a1976b69213594357fc",
     "유라": "tc_61130d6cf89dd58a4c13295d",
 }

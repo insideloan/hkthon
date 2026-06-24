@@ -55,7 +55,7 @@ def test_voice_map_contains_all_speakers():
 
 
 def test_resolve_voice_id_혜라():
-    assert resolve_voice_id("혜라") == "tc_66504763aed05555cd12438c"
+    assert resolve_voice_id("혜라") == "tc_68413e12459cfdf27b481183"
 
 
 def test_resolve_voice_id_진서():
