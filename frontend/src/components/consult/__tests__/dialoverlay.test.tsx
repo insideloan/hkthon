@@ -46,4 +46,39 @@ describe('DialOverlay', () => {
     act(() => vi.advanceTimersByTime(1200));
     expect(onConnected).toHaveBeenCalledTimes(1);
   });
+
+  it('answered=true 가 되면 폴백 타이머보다 먼저 연결됨 → onConnected 호출', () => {
+    const onConnected = vi.fn();
+    const { rerender } = render(
+      <DialOverlay customerName="박서준 고객" onConnected={onConnected} answered={false} />,
+    );
+
+    // 아직 카운트다운 중. 고객 수신 신호 도착.
+    act(() => vi.advanceTimersByTime(800));
+    rerender(<DialOverlay customerName="박서준 고객" onConnected={onConnected} answered={true} />);
+
+    // 즉시 '연결됨 ✓' 로 점프.
+    expect(screen.getByTestId('dial-count')).toHaveTextContent('연결됨');
+
+    // 짧은 확인(700ms) 후 전환 — 폴백 타이머(5100ms) 도달 전.
+    expect(onConnected).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(700));
+    expect(onConnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('answered 와 폴백 타이머가 경쟁해도 onConnected 는 한 번만 호출', () => {
+    const onConnected = vi.fn();
+    const { rerender } = render(
+      <DialOverlay customerName="박서준 고객" onConnected={onConnected} answered={false} />,
+    );
+
+    // 폴백 타임라인 전체 경과 → onConnected 1회.
+    act(() => vi.advanceTimersByTime(5100));
+    expect(onConnected).toHaveBeenCalledTimes(1);
+
+    // 이후 뒤늦게 수신 신호가 와도 중복 호출 없음.
+    rerender(<DialOverlay customerName="박서준 고객" onConnected={onConnected} answered={true} />);
+    act(() => vi.advanceTimersByTime(700));
+    expect(onConnected).toHaveBeenCalledTimes(1);
+  });
 });

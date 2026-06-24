@@ -16,6 +16,13 @@ type DialOverlayProps = {
   phone?: string;
   /** 연결 완료 후 호출 — 상담 화면으로 전환한다. */
   onConnected: () => void;
+  /**
+   * 고객이 실제로 수신했는지(=콜 state가 IN_CALL 로 전환). true 가 되면 타임라인을
+   * 즉시 단축해 '연결됨 ✓' 로 점프하고 짧은 확인 후 onConnected() 를 호출한다.
+   * 미제공/false 면 아래 고정 타임라인(T_TRANSITION)을 폴백으로 사용한다 — mock·데모
+   * 모드처럼 실제 수신 신호가 없는 환경에서도 흐름이 멈추지 않도록.
+   */
+  answered?: boolean;
 };
 
 // SSOT 타임라인(ms): 카운트다운 → 발신 중 → 연결됨 → 전환.
@@ -24,6 +31,8 @@ const T_COUNT1 = 1600;
 const T_DIALING = 2400;
 const T_CONNECTED = 3900;
 const T_TRANSITION = 5100;
+// 실제 수신 신호로 점프했을 때 '연결됨 ✓' 를 보여주는 최소 확인 시간(ms).
+const T_ANSWERED_CONFIRM = 700;
 
 const STATUS_TEXT: Record<DialPhase, string> = {
   count3: '발신 준비',
@@ -33,10 +42,13 @@ const STATUS_TEXT: Record<DialPhase, string> = {
   connected: '통화 연결됨 · 상담 시작',
 };
 
-export function DialOverlay({ customerName, phone, onConnected }: DialOverlayProps) {
+export function DialOverlay({ customerName, phone, onConnected, answered }: DialOverlayProps) {
   const [phase, setPhase] = useState<DialPhase>('count3');
   const onConnectedRef = useRef(onConnected);
   onConnectedRef.current = onConnected;
+  // 폴백 전환이 이미 한 번 발생했는지 — 실제 수신 신호와 타이머가 경쟁할 때 onConnected
+  // 가 두 번 호출되지 않도록 가드.
+  const transitionedRef = useRef(false);
 
   useEffect(() => {
     const reduce =
@@ -51,10 +63,28 @@ export function DialOverlay({ customerName, phone, onConnected }: DialOverlayPro
     at(T_COUNT1, () => setPhase('count1'));
     at(T_DIALING, () => setPhase('dialing'));
     at(T_CONNECTED, () => setPhase('connected'));
-    at(T_TRANSITION, () => onConnectedRef.current());
+    // 폴백: 실제 수신 신호가 끝내 오지 않아도(mock·데모) 흐름이 진행되도록.
+    at(T_TRANSITION, () => {
+      if (transitionedRef.current) return;
+      transitionedRef.current = true;
+      onConnectedRef.current();
+    });
 
     return () => timers.forEach((t) => clearTimeout(t));
   }, []);
+
+  // 실제 수신 신호(answered) 도착 → 카운트다운 도중이라도 즉시 '연결됨 ✓' 로 점프하고
+  // 짧은 확인 후 전환. 폴백 타이머보다 먼저 도착하면 이쪽이 전환을 가져간다.
+  useEffect(() => {
+    if (!answered || transitionedRef.current) return;
+    setPhase('connected');
+    const t = window.setTimeout(() => {
+      if (transitionedRef.current) return;
+      transitionedRef.current = true;
+      onConnectedRef.current();
+    }, T_ANSWERED_CONFIRM);
+    return () => clearTimeout(t);
+  }, [answered]);
 
   const avatarInitial = customerName.trim().charAt(0) || '?';
   const countText =

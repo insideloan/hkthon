@@ -308,9 +308,9 @@
 .dial-count { font-family: var(--mono); font-size: 64px; font-weight: 700; color: #fff; line-height: 1; min-height: 64px; }
 .dial-count.pop { animation: dpop .6s ease; }
 @keyframes dpop { 0% { transform: scale(.5); opacity: 0; } 40% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-.dial-count.ok { font-size: 30px; color: #B08A5E; }
+.dial-count.ok { font-size: 30px; color: #DB5350; }
 .dial-status { font-size: 15px; font-weight: 700; color: #fff; margin-top: 14px; }
-.dial-status.go { color: #B08A5E; }
+.dial-status.go { color: #DB5350; }
 .dial-waves { display: flex; align-items: center; gap: 3px; height: 18px; margin-top: 12px; opacity: 0; transition: opacity .3s; }
 .dial-waves.on { opacity: 1; }
 .dial-waves i { width: 3px; border-radius: 2px; background: rgba(255,255,255,.55); height: 4px; }
