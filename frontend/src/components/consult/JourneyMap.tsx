@@ -472,7 +472,8 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
       rafRef.current = requestAnimationFrame(step);
     },
     reach(cpId) {
-      const ORDER = ['interest', 'trust', 'cond', 'limit', 'review', 'goal'];
+      // s1.json 10턴 축약 정합: 실제 도달하는 체크포인트만(interest/trust/goal).
+      const ORDER = ['interest', 'trust', 'goal'];
       const idx = ORDER.indexOf(cpId);
       ORDER.forEach((n, j) => {
         const el = svgRef.current?.querySelector(`#cp-${n}`);
@@ -664,12 +665,11 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
 
         {/* 체크포인트 노드 (능선) — 경로 위(전환가능 쪽)로 올려 차량 원과 겹치지 않게.
             차량은 경로(y≈178–232)를 달리고, cp(core r=42)는 cpCy+42 ≤ 경로y−38 이 되도록 배치. */}
+        {/* s1.json 10턴 축약 정합: 도달하는 체크포인트만(시작·신뢰확보 + 목적지).
+            조건이해/한도조회/신청검토 cp는 해당 턴이 삭제되어 제거. */}
         <g fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}>
           <CpNode id="cp-interest" x={70}   y={150} label="시작"/>
           <CpNode id="cp-trust"    x={575}  y={123} label="신뢰확보"/>
-          <CpNode id="cp-cond"     x={800}  y={131} label="조건이해"/>
-          <CpNode id="cp-limit"    x={1095} y={131} label="한도조회"/>
-          <CpNode id="cp-review"   x={1410} y={97}  label="신청검토"/>
         </g>
 
         {/* 목적지 */}
