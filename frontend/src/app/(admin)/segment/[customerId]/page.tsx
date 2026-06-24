@@ -275,8 +275,8 @@ export default function SegmentPage({ params }: SegmentPageProps) {
         >
           {/* Fix #2: Counter — label '가능한 세그먼트 조합 경우의 수', combo number from 16,777,216 */}
           <div className="sg-counter flex flex-col items-center gap-[10px] px-0 pt-[16px] pb-[14px] mb-[13px]">
-            <span className="sg-clbl block w-full rounded-[10px] border border-white/30 bg-route px-[14px] py-[7px] text-center text-[13px] font-bold tracking-[.01em] text-white shadow-[0_2px_8px_-2px_rgba(37,99,235,.5)]">
-              세그먼트 조합 <span className="text-white/70">수</span>
+            <span className="sg-clbl block w-full rounded-[10px] border border-white/30 bg-route px-[14px] py-[9px] text-center text-[16px] font-bold tracking-[.01em] text-white shadow-[0_2px_8px_-2px_rgba(37,99,235,.5)]">
+              세그먼트 조합 수
             </span>
             <span
               id="combo"
@@ -471,8 +471,8 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             항상 보이되 분석 완료 전까지 비활성. */}
         <div className="sg-side w-full lg:w-[420px] lg:flex-none" data-testid="segment-side">
           <div className="glass-card sg-sec px-[17px] py-[15px]">
-            <span className="sg-tag t2 mb-[11px] flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-white/30 bg-route px-[14px] py-[7px] text-center text-[13px] font-bold tracking-[.01em] text-white shadow-[0_2px_8px_-2px_rgba(37,99,235,.5)]">
-              상담 <span className="text-white/70">전략</span>
+            <span className="sg-tag t2 mb-[11px] flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-white/30 bg-route px-[14px] py-[9px] text-center text-[16px] font-bold tracking-[.01em] text-white shadow-[0_2px_8px_-2px_rgba(37,99,235,.5)]">
+              상담 전략
               {!analysisComplete && (
                 <span
                   className="h-[9px] w-[9px] animate-spin rounded-full border-2 border-white/40 border-t-white"
