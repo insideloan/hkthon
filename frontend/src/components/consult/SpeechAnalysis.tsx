@@ -321,7 +321,7 @@ function EngineCard1() {
     // SSOT docs/consult_redesigned-3.html #card-emo .card-scroll (lines 1080–1086):
     // 발화분류 → bins → solvearrow(▼) → 대표 전략 20 → stratg.
     <div className="card-scroll" role="region" aria-label="고객발화분석" data-testid="speech-analysis">
-      <div className="cseclbl"><span>분석 결과</span><span className="ln" /></div>
+      {/* 첫 섹션 라벨 제거됨 */}
 
       {/* orb bins — 감정/니즈/이용가능성 */}
       <div className="bins" id="emoBins">

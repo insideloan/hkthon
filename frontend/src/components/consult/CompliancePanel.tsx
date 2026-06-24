@@ -202,8 +202,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
       <div className="cmp">
         {/* 가안 발화 섹션 제거됨 — 규제 검토 + 최종 발화만 표시. */}
 
-        {/* 컴플라이언스 규제 검토 — 4규제 2×2 */}
-        <div className="cseclbl"><span>법규 및 사내 규정 검토</span><span className="ln" /></div>
+        {/* 컴플라이언스 규제 검토 — 4규제 2×2 (첫 섹션 라벨 제거됨) */}
         <div className="cmp-checks" id="cmpChecks">
           {checks.map((c, idx) => {
             const reviewed = c.flagged !== null && c.flagged !== undefined;
