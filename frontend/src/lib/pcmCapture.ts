@@ -47,8 +47,12 @@ export type PcmVadEvent =
   | { type: 'flush'; reason: 'silence' | 'max-utterance' | 'stop'; durationMs: number; samples: number };
 
 export type PcmCaptureOptions = {
-  /** 발화로 간주할 프레임 RMS 임계값(0~1). 이 값 초과면 '말하는 중'. */
-  vadThreshold?: number;
+  /**
+   * 발화로 간주할 프레임 RMS 임계값(0~1). 이 값 초과면 '말하는 중'.
+   * 함수로 주면 매 프레임 호출해 현재 값을 읽는다 → 캡처 재시작 없이 실시간 조절
+   * (UI 슬라이더 연동). 숫자면 고정.
+   */
+  vadThreshold?: number | (() => number);
   /** 발화 후 이만큼(ms) 연속 침묵하면 발화 종료로 보고 flush(=한 발화). */
   silenceMs?: number;
   /** 한 발화가 이 길이(ms)를 넘으면 침묵 없이도 강제 flush(끊김 방지 안전장치). */
@@ -80,7 +84,10 @@ export function startPcmCapture(
   onChunk: (base64: string) => void,
   options: PcmCaptureOptions = {},
 ): PcmCaptureHandle {
-  const vadThreshold = options.vadThreshold ?? 0.012;
+  // 기본 임계값을 0.012→0.006으로 낮춤 — 0.012는 일반 발화도 못 잡는 경우가 있어
+  // 음성 인식이 안 되던 문제. 함수형이면 매 프레임 현재값을 읽어 슬라이더로 실시간 조절.
+  const vt = options.vadThreshold ?? 0.006;
+  const getThreshold = typeof vt === 'function' ? vt : () => vt;
   const silenceMs = options.silenceMs ?? 800;
   const maxUtteranceMs = options.maxUtteranceMs ?? 15000;
   const onDebug = options.onDebug;
@@ -121,9 +128,10 @@ export function startPcmCapture(
     const input = e.inputBuffer.getChannelData(0);
     const level = rms(input);
     const t = now();
-    onDebug?.({ type: 'frame', rms: level, speaking, threshold: vadThreshold });
+    const threshold = getThreshold();
+    onDebug?.({ type: 'frame', rms: level, speaking, threshold });
 
-    if (level >= vadThreshold) {
+    if (level >= threshold) {
       // 음성 감지 — 발화 시작/지속. 버퍼에 누적.
       if (!speaking) {
         speaking = true;
