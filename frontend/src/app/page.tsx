@@ -160,7 +160,7 @@ export default function Home() {
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
         <StatCard label="상담중" value={liveCount} accent="live" />
         <StatCard label="대기중" value={2} />
-        <StatCard label="대출접수" value={endedCount} unit="건" accent="done" />
+        <StatCard label="대출 접수" value={endedCount} unit="건" accent="done" />
         <StatCard label="컴플라이언스 준수율" value={completionRateDisplay} unit="%" accent="done" />
       </div>
 

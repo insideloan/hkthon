@@ -163,36 +163,36 @@ def seed_customers(customers: list[Customer] | None = None) -> int:
 #  elapsed_sec, highlight)
 SEED_QUEUE_ROWS: list[dict[str, Any]] = [
     # pre → DIALING
-    {"id": "c-demo-01", "customer_name": "박서준", "state": "DIALING",
-     "stage": "사전 분석중", "churn_risk": 34, "assignee": "AI Agent1",
+    {"id": "c-demo-01", "customer_name": "박서준", "subtitle": "38세·KCB744",
+     "state": "DIALING", "stage": "사전 분석 중", "churn_risk": 34, "assignee": "Agent #3",
      "channel": "아웃바운드", "elapsed_sec": 0},
     # live → IN_CALL
-    {"id": "c-demo-02", "customer_name": "이정훈", "state": "IN_CALL",
-     "stage": "우려 해소중", "churn_risk": 48, "assignee": "AI Agent2",
+    {"id": "c-demo-02", "customer_name": "이정훈", "subtitle": "45세·KCB701",
+     "state": "IN_CALL", "stage": "우려 해소 중", "churn_risk": 48, "assignee": "Agent #7",
      "channel": "아웃바운드", "elapsed_sec": 221},
-    {"id": "c-demo-03", "customer_name": "김하늘", "state": "IN_CALL",
-     "stage": "신뢰 형성중", "churn_risk": 34, "assignee": "AI Agent5",
+    {"id": "c-demo-03", "customer_name": "김하늘", "subtitle": "33세·KCB762",
+     "state": "IN_CALL", "stage": "신뢰 형성중", "churn_risk": 34, "assignee": "Agent #2",
      "channel": "인바운드", "elapsed_sec": 68},
     # wait → TRANSFER_PENDING (needs_agent highlight)
-    {"id": "c-demo-04", "customer_name": "정민서", "state": "TRANSFER_PENDING",
-     "stage": "연결 대기", "churn_risk": 55, "assignee": None,
+    {"id": "c-demo-04", "customer_name": "정민서", "subtitle": "29세·KCB688",
+     "state": "TRANSFER_PENDING", "stage": "연결 대기", "churn_risk": 55, "assignee": None,
      "channel": "인바운드", "elapsed_sec": 0, "needs_agent": True},
-    {"id": "c-demo-05", "customer_name": "한지우", "state": "TRANSFER_PENDING",
-     "stage": "연결 대기", "churn_risk": 40, "assignee": None,
+    {"id": "c-demo-05", "customer_name": "한지우", "subtitle": "51세·KCB720",
+     "state": "TRANSFER_PENDING", "stage": "연결 대기", "churn_risk": 40, "assignee": None,
      "channel": "아웃바운드", "elapsed_sec": 0, "needs_agent": True},
     # done → ENDED
-    {"id": "c-demo-06", "customer_name": "오세훈", "state": "ENDED",
-     "stage": "문자 URL발송", "churn_risk": 18, "assignee": "AI Agent3",
+    {"id": "c-demo-06", "customer_name": "오세훈", "subtitle": "41세·KCB745",
+     "state": "ENDED", "stage": "문자 URL 발송", "churn_risk": 18, "assignee": "Agent #1",
      "channel": "인바운드", "elapsed_sec": 475},
-    {"id": "c-demo-07", "customer_name": "배수지", "state": "ENDED",
-     "stage": "AI 대출접수", "churn_risk": 12, "assignee": "AI Agent4",
+    {"id": "c-demo-07", "customer_name": "배수지", "subtitle": "36세·KCB733",
+     "state": "ENDED", "stage": "대출 접수", "churn_risk": 12, "assignee": "Agent #4",
      "channel": "아웃바운드", "elapsed_sec": 330},
     # miss → ENDED
-    {"id": "c-demo-08", "customer_name": "윤재호", "state": "ENDED",
-     "stage": "담보거부 이탈", "churn_risk": 88, "assignee": "AI Agent6",
+    {"id": "c-demo-08", "customer_name": "윤재호", "subtitle": "48세·KCB695",
+     "state": "ENDED", "stage": "차량 공동명의 이탈", "churn_risk": 88, "assignee": "Agent #11",
      "channel": "아웃바운드", "elapsed_sec": 134},
-    {"id": "c-demo-09", "customer_name": "강예린", "state": "ENDED",
-     "stage": "TM거부 이탈", "churn_risk": 94, "assignee": "AI Agent7",
+    {"id": "c-demo-09", "customer_name": "강예린", "subtitle": "27세·KCB710",
+     "state": "ENDED", "stage": "TM 거부", "churn_risk": 94, "assignee": "Agent #13",
      "channel": "인바운드", "elapsed_sec": 46},
 ]
 
@@ -215,6 +215,8 @@ def _queue_item(row: dict[str, Any], now: float) -> dict[str, Any]:
         "channel": row["channel"],
         "started_at": started,
     }
+    if row.get("subtitle"):
+        item["subtitle"] = row["subtitle"]
     if row.get("assignee"):
         item["assignee"] = row["assignee"]
     if row.get("needs_agent"):

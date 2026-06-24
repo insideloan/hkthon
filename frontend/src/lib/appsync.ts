@@ -154,26 +154,26 @@ function mockQueue(): QueueResult {
   // Mirrors the SSOT demo call-list (docs/consult_redesigned-3.html CALLS) and
   // the backend seed (lambda/orchestrator/seed.py SEED_QUEUE_ROWS) so the admin
   // table drill-in flow is demoable offline. The 박서준 row carries state DIALING
-  // + the 사전 분석중 stage so it routes to the segment analysis screen.
+  // + the 사전 분석 중 stage so it routes to the segment analysis screen.
   const rows: QueueRow[] = [
-    { callId: 'c-demo-01', customerName: '박서준', state: 'DIALING', stage: '사전 분석중',
-      assignee: 'AI Agent1', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
-    { callId: 'c-demo-02', customerName: '이정훈', state: 'IN_CALL', stage: '우려 해소중',
-      assignee: 'AI Agent2', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
-    { callId: 'c-demo-03', customerName: '김하늘', state: 'IN_CALL', stage: '신뢰 형성중',
-      assignee: 'AI Agent5', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
-    { callId: 'c-demo-04', customerName: '정민서', state: 'TRANSFER_PENDING', stage: '연결 대기',
+    { callId: 'c-demo-01', customerName: '박서준', subtitle: '38세·KCB744', state: 'DIALING', stage: '사전 분석 중',
+      assignee: 'Agent #3', channel: '아웃바운드', highlight: null, elapsedSec: 0, churnRisk: 34 },
+    { callId: 'c-demo-02', customerName: '이정훈', subtitle: '45세·KCB701', state: 'IN_CALL', stage: '우려 해소 중',
+      assignee: 'Agent #7', channel: '아웃바운드', highlight: null, elapsedSec: 221, churnRisk: 48 },
+    { callId: 'c-demo-03', customerName: '김하늘', subtitle: '33세·KCB762', state: 'IN_CALL', stage: '신뢰 형성중',
+      assignee: 'Agent #2', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
+    { callId: 'c-demo-04', customerName: '정민서', subtitle: '29세·KCB688', state: 'TRANSFER_PENDING', stage: '연결 대기',
       assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 55 },
-    { callId: 'c-demo-05', customerName: '한지우', state: 'TRANSFER_PENDING', stage: '연결 대기',
+    { callId: 'c-demo-05', customerName: '한지우', subtitle: '51세·KCB720', state: 'TRANSFER_PENDING', stage: '연결 대기',
       assignee: null, channel: '아웃바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 40 },
-    { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '문자 URL발송',
-      assignee: 'AI Agent3', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
-    { callId: 'c-demo-07', customerName: '배수지', state: 'ENDED', stage: 'AI 대출접수',
-      assignee: 'AI Agent4', channel: '아웃바운드', highlight: null, elapsedSec: 330, churnRisk: 12 },
-    { callId: 'c-demo-08', customerName: '윤재호', state: 'ENDED', stage: '담보거부 이탈',
-      assignee: 'AI Agent6', channel: '아웃바운드', highlight: null, elapsedSec: 134, churnRisk: 88 },
-    { callId: 'c-demo-09', customerName: '강예린', state: 'ENDED', stage: 'TM거부 이탈',
-      assignee: 'AI Agent7', channel: '인바운드', highlight: null, elapsedSec: 46, churnRisk: 94 },
+    { callId: 'c-demo-06', customerName: '오세훈', subtitle: '41세·KCB745', state: 'ENDED', stage: '문자 URL 발송',
+      assignee: 'Agent #1', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
+    { callId: 'c-demo-07', customerName: '배수지', subtitle: '36세·KCB733', state: 'ENDED', stage: '대출 접수',
+      assignee: 'Agent #4', channel: '아웃바운드', highlight: null, elapsedSec: 330, churnRisk: 12 },
+    { callId: 'c-demo-08', customerName: '윤재호', subtitle: '48세·KCB695', state: 'ENDED', stage: '차량 공동명의 이탈',
+      assignee: 'Agent #11', channel: '아웃바운드', highlight: null, elapsedSec: 134, churnRisk: 88 },
+    { callId: 'c-demo-09', customerName: '강예린', subtitle: '27세·KCB710', state: 'ENDED', stage: 'TM 거부',
+      assignee: 'Agent #13', channel: '인바운드', highlight: null, elapsedSec: 46, churnRisk: 94 },
   ];
   const summary: QueueSummary = {
     total: rows.length,
@@ -190,7 +190,7 @@ const QUEUE_QUERY = /* GraphQL */ `
     queue(highlightOnly: $highlightOnly) {
       summary { total needsAgent fraudSuspected inCall }
       rows {
-        callId customerName state stage churnRisk
+        callId customerName subtitle state stage churnRisk
         assignee channel elapsedSec highlight
       }
     }
