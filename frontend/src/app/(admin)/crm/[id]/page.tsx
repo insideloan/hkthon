@@ -147,7 +147,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
     { label: '고객', value: `${profile.name} · ${profile.genderAge}`, variant: '' },
     { label: '신용점수', value: profile.kcb, variant: '' },
     { label: '보유 대출', value: profile.loan, variant: '' },
-    { label: '현 금리', value: profile.rate, variant: profile.rateVariant },
+    { label: profile.rateLabel ?? '현 금리', value: profile.rate, variant: profile.rateVariant },
     { label: '자산', value: profile.asset, variant: '' },
     { label: '이탈 위험', value: profile.churnLabel, variant: profile.churnVariant },
   ];
