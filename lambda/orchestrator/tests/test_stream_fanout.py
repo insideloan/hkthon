@@ -49,16 +49,50 @@ def test_mot_insert_emits_mot_new_shape():
 
 
 def test_compliance_emits_state_payload():
-    # AGENT가 저장하는 실제 형상: 소문자 state, final_text.
+    # AGENT가 저장하는 실제 형상: 소문자 state, final_text → SSOT-3 풍부 payload.
     rec = _record({"PK": "CALL#c1", "SK": "CMPL#3#0", "state": "redacting",
-                   "draft": "초안", "violated_policies": ["과장광고"],
+                   "draft": "초안", "violated_policies": ["금융소비자보호법"],
                    "final_text": "수정본"})
     out = sf.handler({"Records": [rec]})
     emit = next(e for e in out["emits"] if e["mutation"] == "_emitComplianceState")
     p = emit["payload"]
-    assert p["state"] == "REDACTING"          # 소문자 → wire 대문자 enum
-    assert p["violatedPolicies"] == ["과장광고"]
-    assert p["finalDiff"] == "수정본"           # final_text → finalDiff
+    assert p["phase"] == "REDACTING"          # 소문자 state → wire 대문자 phase enum
+    assert p["violatedPolicies"] == ["금융소비자보호법"]
+    assert p["final"] == [{"text": "수정본"}]   # final_text → final 세그먼트
+    # 4규제 checks: reviewing 이후이므로 flagged 산출(위반 라벨만 True).
+    laws = {c["law"]: c["flagged"] for c in p["checks"]}
+    assert len(p["checks"]) == 4
+    assert laws["금융소비자보호법"] is True
+    assert laws["개인정보법"] is False
+
+
+def test_compliance_checks_unreviewed_in_drafting():
+    # drafting 단계: 아직 미검토 → 모든 check flagged=None.
+    rec = _record({"PK": "CALL#c1", "SK": "CMPL#1#0", "state": "drafting", "draft": "초안"})
+    out = sf.handler({"Records": [rec]})
+    p = next(e for e in out["emits"] if e["mutation"] == "_emitComplianceState")["payload"]
+    assert all(c["flagged"] is None for c in p["checks"])
+
+
+def test_turn_with_tokens_emits_speech_analysis():
+    # 분석 토큰이 실린 턴 → onSpeechAnalysis도 발화(카드① 채움).
+    rec = _record({"PK": "CALL#c1", "SK": "TURN#0003", "seq": 3, "speaker": "customer",
+                   "text": "금리가 높아요",
+                   "tokens": [{"text": "금리", "polarity": "CONS", "reason": "가격저항"}]})
+    out = sf.handler({"Records": [rec]})
+    emit = next(e for e in out["emits"] if e["mutation"] == "_emitSpeechAnalysis")
+    p = emit["payload"]
+    assert p["turnSeq"] == 3
+    assert p["tokens"][0]["text"] == "금리" and p["tokens"][0]["polarity"] == "CONS"
+
+
+def test_call_ended_carries_result_type_and_ended_at():
+    rec = _record({"PK": "CALL#c1", "SK": "META", "callId": "c1", "state": "ENDED",
+                   "ended_at": "2026-06-24T00:00:00Z", "handoff_reason": "한도조회 요청"})
+    out = sf.handler({"Records": [rec]})
+    p = next(e for e in out["emits"] if e["mutation"] == "_emitCallEnded")["payload"]
+    assert p["resultType"] == "한도조회_상담원연결"
+    assert p["endedAt"] == "2026-06-24T00:00:00Z"
 
 
 def test_call_ended_and_queue_and_strategy():
@@ -71,12 +105,14 @@ def test_call_ended_and_queue_and_strategy():
     assert "_emitStrategyUpdate" in names
 
 
-def test_strategy_update_two_fields_only():
+def test_strategy_update_payload_shape():
     rec = _record({"PK": "CALL#c1", "SK": "META", "callId": "c1", "state": "IN_CALL",
-                   "strategy_headline": "비교 제안", "rationale": "절감"})
+                   "strategy_headline": "비교 제안", "rationale": "절감", "last_seq": 4})
     out = sf.handler({"Records": [rec]})
     emit = next(e for e in out["emits"] if e["mutation"] == "_emitStrategyUpdate")
-    assert set(emit["payload"]) == {"callId", "strategyHeadline", "rationale"}
+    p = emit["payload"]
+    assert p["strategyHeadline"] == "비교 제안" and p["rationale"] == "절감"
+    assert p["turnSeq"] == 4  # 어느 턴의 전략인지 식별
 
 
 def test_deserialize_typed_image():

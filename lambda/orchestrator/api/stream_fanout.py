@@ -72,17 +72,51 @@ def _mot_payload(item: dict) -> dict:
     return payload
 
 
+# 4규제 카탈로그 (SSOT-3 카드③ COMPLIANCE). 위반 정책 라벨 → 이 카탈로그의 flagged 매핑.
+_COMPLIANCE_LAWS = [
+    {"law": "금융소비자보호법", "desc": "확정·과장 표현 점검"},
+    {"law": "개인정보법", "desc": "불필요 정보 요청 점검"},
+    {"law": "신용정보법", "desc": "활용 범위 준수 점검"},
+    {"law": "표현리스크", "desc": "오해·강요 문구 점검"},
+]
+
+
 def _compliance_payload(item: dict) -> dict:
+    """CMPL 아이템 → onComplianceState payload (SSOT-3 풍부 형상).
+
+    AGENT는 state/draft/violated_policies/final_text만 기록한다. 4규제 checks와
+    최종 diff(final)는 여기서 구성한다:
+      - checks: 4규제 카탈로그 각각에 대해 violated_policies 포함 여부로 flagged 산출.
+        단 reviewing 이전(drafting)에는 미검토(flagged=None).
+      - final: final_text가 있으면 단일 세그먼트로(diff 산출은 향후 확장 여지).
+    """
     call_id = (item.get("PK") or "").removeprefix("CALL#")
-    # AGENT stores state lowercase ("drafting"...); wire enum is uppercase.
     state = item.get("state")
+    phase = state.upper() if isinstance(state, str) else state  # wire enum은 대문자
+    violated = item.get("violated_policies") or []
+    reviewed = isinstance(state, str) and state.lower() != "drafting"
+
+    checks = [
+        {
+            "law": law["law"],
+            "desc": law["desc"],
+            # 미검토(drafting)=None, 검토 후=위반 목록에 law 라벨이 있으면 True.
+            "flagged": (law["law"] in violated) if reviewed else None,
+        }
+        for law in _COMPLIANCE_LAWS
+    ]
+
+    final_text = item.get("final_text")
+    final = [{"text": final_text}] if final_text else []
+
     return {
         "callId": call_id,
-        "state": state.upper() if isinstance(state, str) else state,
+        "phase": phase,
         "draft": item.get("draft"),
-        # 부가 필드(_emit 인자 화이트리스트 밖) — 구독 onComplianceState resolver/표시용.
-        "violatedPolicies": item.get("violated_policies") or [],
-        "finalDiff": item.get("final_text"),
+        "violations": list(violated),       # 가안에서 강조할 위반 표현(라벨 재사용)
+        "checks": checks,
+        "violatedPolicies": list(violated),
+        "final": final,
     }
 
 
@@ -135,9 +169,17 @@ def _dispatch_record(record: dict) -> list[dict]:
 
     if sk.startswith("TURN#"):
         emits.append(_emit("_emitTurn", _turn_payload(new)))
-        # 분석값이 함께 들어오면 index/speech도 발화.
+        call_id = (new.get("PK") or "").removeprefix("CALL#")
+        # 발화분석: 턴에 분석 토큰이 있으면 onSpeechAnalysis도 발화(카드① 채움).
+        tokens = new.get("tokens") or []
+        if tokens:
+            emits.append(_emit("_emitSpeechAnalysis", {
+                "callId": call_id,
+                "turnSeq": new.get("seq"),
+                "tokens": _token_inputs(tokens),
+            }))
+        # 분석값이 함께 들어오면 index도 발화.
         if new.get("churn_after") is not None or new.get("emotion") is not None:
-            call_id = (new.get("PK") or "").removeprefix("CALL#")
             emits.append(_emit("_emitIndexUpdate", {
                 "callId": call_id,
                 "churnRisk": new.get("churn_after"),
@@ -151,16 +193,50 @@ def _dispatch_record(record: dict) -> list[dict]:
         # Call 상태 변경 → 종료/큐 갱신.
         call_id = new.get("callId")
         if new.get("state") == "ENDED":
-            emits.append(_emit("_emitCallEnded", {"callId": call_id}))
+            emits.append(_emit("_emitCallEnded", {
+                "callId": call_id,
+                "resultType": _result_type(new),
+                "endedAt": new.get("ended_at"),
+            }))
         emits.append(_emit("_emitQueueUpdate", {"callId": call_id,
                                                 "state": new.get("state")}))
         if new.get("strategy_headline") is not None:
             emits.append(_emit("_emitStrategyUpdate", {
                 "callId": call_id,
+                "turnSeq": new.get("last_seq"),
                 "strategyHeadline": new.get("strategy_headline"),
                 "rationale": new.get("rationale"),
             }))
     return emits
+
+
+def _token_inputs(tokens: list) -> list[dict]:
+    """churn_tokens → TokenInput 형상(text/polarity/reason)으로 정규화."""
+    out = []
+    for t in tokens:
+        if not isinstance(t, dict):
+            continue
+        out.append({
+            "text": t.get("text") or "",
+            "polarity": t.get("polarity"),
+            "reason": t.get("reason") or "",
+        })
+    return out
+
+
+def _result_type(meta: dict) -> str | None:
+    """종료된 콜 META → onCallEnded resultType(한도조회_상담원연결|가입승인|거절).
+
+    AGENT가 result_type을 직접 기록하면 그대로 쓰고, 없으면 핸드오프/승인 흔적으로 추론.
+    """
+    explicit = meta.get("result_type")
+    if explicit:
+        return explicit
+    if meta.get("handoff_reason") or meta.get("agent_joined_at"):
+        return "한도조회_상담원연결"
+    if meta.get("approved_product_id"):
+        return "가입승인"
+    return None
 
 
 def handler(event: dict, context: Any = None) -> dict:

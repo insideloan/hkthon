@@ -121,8 +121,8 @@ function mkSpeech(callId: string, turnSeq: number, tokens: SpeechAnalysis['token
   return { callId, turnSeq, tokens };
 }
 
-function mkStrategy(callId: string, turnSeq: number, headline: string, rationale: string): StrategyUpdate {
-  return { callId, turnSeq, headline, rationale };
+function mkStrategy(callId: string, turnSeq: number, strategyHeadline: string, rationale: string): StrategyUpdate {
+  return { callId, turnSeq, strategyHeadline, rationale };
 }
 
 function mkCallEnded(callId: string): CallEnded {

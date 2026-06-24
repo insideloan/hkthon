@@ -300,6 +300,7 @@ const ON_COMPLIANCE_STATE_SUB = /* GraphQL */ `
     }
   }
 `;
+// 주의: phase는 wire에서 대문자 enum(DRAFTING…). violatedPolicies는 [String]. (SDL 정합)
 
 type OnComplianceState = { onComplianceState: ComplianceState };
 
@@ -428,12 +429,8 @@ const ON_STRATEGY_UPDATE_SUB = /* GraphQL */ `
     onStrategyUpdate(callId: $callId) {
       callId
       turnSeq
-      headline
+      strategyHeadline
       rationale
-      data {
-        live { lastIntent }
-        static { creditScore }
-      }
     }
   }
 `;

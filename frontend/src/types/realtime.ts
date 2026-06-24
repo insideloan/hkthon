@@ -54,20 +54,14 @@ export const SpeechAnalysisSchema = z.object({
 });
 export type SpeechAnalysis = z.infer<typeof SpeechAnalysisSchema>;
 
-// ── onStrategyUpdate — 상담 전략 (API.md §2.5) ────────────────────────────────
-// headline = 큰 텍스트(상단), data 칩 = 보조(하단). Next action 카드는 제거됨.
-export const StrategyDataSchema = z.object({
-  live: z.object({ lastIntent: z.string() }).partial().optional(),
-  static: z.object({ creditScore: z.number().int() }).partial().optional(),
-});
-export type StrategyData = z.infer<typeof StrategyDataSchema>;
-
+// ── onStrategyUpdate — 상담 전략 (SDL 정합) ───────────────────────────────────
+// strategyHeadline = 큰 텍스트(.stx), rationale = 근거(.slead). turnSeq로 턴 식별.
+// (구 data{live,static} 칩은 SSOT-3에서 폐기 — Next action 카드와 함께 제거.)
 export const StrategyUpdateSchema = z.object({
   callId: z.string(),
-  turnSeq: z.number().int(),
-  headline: z.string(),
+  turnSeq: z.number().int().nullable().optional(),
+  strategyHeadline: z.string(),
   rationale: z.string(),
-  data: StrategyDataSchema.optional(),
 });
 export type StrategyUpdate = z.infer<typeof StrategyUpdateSchema>;
 
@@ -108,9 +102,11 @@ export const CALL_RESULT_TYPES = [
 ] as const;
 export type CallResultType = (typeof CALL_RESULT_TYPES)[number];
 
+// resultType은 백엔드가 핸드오프/승인 흔적이 없으면 null로 보낼 수 있어 옵셔널.
+// endedAt도 즉시 채워지지 않을 수 있어 옵셔널(프론트는 종료 신호만 쓰면 충분).
 export const CallEndedSchema = z.object({
   callId: z.string(),
-  resultType: z.enum(CALL_RESULT_TYPES),
-  endedAt: z.string(),
+  resultType: z.enum(CALL_RESULT_TYPES).nullable().optional(),
+  endedAt: z.string().nullable().optional(),
 });
 export type CallEnded = z.infer<typeof CallEndedSchema>;
