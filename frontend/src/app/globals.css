@@ -439,7 +439,7 @@
 .dnode { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1 1 0; min-width: 0; opacity: 0; transform: scale(.6); transition: opacity .3s; }
 .dnode + .dnode { margin-left: -12px; }
 .dnode.on { opacity: 1; animation: dpop .42s cubic-bezier(.2,1.4,.4,1) forwards; }
-.dcirc { width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: none; background: var(--grad-gray); box-shadow: 0 0 14px -2px rgba(0,0,0,.3); }
+.dcirc { width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: none; background: var(--grad-gray); box-shadow: none; }
 .dcirc .dic { font-size: 12.5px; line-height: 1.1; font-weight: 700; color: var(--ink-dim); text-align: center; word-break: keep-all; padding: 0 3px; }
 .dcirc .dval { font-family: var(--mono); font-size: 12.5px; font-weight: 900; color: #1d3a8f; line-height: 1.02; text-align: center; letter-spacing: -.02em; word-break: keep-all; padding: 0 2px; }
 .dlabel { font-size: 8px; font-weight: 700; color: var(--ink-dim); text-align: center; line-height: 1.15; word-break: keep-all; }
@@ -459,9 +459,9 @@
 .cmp-draft { background: rgba(255,255,255,.72); border: 1.4px solid #C9D3E8; color: #5b4a48; }
 .cmp-draft .risk { color: #C5302D; font-weight: 700; background: none; text-decoration: line-through; text-decoration-color: rgba(197,48,45,.5); }
 .cmp-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.cmp-chk { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 3px 6px; border: 1.4px solid #C9D3E8; border-radius: 8px; text-align: left; background: rgba(255,255,255,.72); padding: 5px 7px; opacity: .4; transition: opacity .3s, border-color .3s, background .3s; }
-.cmp-chk.run { opacity: 1; border-color: #C9D3E8; background: rgba(255,255,255,.72); }
-.cmp-chk.ok { opacity: 1; border-color: #C9D3E8; background: rgba(255,255,255,.72); }
+.cmp-chk { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 3px 6px; border: 1.4px solid #2563EB; border-radius: 8px; text-align: left; background: #EAF0FF; padding: 5px 7px; opacity: .4; transition: opacity .3s, border-color .3s, background .3s; }
+.cmp-chk.run { opacity: 1; border-color: #2563EB; background: #EAF0FF; }
+.cmp-chk.ok { opacity: 1; border-color: #2563EB; background: #EAF0FF; }
 .cmp-chk .cbx { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 9px; font-weight: 700; background: var(--badge-bg); color: var(--badge-ink); transition: all .3s; }
 .cmp-chk.run .cbx { background: #FFE6A8; color: #7a4a00; animation: cpulse 1s ease-in-out infinite; }
 .cmp-chk.ok .cbx { background: var(--go); color: #fff; }
@@ -471,12 +471,12 @@
 .cmp-chk.ok.fix .cbx { background: var(--danger); color: #fff; }
 .cmp-chk.ok.fix .cbx svg { display: none; }
 .cmp-chk.ok.fix .cbx::after { content: "X"; font-size: 12px; font-weight: 800; line-height: 1; font-family: var(--disp); }
-.cmp-chk .claw { font-family: var(--disp); font-size: 10.5px; font-weight: 800; color: var(--ink); flex: none; }
-.cmp-chk.ok .claw { color: #5A3E22; }
+.cmp-chk .claw { font-family: var(--disp); font-size: 10.5px; font-weight: 800; color: #111827; flex: none; }
+.cmp-chk.ok .claw { color: #111827; }
 /* cdesc(설명)을 claw(법명)와 같은 x에서 시작하게 들여쓰기 — cbx(18px)+gap(6px)=24px */
-.cmp-chk .cdesc { flex-basis: 100%; padding-left: 24px; font-size: 9px; font-weight: 600; color: #5A6170; line-height: 1.2; word-break: keep-all; text-align: left; }
+.cmp-chk .cdesc { flex-basis: 100%; padding-left: 24px; font-size: 9px; font-weight: 600; color: #111827; line-height: 1.2; word-break: keep-all; text-align: left; }
 .cmp-chk .cflag { display: none; }
-.cmp-final { background: var(--grad-gray); color: #000; border: none; box-shadow: 0 6px 14px -4px rgba(0,0,0,.25), inset 0 2px 0 0 rgba(255,255,255,.5); font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
+.cmp-final { background: var(--grad-gray); color: #000; border: none; box-shadow: none; font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
 .cmp-final del { color: #9aa0ac; text-decoration: line-through; text-decoration-color: #c9b3b2; font-weight: 500; margin-right: 2px; }
 .cmp-final ins { color: #D6322E; font-weight: 700; text-decoration: none; background: none; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .cmp-final ins.add::before { content: "＋"; font-size: .78em; font-weight: 800; margin-right: 1px; opacity: .8; }
@@ -546,7 +546,7 @@
 .stratg.resolved { flex: 1; min-height: 0; height: 100%; overflow: hidden; display: flex; padding: 2px 0; }
 .stratg.resolved .strat-track { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; grid-template-rows: none; grid-template-columns: none; transform: none !important; animation: none; }
 .stratg.resolved .scard { display: none; }
-.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: none; background: var(--grad-gray); box-shadow: 0 6px 14px -4px rgba(0,0,0,.25), inset 0 2px 0 0 rgba(255,255,255,.5); transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
+.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: none; background: var(--grad-gray); box-shadow: none; transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
 .stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
 .stratg.resolved .scard.sel .stx { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
 .stratg.resolved .scard.sel .slead { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; -webkit-line-clamp: 3; line-clamp: 3; margin-top: 3px; }

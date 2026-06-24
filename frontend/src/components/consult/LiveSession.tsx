@@ -278,7 +278,7 @@ export function LiveSession({ callId, onEnded }: LiveSessionProps) {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms));
     at(900, () => handleTurn({ seq: 1, speaker: 'customer', text: '여보세요?' }));
-    at(2200, () => handleTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. ${custName} 고객님 맞으실까요?` }));
+    at(2200, () => handleTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성을 통해 제공되며, 상담내용은 녹음됨을 안내드립니다. 실례지만 ${custName} 고객님이 맞으세요?` }));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [micState, callId]);

@@ -453,17 +453,27 @@ export class HkthonStack extends cdk.Stack {
         // recently published transitive deps (e.g. semver), breaking CI while
         // local installs pass. Pinning keeps local == CI.
         '            - corepack enable',
+        // pnpm store도 캐시해(아래 cache.paths) 의존성 미변경 시 install을 거의 무비용으로.
+        '            - pnpm config set store-dir .pnpm-store',
         '            - pnpm install --frozen-lockfile',
         '        build:',
         '          commands:',
+        // 빌드 텔레메트리 비활성(소폭 단축, 네트워크 왕복 제거).
+        '            - export NEXT_TELEMETRY_DISABLED=1',
         '            - pnpm run build',
         '      artifacts:',
         '        baseDirectory: .next',
         '        files:',
         '          - "**/*"',
+        // 캐시: node_modules + pnpm store + **.next/cache**.
+        // .next/cache는 Next의 증분 컴파일 캐시(webpack 모듈/컴파일된 페이지)다. 이게
+        // 없으면 코드 한 줄만 바꿔도 매 빌드가 전체 콜드 컴파일이라 느리다(Next 공식이
+        // Amplify 캐시에 넣으라고 명시하는 항목). 추가만으로 증분 빌드가 되어 큰 절감.
         '      cache:',
         '        paths:',
         '          - node_modules/**/*',
+        '          - .pnpm-store/**/*',
+        '          - .next/cache/**/*',
       ].join('\n'),
     });
 
