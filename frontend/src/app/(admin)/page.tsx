@@ -33,21 +33,12 @@ const WAIT_STATES = new Set<CallState>(['CREATED', 'DIALING']);
 function StatCard({
   label,
   value,
-  accent,
   unit,
 }: {
   label: string;
   value: number | string | null;
-  accent?: 'live' | 'miss' | 'done' | 'warn' | undefined;
   unit?: string;
 }) {
-  const valueColor =
-    accent === 'live' ? 'text-[var(--route)]'
-    : accent === 'miss' ? 'text-[var(--danger)]'
-    : accent === 'done' ? 'text-[var(--go)]'
-    : accent === 'warn' ? 'text-[var(--hazard-ink)]'
-    : 'text-[var(--ink)]';
-
   return (
     <div
       style={{
@@ -60,13 +51,13 @@ function StatCard({
         boxShadow: 'var(--shadow)',
       }}
     >
-      <div className="text-[11px] font-bold" style={{ color: 'var(--ink-faint)' }}>
+      <div className="text-[15px] font-bold" style={{ color: 'var(--ink-dim)' }}>
         {label}
       </div>
-      <div className={`font-disp text-[26px] font-[800] leading-tight mt-[3px] ${valueColor}`}>
+      <div className="font-disp text-[26px] font-[800] leading-tight mt-[3px]" style={{ color: 'var(--ink)' }}>
         {value ?? 0}
         {unit && (
-          <small style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-dim)' }}>{unit}</small>
+          <small style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{unit}</small>
         )}
       </div>
     </div>
@@ -77,7 +68,6 @@ function StatCard({
 
 export default function Home() {
   const rows = useQueueStore((s) => s.rows);
-  const summary = useQueueStore((s) => s.summary);
   const prependRow = useQueueStore((s) => s.prependRow);
   const addExperienceCustomer = useExperienceStore((s) => s.addCustomer);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
@@ -97,15 +87,6 @@ export default function Home() {
     setActiveFilter('all'); // 새 행이 가려지지 않게 전체 필터로.
     setExperienceOpen(false);
   };
-
-  // Derived counts from rows (SDL summary = total/needsAgent/fraudSuspected/inCall;
-  // ended/waiting are display-only, computed client-side from row states).
-  const totalCalls = summary?.total ?? rows.length;
-  const endedCount = rows.filter((r) => r.state === 'ENDED').length;
-  const liveCount =
-    summary?.inCall ?? rows.filter((r) => LIVE_STATES.has(r.state as CallState)).length;
-  const completionRate = totalCalls > 0 ? (endedCount / totalCalls) * 100 : 0;
-  const completionRateDisplay = completionRate.toFixed(1);
 
   // Compute filtered rows for the count badge and table
   const filteredRows = rows.filter((row) => {
@@ -137,12 +118,20 @@ export default function Home() {
         >
           전체 상담 모니터링
         </span>
+        {/* 날짜·시각 — 체험 버튼 왼쪽에 표시(데모용 고정값). */}
+        <span
+          data-testid="admin-datetime"
+          className="ml-auto self-center font-mono text-[12px] font-[700]"
+          style={{ color: 'var(--ink-dim)' }}
+        >
+          6/25 14:45
+        </span>
         {/* 체험 버튼 — 우상단. 클릭 시 고객 정보 입력 팝업. */}
         <button
           type="button"
           data-testid="experience-button"
           onClick={() => setExperienceOpen(true)}
-          className="ml-auto self-center inline-flex items-center gap-1.5 cursor-pointer transition-all duration-[180ms] hover:-translate-y-px"
+          className="self-center inline-flex items-center gap-1.5 cursor-pointer transition-all duration-[180ms] hover:-translate-y-px"
           style={{
             fontSize: 13, fontWeight: 700, color: '#fff',
             background: 'var(--route)', border: 'none', borderRadius: 10,
@@ -163,10 +152,10 @@ export default function Home() {
 
       {/* ── adm-stats ── */}
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
-        <StatCard label="상담중" value={liveCount} accent="live" />
-        <StatCard label="대기중" value={2} />
-        <StatCard label="대출 접수" value={endedCount} unit="건" accent="done" />
-        <StatCard label="컴플라이언스 준수율" value={completionRateDisplay} unit="%" accent="done" />
+        <StatCard label="상담중" value={123} unit="건" />
+        <StatCard label="대기중" value={21} unit="건" />
+        <StatCard label="대출 접수" value={579} unit="개" />
+        <StatCard label="컴플라이언스 준수율" value="99.9" unit="%" />
       </div>
 
       {/* ── adm-toolbar ── */}

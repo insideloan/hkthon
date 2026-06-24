@@ -187,7 +187,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
       data-testid="segment-page"
       data-phase={phase}
     >
-      <div className="sg-wrap mx-auto max-w-[760px]">
+      <div className="sg-wrap mx-auto max-w-[1160px]">
 
         {/* 상단: 고객 정보 + 분석 상태 */}
         <div className="sg-top mb-[14px] flex items-center gap-3">
@@ -243,9 +243,13 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           )}
         </div>
 
+        {/* 좌: 세그먼트 조합 수(viz) / 우: 상담 전략 + 발신 버튼.
+            lg 이상에서 2단 가로 배치, 좁은 화면에선 세로 스택으로 폴백. */}
+        <div className="sg-row flex flex-col items-start gap-4 lg:flex-row">
+
         {/* Fix #3: Counter + SVG in single .glass card */}
         <div
-          className="glass-card"
+          className="glass-card w-full lg:flex-1 lg:min-w-0"
           data-testid="segment-viz"
         >
           {/* Fix #2: Counter — label '가능한 세그먼트 조합 경우의 수', combo number from 16,777,216 */}
@@ -424,14 +428,14 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           </svg>
         </div>
 
-        {/* 분석 완료 후 — 전략 정보 + 통화 버튼.
+        {/* 우측 컬럼 — 분석 완료 후 전략 정보 + 통화 버튼.
             SSOT .sg-final: opacity:0 → .show(opacity:1) 페이드인 (mount 토글 아님). */}
         {analysisComplete && (
-          <>
+          <div className="sg-side w-full lg:w-[420px] lg:flex-none" data-testid="segment-side">
             {/* sg-final: SSOT — opacity .5s 페이드인 + gap:12px */}
             <div
               className={clsx(
-                'sg-final mt-[14px] flex flex-col gap-[12px] opacity-0 transition-opacity duration-500',
+                'sg-final flex flex-col gap-[12px] opacity-0 transition-opacity duration-500',
                 analysisComplete && 'show opacity-100',
               )}
               data-testid="analysis-final"
@@ -531,8 +535,10 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 />
               )}
             </div>
-          </>
+          </div>
         )}
+
+        </div>{/* /sg-row */}
 
         {/* 에러 상태 */}
         {phase === 'error' && (
