@@ -15,9 +15,31 @@ from orchestrator.tts.typecast_tts import (
     VOICE_MAP,
     TtsError,
     _SKIP_S3,
+    _TIMEOUT,
+    _http_timeout,
     resolve_voice_id,
     synthesize,
 )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP 타임아웃 (best-effort: Lambda 90s 안에서 TTS가 턴을 잡아먹지 않게 짧게)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_http_timeout_default():
+    """미설정 시 기본값(_TIMEOUT=12s) — Lambda 전체 타임아웃(90s)보다 충분히 짧다."""
+    assert _http_timeout() == _TIMEOUT == 12.0
+
+
+def test_http_timeout_env_override(monkeypatch):
+    monkeypatch.setenv("TTS_HTTP_TIMEOUT_S", "8")
+    assert _http_timeout() == 8.0
+
+
+def test_http_timeout_env_invalid_falls_back(monkeypatch):
+    monkeypatch.setenv("TTS_HTTP_TIMEOUT_S", "not-a-number")
+    assert _http_timeout() == _TIMEOUT
 
 
 # ─────────────────────────────────────────────────────────────────────────────
