@@ -51,7 +51,7 @@ describe('CrmDetailPage — #view-summary layout', () => {
 
   it('renders customer profile with 박서준', async () => {
     await renderPage();
-    expect(screen.getByText('박서준 · 남 · 38세')).toBeInTheDocument();
+    expect(screen.getByText('박서준 · 41세')).toBeInTheDocument();
   });
 
   it('renders profile card with 고객 프로필 heading', async () => {
