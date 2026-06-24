@@ -54,7 +54,7 @@ function LiveDbCard({ callId }: { callId?: string }) {
 
   return (
     <div className="card-scroll" data-testid="db-card-live">
-      <div className="cseclbl"><span>사용 데이터</span><span className="ln" /></div>
+      {/* 첫 섹션 라벨 제거됨 */}
       <div className="usebox" data-testid="db-use">
         {usedData.map((nm, i) => (
           <div key={i} className="usecard on">
@@ -98,10 +98,7 @@ function EngineDbCard() {
 
   return (
     <div className="card-scroll">
-      <div className="cseclbl">
-        <span>사용 데이터</span>
-        <span className="ln" />
-      </div>
+      {/* 첫 섹션 라벨 제거됨 */}
 
       {/* 사용데이터 칩 */}
       <div className="usebox" id="dbUse" data-testid="db-use">
