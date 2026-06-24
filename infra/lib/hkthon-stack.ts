@@ -99,7 +99,10 @@ export class HkthonStack extends cdk.Stack {
       // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
       // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
       code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
-      timeout: cdk.Duration.seconds(30),
+      // 라이브 한 턴(nextTurn/audioChunk)은 agent 그래프(Bedrock classify+respond,
+      // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
+      // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
+      timeout: cdk.Duration.seconds(90),
       memorySize: 256,
       environment: {
         TABLE_NAME: table.tableName,
