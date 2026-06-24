@@ -468,3 +468,113 @@ def test_classify_turn_json_mode_default_is_on():
         from orchestrator.llm import router as r2
 
         importlib.reload(r2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. fused 모드 — _parse_fused / classify_respond_fused
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _fused_json() -> str:
+    return (
+        '{"classify": {"intent": "INTEREST", "route": "RESPOND", "emotion": "부담", '
+        '"need": "", "usability": "", "fraud_suspected": false, "churn_adjust": -2, '
+        '"strategy_tactic": "대환 제안 전략", "strategy_headline": "h", "rationale": "관심"}, '
+        '"response": "안내 응답입니다.", "compliance_confidence": 0.91}'
+    )
+
+
+def test_parse_fused_full():
+    from orchestrator.llm import router as r
+
+    parsed = r._parse_fused(_fused_json())  # noqa: SLF001
+    assert parsed is not None
+    classify, response, conf = parsed
+    assert classify.route == "RESPOND"
+    assert classify.churn_adjust == -2
+    assert response == "안내 응답입니다."
+    assert conf == 0.91
+
+
+def test_parse_fused_strips_fence():
+    from orchestrator.llm import router as r
+
+    parsed = r._parse_fused("```json\n" + _fused_json() + "\n```")  # noqa: SLF001
+    assert parsed is not None and parsed[1] == "안내 응답입니다."
+
+
+def test_parse_fused_clamps_and_defaults_confidence():
+    from orchestrator.llm import router as r
+
+    # confidence 범위 초과 → 클램프
+    over = (
+        '{"classify": {"intent": "X", "route": "RESPOND"}, '
+        '"response": "ok", "compliance_confidence": 5}'
+    )
+    assert r._parse_fused(over)[2] == 1.0  # noqa: SLF001
+    # confidence 누락 → 0.0(안전측: Guardrail 강제)
+    missing = '{"classify": {"intent": "X", "route": "RESPOND"}, "response": "ok"}'
+    assert r._parse_fused(missing)[2] == 0.0  # noqa: SLF001
+    # confidence 형변환 불가 → 0.0
+    bad = (
+        '{"classify": {"intent": "X", "route": "RESPOND"}, '
+        '"response": "ok", "compliance_confidence": "high"}'
+    )
+    assert r._parse_fused(bad)[2] == 0.0  # noqa: SLF001
+
+
+def test_parse_fused_missing_classify_returns_none():
+    from orchestrator.llm import router as r
+
+    assert r._parse_fused('{"response": "ok", "compliance_confidence": 0.9}') is None  # noqa: SLF001
+    assert r._parse_fused("not json") is None  # noqa: SLF001
+    assert r._parse_fused('{"classify": "wrong type", "response": "x"}') is None  # noqa: SLF001
+
+
+def test_parse_fused_non_string_response_becomes_empty():
+    from orchestrator.llm import router as r
+
+    weird = '{"classify": {"intent": "X", "route": "SILENCE"}, "response": null, "compliance_confidence": 1}'
+    parsed = r._parse_fused(weird)  # noqa: SLF001
+    assert parsed is not None and parsed[1] == ""
+
+
+def test_classify_respond_fused_single_invoke():
+    """classify_respond_fused가 .invoke() 1회로 (classify, response, confidence)를 낸다."""
+    mock_instance = MagicMock()
+    mock_instance.invoke.return_value = MagicMock(content=_fused_json())
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        import sys
+
+        if "orchestrator.llm.router" in sys.modules:
+            del sys.modules["orchestrator.llm.router"]
+        from orchestrator.llm import router as r
+
+        r._chat = None  # noqa: SLF001
+        parsed = r.classify_respond_fused("fused system", "고객: 금리?")
+
+    assert parsed is not None
+    classify, response, conf = parsed
+    assert classify.route == "RESPOND" and response == "안내 응답입니다." and conf == 0.91
+    mock_instance.invoke.assert_called_once()
+
+
+def test_classify_respond_fused_exception_returns_none():
+    """LLM 예외 시 None → 호출측 직렬 폴백."""
+    mock_instance = MagicMock()
+    mock_instance.invoke.side_effect = RuntimeError("bedrock down")
+    mock_cls = MagicMock(return_value=mock_instance)
+    mock_cls.__name__ = "ChatBedrockConverse"
+
+    with patch.dict("sys.modules", {"langchain_aws": MagicMock(ChatBedrockConverse=mock_cls)}):
+        import sys
+
+        if "orchestrator.llm.router" in sys.modules:
+            del sys.modules["orchestrator.llm.router"]
+        from orchestrator.llm import router as r
+
+        r._chat = None  # noqa: SLF001
+        assert r.classify_respond_fused("sys", "user") is None

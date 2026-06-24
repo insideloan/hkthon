@@ -122,3 +122,93 @@ def test_respond_node_passes_signals_to_prompt(monkeypatch):
     assert out["bot_draft"] == "응답"
     assert captured["tactic"] == Tactic.PROPOSE_REFINANCE
     assert captured["emotion"] == Emotion.BURDENED
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FUSED_TURN — 분류+응답+신뢰도 단일 호출 (classify 노드 게이트)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_classify_fused_mode_maps_result_and_stashes_draft(monkeypatch):
+    """FUSED_TURN=1: classify_respond_fused 결과를 state로 매핑하고 응답을 _blind_draft에,
+    신뢰도를 _compliance_confidence에 싣는다."""
+    result = ClassifyResult(
+        intent="INTEREST", route="RESPOND", emotion="부담",
+        strategy_tactic="대환 제안 전략", strategy_headline="h",
+    )
+    monkeypatch.setattr(nodes, "_FUSED_TURN", True)
+    monkeypatch.setattr(
+        nodes.router, "classify_respond_fused",
+        lambda fused_system, history: (result, "안내 응답입니다.", 0.92),
+    )
+    out = nodes.classify({"customer_text": "월 납입 줄어요?", "history": []})
+
+    assert out["emotion"] == Emotion.BURDENED
+    assert out["strategy"]["tactic"] == Tactic.PROPOSE_REFINANCE.value
+    assert out["_blind_draft"] == "안내 응답입니다."        # respond 노드가 재사용
+    assert out["_compliance_confidence"] == 0.92            # compliance 게이트가 사용
+    assert out["classified_by"] == "llm"
+
+
+def test_classify_fused_empty_response_leaves_draft_none(monkeypatch):
+    """fused 응답 텍스트가 비면(SILENCE 등) _blind_draft=None → respond 노드가 정식 생성."""
+    result = ClassifyResult(intent="SILENCE", route="SILENCE")
+    monkeypatch.setattr(nodes, "_FUSED_TURN", True)
+    monkeypatch.setattr(
+        nodes.router, "classify_respond_fused",
+        lambda fused_system, history: (result, "", 1.0),
+    )
+    out = nodes.classify({"customer_text": "...", "history": []})
+    assert out["_blind_draft"] is None
+
+
+def test_classify_fused_parse_failure_falls_back_to_serial(monkeypatch):
+    """fused가 None(파싱 실패)이면 직렬 classify_turn 경로로 폴백한다."""
+    monkeypatch.setattr(nodes, "_FUSED_TURN", True)
+    monkeypatch.setattr(nodes.router, "classify_respond_fused", lambda fused_system, history: None)
+    called = {}
+
+    def fake_classify_turn(system, user):
+        called["serial"] = True
+        return ClassifyResult(intent="INTEREST", route="RESPOND")
+
+    monkeypatch.setattr(nodes.router, "classify_turn", fake_classify_turn)
+    out = nodes.classify({"customer_text": "x", "history": []})
+    assert called.get("serial") is True
+    assert out["route"].value == "RESPOND"
+    assert "_compliance_confidence" not in out   # 직렬 경로는 신뢰도 미설정
+
+
+def test_classify_fused_system_prompt_has_all_three_sections():
+    """fused_system 프롬프트가 분류/응답/신뢰도 세 작업과 JSON 형태를 담는다."""
+    from orchestrator.agent import prompts
+    from orchestrator.agent.state import Stage
+
+    sys = prompts.fused_system(Stage.PROPOSE)
+    assert "classify" in sys and "response" in sys and "compliance_confidence" in sys
+    assert "대환 제안 전략" in sys      # 신호 카탈로그 주입
+    assert "금지 표현" in sys           # 금지표현 사전주입
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# history 윈도잉 — 최근 N개만 렌더
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_render_history_windows_to_recent(monkeypatch):
+    """_HISTORY_WINDOW개를 초과하면 최근 N개만 렌더(직전 맥락 유지)."""
+    monkeypatch.setattr(nodes, "_HISTORY_WINDOW", 3)
+    history = [{"speaker": "customer", "text": f"메시지{i}"} for i in range(10)]
+    rendered = nodes._render_history({"history": history, "customer_text": "지금발화"})
+    # 최근 3개 history + 현재 발화만
+    assert "메시지9" in rendered and "메시지8" in rendered and "메시지7" in rendered
+    assert "메시지6" not in rendered and "메시지0" not in rendered
+    assert "지금발화" in rendered
+
+
+def test_render_history_no_window_when_zero(monkeypatch):
+    """_HISTORY_WINDOW<=0이면 전체 history를 렌더(무제한)."""
+    monkeypatch.setattr(nodes, "_HISTORY_WINDOW", 0)
+    history = [{"speaker": "customer", "text": f"메시지{i}"} for i in range(10)]
+    rendered = nodes._render_history({"history": history, "customer_text": "x"})
+    assert "메시지0" in rendered and "메시지9" in rendered

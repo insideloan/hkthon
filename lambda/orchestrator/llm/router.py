@@ -115,6 +115,60 @@ def _parse_classify(text: str) -> Optional[ClassifyResult]:
         return None
 
 
+def _extract_json_object(text: str) -> Optional[dict]:
+    """LLM 자유텍스트에서 가장 바깥 JSON 객체를 떼어 dict로 파싱(코드펜스/프리앰블 허용).
+
+    _parse_classify와 동일한 추출 규칙을 공유하되 임의 dict를 반환한다(fused 등 다중 키용).
+    """
+    if not text:
+        return None
+    stripped = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    start, end = stripped.find("{"), stripped.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return None
+    try:
+        data = json.loads(stripped[start : end + 1])
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+# fused 응답에서 compliance_confidence 누락/이상 시의 보수적 기본값.
+# 0.0이면 호출측이 "신뢰 못 함"으로 보고 항상 Guardrail을 태운다(안전측 폴백).
+_FUSED_CONF_FALLBACK = 0.0
+
+
+def _parse_fused(text: str) -> Optional[tuple[ClassifyResult, str, float]]:
+    """fused 응답 {classify:{...}, response, compliance_confidence}을 파싱.
+
+    classify는 ClassifyResult로 검증(실패 시 None=전체 폴백), response는 문자열,
+    confidence는 0~1로 클램프(누락/형변환 실패 시 0.0 → 안전측: Guardrail 강제).
+    핵심(classify) 검증 실패면 None → 호출측이 직렬 2콜(classify_turn+converse)로 폴백한다.
+    """
+    data = _extract_json_object(text)
+    if data is None:
+        logger.warning("fused 모드: JSON 객체 파싱 실패")
+        return None
+    classify_raw = data.get("classify")
+    if not isinstance(classify_raw, dict):
+        logger.warning("fused 모드: classify 객체 누락")
+        return None
+    try:
+        classify = ClassifyResult.model_validate(classify_raw)
+    except ValidationError:
+        logger.warning("fused 모드: classify 스키마 검증 실패")
+        return None
+    response = data.get("response")
+    if not isinstance(response, str):
+        response = ""
+    try:
+        conf = float(data.get("compliance_confidence", _FUSED_CONF_FALLBACK))
+    except (TypeError, ValueError):
+        conf = _FUSED_CONF_FALLBACK
+    conf = max(0.0, min(1.0, conf))
+    return classify, response.strip(), conf
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 클라이언트 (모듈 1회 생성, 콜드스타트 간 재사용)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -248,6 +302,34 @@ def classify_and_respond_concurrent(
         f_classify = ex.submit(_classify)
         f_respond = ex.submit(_respond)
         return f_classify.result(), f_respond.result()
+
+
+def classify_respond_fused(
+    fused_system: str,
+    history: str,
+) -> Optional[tuple[ClassifyResult, str, float]]:
+    """분류 + 응답 + 컴플라이언스 자가신뢰도를 단일 Converse 호출로 한 번에 추출(FUSED_TURN).
+
+    classify와 respond를 직렬 2콜로 돌리던 것을 1콜로 합쳐 라이브 한 턴 지연을 크게 줄인다.
+    같은 추론 패스에서 전략을 고르고 그대로 응답을 생성하므로 speculative blind draft와 달리
+    tactic/emotion 스티어링을 유지한다(품질 손실 없음). 추가로 모델이 자기 응답의 금소법 준수
+    신뢰도(0~1)를 함께 내, 호출측(compliance)이 임계값 이상이면 Bedrock Guardrail 왕복을 생략한다.
+
+    Returns:
+        (ClassifyResult, response_text, compliance_confidence) 또는 None(파싱/호출 실패).
+        None이면 호출측(nodes.classify)이 직렬 2콜 경로로 폴백한다.
+    """
+    try:
+        raw = _client().invoke(
+            [
+                {"role": "system", "content": fused_system},
+                {"role": "user", "content": history},
+            ]
+        )
+        return _parse_fused(_as_text(raw.content))
+    except Exception:  # noqa: BLE001 — 데모 안정성: LLM 장애가 통화를 끊지 않게
+        logger.exception("classify_respond_fused failed; caller falls back to serial calls")
+        return None
 
 
 async def astream_converse(

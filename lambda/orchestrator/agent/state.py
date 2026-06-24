@@ -201,7 +201,8 @@ class CallState(TypedDict, total=False):
     # respond / compliance
     bot_draft: str
     bot_text: str
-    _blind_draft: Optional[str]   # speculative 모드: classify와 병렬 생성한 전략 미주입 draft
+    _blind_draft: Optional[str]   # speculative/fused 모드: classify 단계에서 미리 생성한 draft
+    _compliance_confidence: Optional[float]  # fused 모드: 모델 자가평가 금소법 준수 신뢰도(0~1)
     compliance_log: list[ComplianceStep]
     audio_url: Optional[str]   # persist가 채움: 봇 발화 TTS mp3 presigned URL (라이브 모드)
 
