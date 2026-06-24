@@ -26,13 +26,59 @@ def resolve_start_audio(event: dict, args: dict) -> bool:
     임포트)을 미리 초기화해 둔다. 그러지 않으면 첫 audioChunk가 이 비용을 전부
     떠안아 사용자의 "첫 발화 → 텍스트" 지연이 유독 길어진다. prewarm은 best-effort —
     실패해도 세션 시작을 막지 않는다(첫 청크에서 자연스럽게 재시도).
+
+    customerName이 오면(체험 모바일 경로) 최소 고객 컨텍스트를 시드한다 — 체험
+    콜(exp-*)은 프론트 Zustand에만 있고 DynamoDB 레코드가 없어, 그대로 두면
+    _load_customer가 빈 컨텍스트를 돌려주고 AI가 이름을 몰라 인사말에 <고객명>
+    placeholder를 내뱉는다.
     """
     if get_settings().is_script:
         logger.info("startAudio no-op (script mode)")
         return False
-    logger.info("startAudio callId=%s", args.get("callId"))
+    call_id = args.get("callId")
+    customer_name = args.get("customerName")
+    logger.info("startAudio callId=%s name=%r", call_id, customer_name)
+    if call_id and customer_name:
+        _ensure_experience_customer(call_id, customer_name)
     _prewarm()
     return True
+
+
+def _ensure_experience_customer(call_id: str, customer_name: str) -> None:
+    """체험 콜의 최소 고객 컨텍스트(CALL META + CUST META)를 시드(best-effort).
+
+    체험 콜은 callId == customerId == "exp-{ts}" 규약이다. _load_customer는
+    CALL META의 customerId → CUST META(name 등) 순으로 읽으므로, 두 META를 모두
+    만들어 둬야 프롬프트의 [고객 정보] 이름 슬롯이 채워진다.
+
+    이미 존재하는 콜/고객(실제 시드된 페르소나)은 덮어쓰지 않는다 — 본인 응대용
+    민감정보가 이름만 있는 최소 레코드로 날아가지 않게 조건부 write를 쓴다.
+    실패는 세션을 막지 않는다(이름이 비면 기존처럼 placeholder로 폴백).
+    """
+    try:
+        # CALL META: 그래프가 customerId로 고객을 찾도록 연결.
+        dynamo.put_item_if_absent({
+            "PK": dynamo.pk_call(call_id),
+            "SK": dynamo.SK_META,
+            "callId": call_id,
+            "customerId": call_id,
+        })
+    except dynamo.ConditionalCheckFailedError:
+        logger.info("startAudio: CALL META 이미 존재, 시드 스킵 call=%s", call_id)
+    except Exception:  # noqa: BLE001 — 시드 실패는 세션을 막지 않는다.
+        logger.debug("startAudio: CALL META 시드 실패 call=%s", call_id, exc_info=True)
+    try:
+        # CUST META: 이름만 있는 최소 고객 레코드(체험은 본인확인 후 일반 상담 흐름).
+        dynamo.put_item_if_absent({
+            "PK": dynamo.pk_cust(call_id),
+            "SK": dynamo.SK_META,
+            "customerId": call_id,
+            "name": customer_name,
+        })
+    except dynamo.ConditionalCheckFailedError:
+        logger.info("startAudio: CUST META 이미 존재, 시드 스킵 call=%s", call_id)
+    except Exception:  # noqa: BLE001
+        logger.debug("startAudio: CUST META 시드 실패 call=%s", call_id, exc_info=True)
 
 
 def _prewarm() -> None:
@@ -77,11 +123,20 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
         logger.info("audioChunk: STT 무음/잡음 스킵 call=%s text=%r", call_id, text)
         return False
 
+    # Turn 목록은 에코 판별과 seq 계산 양쪽에 필요하다. 예전엔 둘이 따로 query해
+    # 청크마다 DynamoDB를 2번 긁었다 — 첫 발화 표시 지연에 그대로 얹히던 비용이라
+    # 한 번만 조회해 공유한다(쓰기 충돌 재시도 때만 _write_customer_turn이 재조회).
+    try:
+        turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
+    except Exception:  # noqa: BLE001 — 조회 실패 시 보수적으로 빈 목록(에코 미필터 + seq 재계산).
+        logger.debug("audioChunk: Turn 조회 실패 call=%s", call_id, exc_info=True)
+        turns = []
+
     # 에코 안전망: 모바일은 스피커-마이크가 가까워 봇 음성이 마이크로 되먹임된다.
     # 프론트 AEC·VAD 게이팅이 다 못 막은 잔여가 STT까지 흘러 "봇이 방금 한 말"이
     # 유령 customer Turn으로 기록되면, 그래프가 자기 발화에 또 응답해 루프가 돈다.
     # 직전 봇 발화와 STT 결과가 충분히 유사하면 에코로 보고 드롭한다.
-    if _looks_like_bot_echo(call_id, text):
+    if _looks_like_bot_echo(text, turns):
         logger.info("audioChunk: 봇 에코 의심 드롭 call=%s text=%r", call_id, text)
         return False
 
@@ -89,7 +144,7 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
     # 발화가 빠르게 이어지거나, barge-in 되먹임 등)가 같은 seq를 중복 발급하면 TTS
     # S3 키가 충돌하고 프론트가 멱등 차단으로 음성을 버린다 — len(turns)+1 대신
     # max(seq)+1을 쓰고, attribute_not_exists 조건부 write로 충돌 시 재계산·재시도한다.
-    seq = _write_customer_turn(call_id, text)
+    seq = _write_customer_turn(call_id, text, turns)
     if seq is None:
         logger.warning("audioChunk: customer Turn write 충돌 재시도 소진 call=%s", call_id)
         return False
@@ -103,14 +158,18 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
 _SEQ_RETRY = 5
 
 
-def _write_customer_turn(call_id: str, text: str) -> int | None:
+def _write_customer_turn(call_id: str, text: str, turns: list[dict] | None = None) -> int | None:
     """customer Turn을 충돌 없는 seq로 조건부 write하고 그 seq를 반환. 소진 시 None.
 
     seq = 기존 Turn 최대 seq + 1. 조건부 write가 실패(다른 invocation이 선점)하면
     Turn을 다시 조회해 seq를 올려 재시도한다.
+
+    turns: 호출측이 이미 조회한 Turn 목록(첫 시도에 재사용해 중복 query 회피).
+    충돌 재시도부터는 최신 상태가 필요하므로 항상 다시 조회한다.
     """
-    for _ in range(_SEQ_RETRY):
-        turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
+    for attempt in range(_SEQ_RETRY):
+        if attempt > 0 or turns is None:
+            turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
         seq = max((int(t.get("seq", 0)) for t in turns), default=0) + 1
         try:
             dynamo.put_item_if_absent({
@@ -154,19 +213,16 @@ def _normalize_tokens(text: str) -> set[str]:
     return set(re.findall(r"[0-9a-z가-힣]+", text.lower()))
 
 
-def _looks_like_bot_echo(call_id: str, text: str) -> bool:
+def _looks_like_bot_echo(text: str, turns: list[dict]) -> bool:
     """STT 결과가 직전 봇 발화의 되먹임(에코)으로 의심되는지.
 
-    가장 최근 bot Turn 텍스트와 토큰 자카드 유사도를 재 임계값 이상이면 True.
-    조회 실패·봇 발화 없음·짧은 텍스트는 보수적으로 False(정상 발화를 막지 않는다).
+    가장 최근 bot Turn 텍스트와 토큰 자카드 유사도가 임계값 이상이면 True.
+    봇 발화 없음·짧은 텍스트는 보수적으로 False(정상 발화를 막지 않는다).
+
+    turns: 호출측이 이미 조회한 Turn 목록(중복 query 회피용으로 주입받는다).
     """
     cand = _normalize_tokens(text)
     if not cand:
-        return False
-    try:
-        turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
-    except Exception:  # noqa: BLE001 — 조회 실패 시 필터를 끄고 정상 경로로.
-        logger.debug("echo 필터: Turn 조회 실패 call=%s", call_id, exc_info=True)
         return False
     bot_turns = [t for t in turns if t.get("speaker") == "bot" and t.get("text")]
     if not bot_turns:

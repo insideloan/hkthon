@@ -192,6 +192,42 @@ def test_start_audio_prewarms_dependencies(monkeypatch):
     assert called["n"] == 1
 
 
+def test_start_audio_seeds_experience_customer(monkeypatch):
+    """customerName이 오면 CALL/CUST META를 시드해 _load_customer가 이름을 찾게 한다."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    monkeypatch.setattr(transcribe_stt, "prewarm", lambda *a, **k: True)
+    assert audio.resolve_start_audio({}, {"callId": "exp-1", "customerName": "김민지"}) is True
+
+    call_meta = dynamo.get_item(dynamo.pk_call("exp-1"), dynamo.SK_META)
+    assert call_meta is not None and call_meta["customerId"] == "exp-1"
+    cust_meta = dynamo.get_item(dynamo.pk_cust("exp-1"), dynamo.SK_META)
+    assert cust_meta is not None and cust_meta["name"] == "김민지"
+
+
+def test_start_audio_does_not_overwrite_existing_customer(monkeypatch):
+    """이미 시드된 실제 고객(이름+민감정보)은 최소 레코드로 덮어쓰지 않는다."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    monkeypatch.setattr(transcribe_stt, "prewarm", lambda *a, **k: True)
+    # 기존 콜/고객(페르소나) — customerId 연결 + 민감정보 포함.
+    dynamo.put_item({"PK": dynamo.pk_call("c-real"), "SK": dynamo.SK_META,
+                     "callId": "c-real", "customerId": "cust-009"})
+    dynamo.put_item({"PK": dynamo.pk_cust("cust-009"), "SK": dynamo.SK_META,
+                     "customerId": "cust-009", "name": "정우성", "credit_score": 712})
+
+    assert audio.resolve_start_audio({}, {"callId": "c-real", "customerName": "딴이름"}) is True
+    # CALL META의 customerId(고객 연결)는 그대로 — 최소 레코드로 덮어쓰지 않음.
+    call_meta = dynamo.get_item(dynamo.pk_call("c-real"), dynamo.SK_META)
+    assert call_meta["customerId"] == "cust-009"
+    cust_meta = dynamo.get_item(dynamo.pk_cust("cust-009"), dynamo.SK_META)
+    assert cust_meta["name"] == "정우성" and cust_meta["credit_score"] == 712
+
+
 def test_start_audio_prewarm_failure_does_not_break_session(monkeypatch):
     """prewarm이 던져도 세션 시작(True)은 막지 않는다(best-effort)."""
     monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
@@ -266,9 +302,8 @@ def test_echo_filter_passes_genuine_customer_speech(monkeypatch):
 
 def test_echo_filter_helper_similarity():
     """_looks_like_bot_echo: 동일/유사 문장 True, 무관 문장 False, 봇 발화 없으면 False."""
-    dynamo.put_item({"PK": dynamo.pk_call("cE"), "SK": dynamo.sk_turn(1),
-                     "seq": 1, "speaker": "bot", "text": "대출 한도를 안내해 드리겠습니다"})
-    assert audio._looks_like_bot_echo("cE", "대출 한도를 안내해 드리겠습니다") is True
-    assert audio._looks_like_bot_echo("cE", "네 알겠습니다 감사합니다") is False
+    bot_turns = [{"seq": 1, "speaker": "bot", "text": "대출 한도를 안내해 드리겠습니다"}]
+    assert audio._looks_like_bot_echo("대출 한도를 안내해 드리겠습니다", bot_turns) is True
+    assert audio._looks_like_bot_echo("네 알겠습니다 감사합니다", bot_turns) is False
     # 봇 발화가 전혀 없는 콜은 항상 False(정상 발화를 막지 않는다).
-    assert audio._looks_like_bot_echo("cNo", "아무 말") is False
+    assert audio._looks_like_bot_echo("아무 말", []) is False

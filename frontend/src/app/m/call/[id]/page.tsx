@@ -97,7 +97,14 @@ export default function MobileCallPage({ params }: PageProps) {
 
       {/* 라이브 통화 패널 — 종료 시 완료 화면으로 전환(CRM 미사용) */}
       <div className="flex flex-1 min-h-0 flex-col overflow-y-auto">
-        <LiveSession callId={callId} onEnded={() => setFinished(true)} />
+        <LiveSession
+          callId={callId}
+          onEnded={() => setFinished(true)}
+          customerName={customer?.name}
+          // 모바일은 스피커-마이크 근접·생활소음 환경상 0.14가 둔감해 발화가 끊겨
+          // 들어오는 경우가 있어, 데스크톱보다 민감한 0.11로 시작한다.
+          initialVadThreshold={0.11}
+        />
       </div>
     </div>
   );

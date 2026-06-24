@@ -74,7 +74,7 @@ describe('LiveSession', () => {
         autoGainControl: true,
       }),
     });
-    await waitFor(() => expect(startAudio).toHaveBeenCalledWith('exp-1'));
+    await waitFor(() => expect(startAudio).toHaveBeenCalledWith('exp-1', undefined));
     expect(screen.getByTestId('live-session')).toHaveAttribute('data-mic-state', 'listening');
   });
 

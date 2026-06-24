@@ -100,6 +100,25 @@ class SttHandler:
 _DEFAULT_MAX_FRAME_BYTES = 8000
 
 
+# TranscribeStreamingClient를 리전별로 워밍 인스턴스 간 재사용한다. 발화마다 새
+# 클라이언트를 만들면 자격증명 resolve·커넥션 풀 셋업을 매번 치러 첫 발화 지연에
+# 그대로 얹힌다(스트리밍 세션 자체는 발화당 새로 열되, 클라이언트 객체는 공유).
+# Lambda 워밍 컨테이너에서 모듈 전역으로 살아남아 후속 invocation이 재사용한다.
+_CLIENT_CACHE: dict[str, object] = {}
+
+
+def _get_client(region: str):
+    """리전별 캐시된 TranscribeStreamingClient를 반환(없으면 생성해 캐시)."""
+    client = _CLIENT_CACHE.get(region)
+    if client is None:
+        from amazon_transcribe.client import TranscribeStreamingClient  # noqa: PLC0415
+
+        client = TranscribeStreamingClient(region=region)
+        _CLIENT_CACHE[region] = client
+        logger.debug("transcribe_stt: 클라이언트 신규 생성 region=%s", region)
+    return client
+
+
 async def stream_chunks(
     chunks: AsyncIterator[bytes],
     *,
@@ -130,16 +149,15 @@ async def stream_chunks(
         await handler.handle_events()
         return handler.get_results()
 
-    # 실 AWS 호출 경로 (런타임)
+    # 실 AWS 호출 경로 (런타임) — 클라이언트는 워밍 인스턴스 간 재사용(캐시).
     try:
-        from amazon_transcribe.client import TranscribeStreamingClient  # noqa: PLC0415
+        client = _get_client(region)
     except ImportError as exc:
         raise RuntimeError(
             "amazon-transcribe 패키지가 설치되지 않았습니다. "
             "`pip install amazon-transcribe` 를 실행하세요."
         ) from exc
 
-    client = TranscribeStreamingClient(region=region)
     stream = await client.start_stream_transcription(
         language_code="ko-KR",
         media_sample_rate_hz=sample_rate_hz,
@@ -183,9 +201,8 @@ def prewarm(*, region: str = "ap-northeast-2") -> bool:
         True면 클라이언트 준비 완료, False면 미설치/실패(첫 청크에서 자연 재시도).
     """
     try:
-        from amazon_transcribe.client import TranscribeStreamingClient  # noqa: PLC0415
-
-        TranscribeStreamingClient(region=region)
+        # 캐시에 채워, 첫 audioChunk의 stream_chunks가 이 인스턴스를 그대로 재사용한다.
+        _get_client(region)
         logger.debug("transcribe_stt.prewarm: 클라이언트 준비 완료")
         return True
     except Exception:  # noqa: BLE001 — 미설치/환경 이슈는 prewarm 실패로만 처리.

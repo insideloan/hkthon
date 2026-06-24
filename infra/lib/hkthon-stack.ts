@@ -219,10 +219,23 @@ export class HkthonStack extends cdk.Stack {
       xrayEnabled: false,
     });
 
+    // Provisioned concurrency — 첫 발화 지연의 큰 축인 Lambda 콜드스타트(deps layer
+    // 임포트: langgraph/langchain/amazon-transcribe 등 수백ms~수초)를 제거한다.
+    // 콜드스타트가 사라지면 startAudio prewarm + STT 클라이언트 캐시도 워밍 인스턴스에
+    // 항상 적중한다. PC는 alias에만 걸 수 있고 $LATEST에는 안 되므로, version→alias를
+    // 만들고 AppSync 데이터소스가 alias를 호출하게 한다. 데모 규모라 1로 충분(동시 통화
+    // 1~2건). 비용은 상시 1개 워밍분 — 데모 시간대 한정이면 미미.
+    const orchestratorAlias = new lambda.Alias(this, 'OrchestratorLive', {
+      aliasName: 'live',
+      version: orchestrator.currentVersion,
+      provisionedConcurrentExecutions: 1,
+    });
+
     // Lambda data source: the orchestrator resolves every query/mutation.
     // Default Lambda-DS mapping passes { field, arguments, source, ... } as the
     // event; handler.py dispatches on event["fieldName"].
-    const orchestratorDs = api.addLambdaDataSource('OrchestratorDataSource', orchestrator);
+    // alias(live)를 호출 대상으로 — provisioned concurrency가 적용된 버전이 응답한다.
+    const orchestratorDs = api.addLambdaDataSource('OrchestratorDataSource', orchestratorAlias);
 
     // Query + mutation resolvers routed to the orchestrator. The `_emit*`
     // mutations are invoked by the Streams fan-out (below) and bound to

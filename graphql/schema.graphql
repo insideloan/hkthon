@@ -233,7 +233,9 @@ type Mutation {
   # 스크립트 모드 진행
   nextTurn(callId: ID!): Turn
   # 라이브 오디오 (스크립트 모드 no-op)
-  startAudio(callId: ID!): Boolean
+  # customerName: 체험 고객(exp-*)은 DynamoDB에 레코드가 없어 AI가 이름을 모른다.
+  # 세션 시작 시 이름을 받아 최소 고객 컨텍스트(CALL/CUST META)를 만들어 둔다.
+  startAudio(callId: ID!, customerName: String): Boolean
   audioChunk(callId: ID!, data: String!): Boolean
 
   # 내부 _emit* — Streams 팬아웃이 호출, 구독이 @aws_subscribe로 연결.
