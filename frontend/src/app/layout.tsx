@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'AI 상담 코파일럿',
+  title: 'Inside Loan - 마음 읽는 금융',
   description: '관리자 콜 큐 대시보드',
   icons: {
     icon: '/favicon.png',

@@ -233,7 +233,10 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
               <span>최종 발화 (수정 부분 색인 표시)</span>
               <span className="ln" />
             </div>
-            <div className="cmp-utter cmp-final" id="cmpFinal" data-testid="cmp-final">
+            <div className="cmp-final-row">
+              {/* 최종 발화 왼쪽에 초록 V 박스(DB ok 배너 .dbic와 동일 모양) */}
+              <span className="check-badge" aria-hidden>✓</span>
+              <div className="cmp-utter cmp-final" id="cmpFinal" data-testid="cmp-final">
               {final.map((seg, i) => {
                 if (seg.del !== undefined) {
                   return (
@@ -252,6 +255,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
                 }
                 return <span className="seg" key={i}>{seg.text}</span>;
               })}
+              </div>
             </div>
           </>
         )}
