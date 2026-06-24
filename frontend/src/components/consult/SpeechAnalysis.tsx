@@ -342,7 +342,8 @@ function EngineCard1() {
         })}
       </div>
 
-      {/* solveArrow(▼) 제거됨 — 발화분류 → 대표 전략 20 바로 연결 */}
+      {/* 발화분류 → 대표 전략 전이 화살표(▼) — PPTX 레이아웃 7번 */}
+      <div className="solvearrow on" id="solveArrow" aria-hidden="true"><span className="dn">▼</span></div>
 
       <div className="cseclbl cseclbl--sec"><span>전략 선택 (20종)</span><span className="ln" /></div>
 

@@ -110,7 +110,8 @@ function EngineDbCard() {
         ))}
       </div>
 
-      {/* 사용데이터 → 분석결과 전이 화살표(▼) 제거됨 */}
+      {/* 사용데이터 → 분석결과 전이 화살표(▼) — PPTX 레이아웃 8번 */}
+      <div className="usedivider on" id="dbBridge" aria-hidden="true"><span className="dn">▼</span></div>
 
       <div className="cseclbl cseclbl--sec">
         <span>분석 결과</span>
