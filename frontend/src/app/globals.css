@@ -401,10 +401,12 @@
   box-sizing: border-box;
 }
 .cc__cards .cseclbl--sec .ln { display: none; }
-/* 높이 정렬 — 카드① 라벨 Y(약 153px)를 기준으로 정렬.
-   카드②는 위 영역이 낮아(76px) 스페이서로 내려 맞추고,
-   카드③은 위 영역(규제검토 2×2, ~161px)이 이미 비슷해 스페이서 불필요. */
-#card-db .cseclbl--sec { margin-top: 77px; }
+/* 높이 정렬 — 세 카드의 첫 콘텐츠 영역(.bins / .usebox / .cmp-checks)을
+   카드③ 규제검토 2×2(~161px) 높이에 맞춰 통일 → 아래 섹션 라벨이 한 줄로 정렬.
+   (기존 #card-db margin-top 스페이서 핵 제거.) */
+.cc__cards .bins,
+.cc__cards .usebox,
+.cc__cards .cmp-checks { min-height: 161px; }
 
 /* ── 카드② DB 분석 (SSOT 769–838) ── */
 .usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
@@ -505,7 +507,7 @@
 .fly-bubble { position: fixed; z-index: 9999; pointer-events: none; font-size: 11px; line-height: 1.45; padding: 10px 13px; border-radius: 13px; background: #fff; border: 1px solid #E0E0E0; color: #333; max-width: 280px; transition: transform 1.1s cubic-bezier(.45,0,.25,1), opacity 1.1s; }
 
 /* ── 카드① 발화분석: orb bins + 전략 그리드 (SSOT 684–766) ── */
-.bins { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; position: relative; }
+.bins { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; position: relative; align-content: start; }
 .bin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 11px 11px 13px 13px; padding: 4px 4px 7px; height: 78px; flex: none; min-width: 0; border: none; background: linear-gradient(180deg, #F2F6FF 0%, #E2EAFF 100%); box-shadow: 0 6px 14px -4px rgba(0,75,145,.35), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -3px 6px -3px rgba(0,75,145,.25); }
 .bin__h { display: flex; flex-direction: column; align-items: center; line-height: 1.05; text-align: center; padding: 2px 8px; border: 1px solid #C3D0EA; border-radius: 7px; background: rgba(255,255,255,.6); }
 .bin__h b { font-family: var(--disp); font-size: 12px; font-weight: 800; letter-spacing: -.01em; color: #5E6678; }
