@@ -231,7 +231,8 @@
 #view-segment .sg-reset .clu,
 #view-segment .sg-reset .seg,
 #view-segment .sg-reset .ln path,
-#view-segment .sg-reset .ln line { transition: none !important; }
+#view-segment .sg-reset .ln line,
+#view-segment .sg-reset .ln-probe path { transition: none !important; animation: none !important; }
 
 #view-segment .cat { opacity: 0; transition: opacity .35s ease; }
 #view-segment .cat.show { opacity: 1; }
@@ -267,6 +268,30 @@
 #view-segment .ln.show path,
 #view-segment .ln.show line { stroke-dashoffset: 0; }
 
+/* 군집 탐색 후보선(.ln-probe) — 군집이 확정되기 전, 가능한 연결을 깜빡이며
+   "탐색"하는 연출. .searching 동안 각 선이 stagger(--probe-delay)로 명멸하고,
+   군집 확정(.settled) 시 일제히 fade-out 되어 실제 .ln-A~D 만 남는다. */
+#view-segment .ln-probe path {
+  opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+#view-segment .ln-probe.searching path {
+  animation: probeFlicker 1s ease-in-out infinite;
+  animation-delay: var(--probe-delay, 0ms);
+}
+#view-segment .ln-probe.settled path {
+  opacity: 0;
+  animation: none;
+  transition: opacity .4s ease;
+}
+@keyframes probeFlicker {
+  0%   { opacity: 0;   stroke-dashoffset: 1; }
+  35%  { opacity: .55; stroke-dashoffset: 0; }
+  70%  { opacity: .12; stroke-dashoffset: 0; }
+  100% { opacity: 0;   stroke-dashoffset: 1; }
+}
+
 #view-segment .seg {
   opacity: 0;
   transition: opacity .45s ease;
@@ -284,6 +309,8 @@
   #view-segment .seg,
   #view-segment .ln path,
   #view-segment .ln line { transition: none; animation: none; }
+  /* 탐색 후보선은 모션 최소화 시 아예 숨김(명멸 연출 제거). */
+  #view-segment .ln-probe path { animation: none; opacity: 0; }
 }
 
 /* ── 통화 연결 오버레이(.dial-overlay) — SSOT consult_redesigned-3.html 이식 ──
