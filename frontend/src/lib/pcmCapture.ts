@@ -9,7 +9,7 @@
 const TARGET_RATE = 16000;
 
 /** Float32 [-1,1] 샘플을 little-endian Int16 PCM bytes로 변환. */
-function floatToPcm16(samples: Float32Array): Uint8Array {
+export function floatToPcm16(samples: Float32Array): Uint8Array {
   const out = new Uint8Array(samples.length * 2);
   const view = new DataView(out.buffer);
   for (let i = 0; i < samples.length; i++) {
@@ -29,7 +29,7 @@ function downsample(samples: Float32Array, inRate: number): Float32Array {
   return out;
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);

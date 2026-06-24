@@ -16,7 +16,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
-import { startPcmCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/pcmCapture';
+import { startSileroCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/sileroCapture';
+import { startDfnDenoise, type DfnDenoiseHandle } from '@/lib/dfnDenoise';
 import { stopBotAudio, isBotSpeaking } from '@/lib/botAudioControl';
 import { useExperienceStore } from '@/stores/experienceStore';
 import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
@@ -56,17 +57,19 @@ type LiveSessionProps = {
   customerName?: string;
 };
 
-// VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
-const VAD_MIN = 0;
-const VAD_MAX = 0.2;
-// 평상시(고객 발화 대기) VAD 임계값. 낮을수록 민감.
-const VAD_DEFAULT = 0.135;
-// AI(봇) 발화 중 VAD 임계값 — 봇 음성 되먹임(에코)을 고객 발화로 오인하지 않게 더 둔감하게.
-const VAD_SUPPRESSED = 0.19;
+// VAD 임계값 슬라이더 범위 — Silero 모델의 "발화 확률"(0~1). RMS 음량(0~0.2)과 의미가
+// 다르다: 여긴 "사람 목소리일 확률"이다. 낮을수록 작은/애매한 발화도 인식(민감).
+const VAD_MIN = 0.1;
+const VAD_MAX = 0.9;
+// 평상시(고객 발화 대기) 발화 확률 임계값. Silero v5 권장 기본(0.5) 채택 — RMS 시절
+// 손으로 깎던 0.135는 음량 스케일이라 그대로 못 쓴다.
+const VAD_DEFAULT = 0.5;
 
-// 발화 후 이만큼(ms) 연속 침묵하면 발화 종료(flush)로 본다. pcmCapture 기본값(1200)은
-// 종료 인식이 체감상 느려, 발화 끝~화면 표시 지연을 줄이려고 700으로 명시 하향.
-const SILENCE_MS = 700;
+// 발화 종료 유예(ms). Silero가 무음 판정 후 이만큼 더 기다렸다가 발화 종료로 본다
+// (redemptionMs). 숨 고르기 정도의 짧은 멈춤에 발화가 쪼개지지 않게 800ms.
+const REDEMPTION_MS = 800;
+// 발화 앞단 패딩(ms) — 첫 음절("안녕"의 "안") 잘림 방지.
+const PRE_SPEECH_PAD_MS = 300;
 
 // "..." 타이핑 인디케이터 — Agent가 응답을 생성 중일 때(고객 턴 직후) AI 말풍선에 노출.
 // 점 3개가 stagger 애니메이션으로 깜빡인다(키프레임 typingDot은 LiveSession이 <style>로 주입).
@@ -99,6 +102,9 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   const [userSpeaking, setUserSpeaking] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
+  // DeepFilterNet denoise 핸들 — 마이크와 VAD 사이에 끼워 깨끗한 스트림을 만든다.
+  // 정리 시 capture와 함께 stop한다(원본 마이크 트랙은 streamRef가 별도로 정리).
+  const dfnRef = useRef<DfnDenoiseHandle | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   // 슬라이더 값을 ref에 미러 — startPcmCapture에 함수형 임계값으로 넘겨
   // 캡처 재시작 없이 실시간 반영(매 프레임 ref.current를 읽음).
@@ -196,45 +202,55 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       const vadDebug =
         typeof window !== 'undefined' &&
         new URLSearchParams(window.location.search).get('vadDebug') === '1';
-      let peakRms = 0; // 발화 구간 최대 RMS — 임계값 잡는 기준
-      captureRef.current = startPcmCapture(
-        stream,
+
+      // DeepFilterNet denoise: 마이크 → DFN(WASM) → 깨끗한 스트림. 이 스트림을 Silero에
+      // 넘겨 잡음 제거 후 발화 감지(denoise→detect 정석 순서). best-effort — 로드 실패 시
+      // 원본 스트림을 그대로 돌려줘 VAD는 계속 동작한다(handle.enhanced=false).
+      const dfn = await startDfnDenoise(stream, {
+        onDebug: vadDebug ? (m) => console.log(m) : undefined,
+      });
+      // 로드 사이 언마운트됐다면(streamRef 교체/해제) DFN을 즉시 정리하고 중단.
+      if (streamRef.current !== stream) {
+        dfn.stop();
+        return;
+      }
+      dfnRef.current = dfn;
+      if (vadDebug) console.log(`[dfn] enhanced=${dfn.enhanced}`);
+
+      // Silero VAD 모델 로드(WASM/ONNX fetch)가 비동기라 await로 handle을 받는다.
+      // 로드 중 언마운트되면 stopped 가드(아래)로 즉시 정리한다. VAD에는 원본이 아니라
+      // DFN으로 정제된 스트림(dfn.stream)을 넘긴다.
+      const handle = await startSileroCapture(
+        dfn.stream,
         (b64) => {
           void audioChunk(callId, b64).catch(() => {});
         },
         {
-          // 함수형 임계값 — 슬라이더가 바꾼 ref를 매 프레임 읽어 재시작 없이 반영.
-          vadThreshold: () => vadThresholdRef.current,
-          // 발화 종료 침묵 대기 — 기본 1200ms는 종료 인식이 느려 700ms로 단축.
-          silenceMs: SILENCE_MS,
+          // 슬라이더가 바꾼 발화 확률 임계값을 인스턴스 생성 시점에 읽는다.
+          positiveSpeechThreshold: () => vadThresholdRef.current,
+          // 발화 종료 유예 + 첫 음절 패딩 — 말끝 잘림/첫 마디 누락 방지.
+          redemptionMs: REDEMPTION_MS,
+          preSpeechPadMs: PRE_SPEECH_PAD_MS,
           // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
           // + "음성 인식 중" 말풍선 노출(발화 시작).
           onSpeechStart: () => {
             stopBotAudio();
             setUserSpeaking(true);
           },
-          // 발화 종료(침묵 flush/max-utterance) → "음성 인식 중" 말풍선 내림.
+          // 발화 종료(또는 misfire) → "음성 인식 중" 말풍선 내림.
           // 곧이어 onTurn(customer)이 도착해 실제 고객 말풍선 + "발화 준비 중"으로 이어진다.
           onSpeechEnd: () => setUserSpeaking(false),
-          // 에코 게이팅: 봇 음성이 스피커로 나가는 중(+꼬리 가드)에는 VAD 임계값을
-          // 명시값(VAD_SUPPRESSED=0.19)으로 올려, 되먹임 에코가 유령 고객 발화로 잡히는
-          // 걸 막는다. 큰 목소리의 진짜 barge-in은 0.19를 넘으므로 그대로 통과.
+          // 에코 게이팅: 봇 음성이 나가는 중에 끝난 짧은 발화는 되먹임 에코로 보고 드롭한다
+          // (sileroCapture 내부에서 600ms 미만 발화만 게이팅 — 진짜 barge-in은 통과).
           isSuppressed: () => isBotSpeaking(),
-          suppressedThreshold: VAD_SUPPRESSED,
           ...(vadDebug
             ? {
                 onDebug: (ev: PcmVadEvent) => {
-                  if (ev.type === 'frame') {
-                    if (ev.speaking) peakRms = Math.max(peakRms, ev.rms);
-                    return; // 프레임 로그는 과다 — 집계만, speech-start/flush에서 출력
-                  }
                   if (ev.type === 'speech-start') {
-                    peakRms = 0;
-                    console.log('[vad] speech-start (임계값', vadThresholdRef.current, ')');
+                    console.log('[vad] speech-start (확률 임계값', vadThresholdRef.current, ')');
                   } else if (ev.type === 'flush') {
                     console.log(
-                      `[vad] flush reason=${ev.reason} dur=${Math.round(ev.durationMs)}ms ` +
-                        `peakRMS=${peakRms.toFixed(4)} samples=${ev.samples}`,
+                      `[vad] flush reason=${ev.reason} dur=${Math.round(ev.durationMs)}ms samples=${ev.samples}`,
                     );
                   }
                 },
@@ -242,6 +258,14 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
             : {}),
         },
       );
+      // 로드 완료 사이에 언마운트(captureRef가 비워짐)됐다면 즉시 정리하고 버린다.
+      if (streamRef.current !== stream) {
+        handle.stop();
+        dfnRef.current?.stop();
+        dfnRef.current = null;
+        return;
+      }
+      captureRef.current = handle;
     } catch (err) {
       const name = (err as { name?: string } | null)?.name;
       setMicState(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error');
@@ -265,6 +289,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
         setEnded(true);
         captureRef.current?.stop();
         captureRef.current = null;
+        dfnRef.current?.stop();
+        dfnRef.current = null;
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       },
@@ -276,6 +302,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       unsubscribeEnded();
       captureRef.current?.stop();
       captureRef.current = null;
+      dfnRef.current?.stop();
+      dfnRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       // 세션 전환 시 타이핑/타자기/발화 상태 전부 리셋.
@@ -526,7 +554,9 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       )}
 
       {/* VAD 민감도 조절 — 우하단. 음성 인식이 안 되면 임계값을 낮춰(왼쪽) 더 민감하게.
-          listening 중에만 노출(종료/대기 상태에선 숨김). 캡처 재시작 없이 실시간 반영. */}
+          Silero 발화 확률 임계값(0.1~0.9). 슬라이더 변경은 다음 발화부터 반영된다
+          (RMS 시절의 매-프레임 실시간 반영과 달리 모델 옵션이라 인스턴스 단위).
+          listening 중에만 노출(종료/대기 상태에선 숨김). */}
       {micState === 'listening' && !ended && (
         <div
           data-testid="vad-threshold-control"
@@ -538,7 +568,7 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
               🎙 음성 감도
             </label>
             <span className="font-mono text-[10px] text-ink-faint" data-testid="vad-threshold-value">
-              {vadThreshold.toFixed(3)}
+              {vadThreshold.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -549,7 +579,7 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
               type="range"
               min={VAD_MIN}
               max={VAD_MAX}
-              step={0.005}
+              step={0.05}
               value={vadThreshold}
               onChange={(e) => setVadThreshold(Number(e.target.value))}
               className="w-[120px] cursor-pointer accent-[var(--route)]"

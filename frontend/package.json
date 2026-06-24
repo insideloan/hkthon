@@ -14,9 +14,12 @@
   },
   "dependencies": {
     "@aws-amplify/api-graphql": "^4.0.0",
+    "@ricky0123/vad-web": "^0.0.30",
     "aws-amplify": "^6.0.0",
     "clsx": "^2.1.1",
+    "deepfilter-standalone": "^1.0.2",
     "next": "^15.0.0",
+    "onnxruntime-web": "^1.27.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.6.0",
