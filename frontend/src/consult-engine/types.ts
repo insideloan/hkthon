@@ -108,7 +108,7 @@ export interface CategoryLabel {
   en: string;
 }
 
-// 대표 전략(STRAT20[]). 20장.
+// 대표 전략(STRAT20[]). 20종 + AI 접수 전환 전략 = 21장.
 export interface Strategy {
   name: string;
   lead: string;

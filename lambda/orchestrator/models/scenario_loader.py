@@ -62,6 +62,18 @@ _POLARITIES = {"PRO", "CONS", None}
 _MOT_MARKERS = {"rz-rate", "rz-compare", "rz-pay", "rz-security", "rz-avoid"}
 _MOT_STATES = {"show", "alert", "blocked"}
 _CRM_STAGES = {"신뢰 쌓기", "우려 풀기", "담보 오해", "전환 맺기"}
+
+# 상담엔진 신호 4축(감정/니즈/이용가능성/전략) 허용 라벨 — AGENT signals가 SSOT.
+# node/mot enum은 값을 복제(결합 회피)하지만, 신호 4축은 라벨이 ~71종으로 많아
+# 복제 시 drift가 크다. signals는 enum-only·외부 import 없음(순환 위험 없음)이라
+# 여기서 직접 import해 단일 출처를 유지한다. 고객 턴의 emotion/needs/usability/
+# strategy 필드가 카탈로그 밖 값이면 검증 실패시킨다(분류 체계 무결성).
+from ..agent import signals as _signals  # noqa: E402
+
+_EMOTIONS = set(_signals.labels(_signals.Emotion))
+_NEEDS = set(_signals.labels(_signals.Need))
+_USABILITIES = set(_signals.labels(_signals.Usability))
+_TACTICS = set(_signals.labels(_signals.Tactic))
 _COMPLIANCE_STATES = {"drafting", "reviewing", "redacting", "redrafting", "approved"}
 
 EXPECTED_TURNS = 18
@@ -268,6 +280,36 @@ def _validate_turn(turn: dict, index: int) -> None:
             if not isinstance(turn.get(f), str):
                 raise ScenarioValidationError(
                     f"turn {index}: '{f}' must be a string when strategy present")
+
+    # 상담엔진 신호 4축(선택) — 주로 고객 턴에 부착. AGENT signals 카탈로그 안의
+    # 라벨만 허용한다(분류 체계 무결성). emotion/need/usability는 단일 라벨,
+    # strategy는 대표 전략 라벨 리스트(보통 1~2개).
+    _validate_engine_signals(turn, index)
+
+
+def _validate_engine_signals(turn: dict, index: int) -> None:
+    """상담엔진 신호 4축 검증. 각 필드는 선택이며, 있으면 카탈로그 라벨만 허용.
+
+      - emotion/need/usability: 단일 라벨 문자열
+      - strategy: 전략 라벨 리스트(비어 있지 않음, 각 원소가 Tactic 라벨)
+    """
+    single = (("emotion", _EMOTIONS), ("need", _NEEDS), ("usability", _USABILITIES))
+    for field, allowed in single:
+        if field in turn:
+            val = turn[field]
+            if val not in allowed:
+                raise ScenarioValidationError(
+                    f"turn {index}: invalid {field} {val!r} (카탈로그 밖 라벨)")
+
+    if "strategy" in turn:
+        strat = turn["strategy"]
+        if not isinstance(strat, list) or not strat:
+            raise ScenarioValidationError(
+                f"turn {index}: strategy must be a non-empty list of tactic labels")
+        for s in strat:
+            if s not in _TACTICS:
+                raise ScenarioValidationError(
+                    f"turn {index}: invalid strategy {s!r} (카탈로그 밖 전략)")
 
 
 def _validate_mot(mot: dict, index: int) -> None:

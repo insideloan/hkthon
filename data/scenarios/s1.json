@@ -68,6 +68,13 @@
       ],
       "churn_after": 34,
       "flag": "risk",
+      "emotion": "거부감",
+      "need": "연락 중단/수신거부",
+      "usability": "대출 거부",
+      "strategy": [
+        "관심 환기 전략",
+        "신뢰 확보 전략"
+      ],
       "mot": {
         "marker_id": "rz-rate",
         "state": "show",
@@ -125,6 +132,13 @@
       ],
       "churn_after": 41,
       "flag": "risk",
+      "emotion": "의심",
+      "need": "대환 가능성",
+      "usability": "기존 대출 비교 후 판단",
+      "strategy": [
+        "의심 해소 전략",
+        "금리 비교 전략"
+      ],
       "mot": {
         "marker_id": "rz-compare",
         "state": "alert",
@@ -190,6 +204,13 @@
       ],
       "churn_after": 48,
       "flag": "risk",
+      "emotion": "불안",
+      "need": "상품 확인",
+      "usability": "설명 추가 필요",
+      "strategy": [
+        "불안 완화 전략",
+        "상품 확인 전략"
+      ],
       "mot": {
         "marker_id": "rz-security",
         "state": "alert",
@@ -246,7 +267,14 @@
         }
       ],
       "churn_after": 18,
-      "flag": "def"
+      "flag": "def",
+      "emotion": "수용",
+      "need": "절차/서류",
+      "usability": "AI 접수 필요",
+      "strategy": [
+        "AI 접수 전환 전략",
+        "상담원 인계·컴플라이언스 보호 전략"
+      ]
     },
     {
       "seq": 9,
