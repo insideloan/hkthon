@@ -176,10 +176,10 @@ SEED_QUEUE_ROWS: list[dict[str, Any]] = [
     # wait → TRANSFER_PENDING (needs_agent highlight)
     {"id": "c-demo-04", "customer_name": "정민서", "subtitle": "29세·KCB688",
      "state": "TRANSFER_PENDING", "stage": "연결 대기", "churn_risk": 55, "assignee": None,
-     "channel": "인바운드", "elapsed_sec": 0, "needs_agent": True},
+     "channel": "인바운드", "elapsed_sec": 92, "needs_agent": True},
     {"id": "c-demo-05", "customer_name": "한지우", "subtitle": "51세·KCB720",
      "state": "TRANSFER_PENDING", "stage": "연결 대기", "churn_risk": 40, "assignee": None,
-     "channel": "아웃바운드", "elapsed_sec": 0, "needs_agent": True},
+     "channel": "아웃바운드", "elapsed_sec": 203, "needs_agent": True},
     # done → ENDED
     {"id": "c-demo-06", "customer_name": "오세훈", "subtitle": "41세·KCB745",
      "state": "ENDED", "stage": "문자URL 발송", "churn_risk": 18, "assignee": "Agent #1",
