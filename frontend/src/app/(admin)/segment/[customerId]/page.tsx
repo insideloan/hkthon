@@ -375,7 +375,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
               <g className="box"><rect x="14" y="195" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="212" r="4" fill="#2563eb"/>
               <text className="ts" x="42" y="212" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">부채(A저축)</text>
-              <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">2,800만</text>
+              <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">3,000만원</text>
             </g>
             <g className="cat" data-i="4">
               <g className="box"><rect x="14" y="247" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
@@ -526,7 +526,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                         <span
                           className="rate-delta whitespace-nowrap rounded-[10px] bg-[var(--badge-bg)] px-[8px] py-[2px] font-mono text-[11px] font-bold text-route"
                         >
-                          −4.0%p
+                          −6.0%p
                         </span>
                       </div>
                       {/* new rate chip */}
@@ -535,7 +535,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                       >
                         <span className="rate-lbl text-[11px] font-semibold leading-[1.2] text-route">당사 자동차담보</span>
                         <span className="rate-num font-mono text-[29px] font-bold tabular-nums leading-[1] text-route">
-                          12.0<i className="not-italic text-[15px] font-semibold ml-[1px]">%</i>
+                          10.0<i className="not-italic text-[15px] font-semibold ml-[1px]">%</i>
                         </span>
                       </div>
                     </div>
