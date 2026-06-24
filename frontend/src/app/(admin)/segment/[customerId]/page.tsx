@@ -303,9 +303,9 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             </defs>
 
             {/* Column headers */}
-            <text className="ts" x="114" y="28" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">원천 데이터 (9항목)</text>
-            <text className="ts" x="340" y="28" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">군집 (4대 분류)</text>
-            <text className="ts" x="569" y="28" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--ink)">세그먼트</text>
+            <text className="ts" x="114" y="28" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink)">원천 데이터 (9항목)</text>
+            <text className="ts" x="340" y="28" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink)">군집 (4대 분류)</text>
+            <text className="ts" x="569" y="28" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink)">세그먼트</text>
 
             {/* 군집 탐색 후보선 — 분석 중 깜빡이며 등장했다가 군집 확정 시 사라짐. */}
             <g className="ln-probe" data-testid="cluster-probe" aria-hidden>
@@ -354,101 +354,101 @@ export default function SegmentPage({ params }: SegmentPageProps) {
 
             {/* Source data rows — 9 .cat groups */}
             <g className="cat" data-i="0" data-testid="sg-categories">
-              <g className="box"><rect x="14" y="39" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="39" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="56" r="4" fill="#64748b"/>
-              <text className="ts" x="42" y="56" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">차량 보유</text>
-              <text className="th" x="204" y="56" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
+              <text className="ts" x="42" y="56" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">차량 보유</text>
+              <text className="th" x="204" y="56" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">보유</text>
             </g>
             <g className="cat" data-i="1">
-              <g className="box"><rect x="14" y="91" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="91" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="108" r="4" fill="#64748b"/>
-              <text className="ts" x="42" y="108" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">주식 보유</text>
-              <text className="th" x="204" y="108" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">보유</text>
+              <text className="ts" x="42" y="108" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">주식 보유</text>
+              <text className="th" x="204" y="108" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">보유</text>
             </g>
             <g className="cat" data-i="2">
-              <g className="box"><rect x="14" y="143" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="143" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="160" r="4" fill="#2563eb"/>
-              <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">신용 평점</text>
-              <text className="th" x="204" y="160" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">744점</text>
+              <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">신용 평점</text>
+              <text className="th" x="204" y="160" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">744점</text>
             </g>
             <g className="cat" data-i="3">
-              <g className="box"><rect x="14" y="195" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="195" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="212" r="4" fill="#2563eb"/>
-              <text className="ts" x="42" y="212" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">부채(A저축)</text>
-              <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">3,000만원</text>
+              <text className="ts" x="42" y="212" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">부채(A저축)</text>
+              <text className="th" x="204" y="212" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">3,000만원</text>
             </g>
             <g className="cat" data-i="4">
-              <g className="box"><rect x="14" y="247" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="247" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="264" r="4" fill="#d97706"/>
-              <text className="ts" x="42" y="264" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">대출반응확률</text>
-              <text className="th" x="204" y="264" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">자담 HIGH</text>
+              <text className="ts" x="42" y="264" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">대출반응확률</text>
+              <text className="th" x="204" y="264" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">자담 HIGH</text>
             </g>
             <g className="cat" data-i="5">
-              <g className="box"><rect x="14" y="299" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="299" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="316" r="4" fill="#d97706"/>
-              <text className="ts" x="42" y="316" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">금리민감확률</text>
-              <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">민감 HIGH</text>
+              <text className="ts" x="42" y="316" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">금리민감확률</text>
+              <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">민감 HIGH</text>
             </g>
             <g className="cat" data-i="6">
-              <g className="box"><rect x="14" y="351" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="351" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="368" r="4" fill="#d97706"/>
-              <text className="ts" x="42" y="368" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">부도확률</text>
-              <text className="th" x="204" y="368" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">Low</text>
+              <text className="ts" x="42" y="368" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">부도확률</text>
+              <text className="th" x="204" y="368" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">Low</text>
             </g>
             <g className="cat" data-i="7">
-              <g className="box"><rect x="14" y="403" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="403" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="420" r="4" fill="#6366f1"/>
-              <text className="ts" x="42" y="420" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">대출비교 조회</text>
-              <text className="th" x="204" y="420" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">1주내 3회</text>
+              <text className="ts" x="42" y="420" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">대출비교 조회</text>
+              <text className="th" x="204" y="420" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">1주내 3회</text>
             </g>
             <g className="cat" data-i="8">
-              <g className="box"><rect x="14" y="455" width="200" height="34" rx="8" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
+              <g className="box"><rect x="14" y="455" width="200" height="34" rx="8" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
               <circle cx="28" cy="472" r="4" fill="#6366f1"/>
-              <text className="ts" x="42" y="472" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">앱 행태이력</text>
-              <text className="th" x="204" y="472" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">한도 조회</text>
+              <text className="ts" x="42" y="472" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">앱 행태이력</text>
+              <text className="th" x="204" y="472" textAnchor="end" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">한도 조회</text>
             </g>
 
             {/* Cluster boxes — 4 .clu groups + cv circle */}
             <g className="clu" data-c="A">
-              <g className="box"><rect x="270" y="56" width="140" height="52" rx="12" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
-              <text className="th" x="340" y="75" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">고객 자산·여력</text>
-              <text className="ts" x="340" y="93" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">차량·주식 멀티에셋</text>
+              <g className="box"><rect x="270" y="56" width="140" height="52" rx="12" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
+              <text className="th" x="340" y="75" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">고객 자산·여력</text>
+              <text className="ts" x="340" y="93" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">차량·주식 멀티에셋</text>
             </g>
             <g className="clu" data-c="B">
-              <g className="box"><rect x="270" y="160" width="140" height="52" rx="12" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
-              <text className="th" x="340" y="179" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">신용·부채</text>
-              <text className="ts" x="340" y="197" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">중신용·고금리</text>
+              <g className="box"><rect x="270" y="160" width="140" height="52" rx="12" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
+              <text className="th" x="340" y="179" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">신용·부채</text>
+              <text className="ts" x="340" y="197" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">중신용·고금리</text>
             </g>
             <g className="clu" data-c="C">
-              <g className="box"><rect x="270" y="290" width="140" height="52" rx="12" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
-              <text className="th" x="340" y="309" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">ML 예측모형</text>
-              <text className="ts" x="340" y="327" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">선호·민감·우량</text>
+              <g className="box"><rect x="270" y="290" width="140" height="52" rx="12" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
+              <text className="th" x="340" y="309" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">ML 예측모형</text>
+              <text className="ts" x="340" y="327" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">선호·민감·우량</text>
             </g>
             <g className="clu" data-c="D">
-              <g className="box"><rect x="270" y="420" width="140" height="52" rx="12" strokeWidth="1.2" fill="rgba(255,255,255,.85)" stroke="var(--ink-faint)"/></g>
-              <text className="th" x="340" y="439" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">온라인 행동</text>
-              <text className="ts" x="340" y="457" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--ink)">대환탐색·전환임박</text>
+              <g className="box"><rect x="270" y="420" width="140" height="52" rx="12" strokeWidth="1.8" fill="rgba(255,255,255,.95)" stroke="var(--ink-dim)"/></g>
+              <text className="th" x="340" y="439" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">온라인 행동</text>
+              <text className="ts" x="340" y="457" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--ink)">대환탐색·전환임박</text>
             </g>
             {/* 조합 (cv circle) — c-blue(고금리 대환 타겟군 박스)와 동일 스타일 */}
             <g className="clu" data-c="cv">
               <g className="box"><circle cx="460" cy="264" r="22" strokeWidth="1.8" fill="var(--badge-bg)" stroke="var(--route)"/></g>
-              <text className="ts" x="460" y="264" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="700" fill="var(--route)">조합</text>
+              <text className="ts" x="460" y="264" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="800" fill="var(--route)">조합</text>
             </g>
 
             {/* Segment outcome rects — .seg groups */}
             <g className="seg" data-s="top">
               <g className="c-gray">
-                <rect x="500" y="128" width="138" height="44" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.5)" stroke="var(--ink-faint)"/>
-                <text className="th" x="569" y="150" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--title)">신용대출 제안형</text>
+                <rect x="500" y="128" width="138" height="44" rx="12" strokeWidth="1.6" fill="rgba(255,255,255,.92)" stroke="var(--ink-dim)"/>
+                <text className="th" x="569" y="150" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--title)">신용대출 제안형</text>
               </g>
             </g>
             <g className="seg" data-s="bottom">
               <g className="c-gray">
-                <rect x="500" y="370" width="138" height="44" rx="12" strokeWidth="0.5" fill="rgba(255,255,255,.5)" stroke="var(--ink-faint)"/>
-                <text className="th" x="569" y="392" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--title)">금융비교 안내형</text>
+                <rect x="500" y="370" width="138" height="44" rx="12" strokeWidth="1.6" fill="rgba(255,255,255,.92)" stroke="var(--ink-dim)"/>
+                <text className="th" x="569" y="392" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--title)">금융비교 안내형</text>
               </g>
             </g>
-            <text className="ts" x="569" y="432" textAnchor="middle" fontSize="12" fill="var(--ink-faint)" opacity="0.55">… 외 다수</text>
+            <text className="ts" x="569" y="432" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--ink-dim)" opacity="0.9">… 외 다수</text>
             {/* Selected segment — c-blue */}
             <g
               className="seg"
@@ -457,8 +457,8 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             >
               <g className="c-blue">
                 <rect x="500" y="236" width="138" height="56" rx="14" strokeWidth="1.8" fill="var(--badge-bg)" stroke="var(--route)"/>
-                <text className="th" x="569" y="256" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--route)">고금리 대환 타겟군</text>
-                <text className="ts" x="569" y="276" textAnchor="middle" dominantBaseline="central" fontSize="12" fill="var(--route)">자동차 담보 제안 가능</text>
+                <text className="th" x="569" y="256" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="800" fill="var(--route)">고금리 대환 타겟군</text>
+                <text className="ts" x="569" y="276" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="600" fill="var(--route)">자동차 담보 제안 가능</text>
               </g>
             </g>
           </svg>
