@@ -227,6 +227,8 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
         {/* 최종 발화 (수정 = 빨강) */}
         {showFinal && (
           <>
+            {/* 규제검토 → 최종 발화 전이 화살표(▼) — PPTX 레이아웃 9번 */}
+            <div className="usedivider on" aria-hidden="true"><span className="dn">▼</span></div>
             <div className="cseclbl cseclbl--sec">
               <span>최종 발화 (수정 부분 색인 표시)</span>
               <span className="ln" />
