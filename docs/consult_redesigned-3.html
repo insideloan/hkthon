@@ -1192,7 +1192,7 @@
  <!-- ─────── VIEW 3: 관리자 화면 (콜 리스트 목록) ─────── -->
  <section id="view-admin" class="view active">
    <div class="sum-head">
-     <h1>관리자 화면 · 콜 리스트</h1>
+     <h1>상담 모니터링</h1>
      <span class="sum-tag">전체 상담 모니터링</span>
    </div>
 
@@ -1204,7 +1204,7 @@
      <div class="adm-filters" id="admFilters">
        <button class="af active" data-f="all">전체</button>
        <button class="af" data-f="live">상담중</button>
-       <button class="af" data-f="wait">대기</button>
+       <button class="af" data-f="wait">대기중</button>
        <button class="af" data-f="done">완료</button>
        <button class="af" data-f="miss">이탈</button>
      </div>
@@ -1214,8 +1214,8 @@
    <!-- 콜 리스트 테이블 -->
    <div class="adm-table">
      <div class="adm-row adm-head">
-       <span>고객</span><span>상태</span><span>현 단계</span><span>이탈위험</span>
-       <span>담당</span><span>통화시간</span><span>채널</span>
+       <span>고객</span><span>연결 상태</span><span>상담 단계</span><span>이탈 가능성</span>
+       <span>담당 Agent</span><span>통화 시간</span><span>채널</span>
      </div>
      <div id="admList"></div>
    </div>
@@ -2359,17 +2359,17 @@
 
   /* ════════ 관리자 화면: 콜 리스트 ════════ */
   const CALLS=[
-    {nm:'박서준', sub:'38세·KCB744', st:'pre', stage:'사전 고객분석',  risk:34, agent:'AI 코파일럿', dur:'00:00', ch:'아웃바운드', seg:true},
-    {nm:'이정훈', sub:'45세·KCB701', st:'live', stage:'우려 풀기',  risk:48, agent:'AI 코파일럿', dur:'03:41', ch:'아웃바운드'},
-    {nm:'김하늘', sub:'33세·KCB762', st:'live', stage:'신뢰 쌓기',  risk:34, agent:'AI 코파일럿', dur:'01:08', ch:'인바운드'},
+    {nm:'박서준', sub:'38세·KCB744', st:'pre', stage:'사전 분석중',  risk:34, agent:'AI Agent1', dur:'00:00', ch:'아웃바운드', seg:true},
+    {nm:'이정훈', sub:'45세·KCB701', st:'live', stage:'우려 해소중',  risk:48, agent:'AI Agent2', dur:'03:41', ch:'아웃바운드'},
+    {nm:'김하늘', sub:'33세·KCB762', st:'live', stage:'신뢰 형성중',  risk:34, agent:'AI Agent5', dur:'01:08', ch:'인바운드'},
     {nm:'정민서', sub:'29세·KCB688', st:'wait', stage:'연결 대기',  risk:55, agent:'—',          dur:'00:00', ch:'인바운드'},
     {nm:'한지우', sub:'51세·KCB720', st:'wait', stage:'연결 대기',  risk:40, agent:'—',          dur:'00:00', ch:'아웃바운드'},
-    {nm:'오세훈', sub:'41세·KCB745', st:'done', stage:'상담사 연결', risk:18, agent:'김도현',      dur:'07:55', ch:'인바운드'},
-    {nm:'배수지', sub:'36세·KCB733', st:'done', stage:'전환 성공',  risk:12, agent:'이서연',      dur:'05:30', ch:'아웃바운드'},
-    {nm:'윤재호', sub:'48세·KCB695', st:'miss', stage:'담보 오해 이탈', risk:88, agent:'AI 코파일럿', dur:'02:14', ch:'아웃바운드'},
-    {nm:'강예린', sub:'27세·KCB710', st:'miss', stage:'초반 거부 이탈', risk:94, agent:'AI 코파일럿', dur:'00:46', ch:'인바운드'}
+    {nm:'오세훈', sub:'41세·KCB745', st:'done', stage:'문자 URL발송', risk:18, agent:'AI Agent3',      dur:'07:55', ch:'인바운드'},
+    {nm:'배수지', sub:'36세·KCB733', st:'done', stage:'AI 대출접수',  risk:12, agent:'AI Agent4',      dur:'05:30', ch:'아웃바운드'},
+    {nm:'윤재호', sub:'48세·KCB695', st:'miss', stage:'담보거부 이탈', risk:88, agent:'AI Agent6', dur:'02:14', ch:'아웃바운드'},
+    {nm:'강예린', sub:'27세·KCB710', st:'miss', stage:'TM거부 이탈', risk:94, agent:'AI Agent7', dur:'00:46', ch:'인바운드'}
   ];
-  const ST_LABEL={pre:'사전분석중', live:'상담중', wait:'대기', done:'완료', miss:'이탈'};
+  const ST_LABEL={pre:'분석중', live:'상담중', wait:'대기중', done:'완료', miss:'이탈'};
   let admFilter='all';
   function riskColor(r){ return 'var(--route)'; }   // 이탈위험 그래프 색상 통일(브랜드 블루)
   function renderAdminStats(){
@@ -2377,9 +2377,9 @@
     const n=k=>CALLS.filter(c=>c.st===k).length;
     const freeAgents=(typeof AGENTS!=='undefined')?AGENTS.filter(a=>a.st==='free').length:2;
     const stats=[
-      {lbl:'현재 진행 중인 콜', val:n('live')+n('pre'), unit:' 건', cls:'live'},
-      {lbl:'대기 중 상담원', val:freeAgents, unit:' 명', cls:''},
-      {lbl:'오늘 상담사 연결', val:42, unit:' 건', cls:'done'},
+      {lbl:'상담중', val:n('live')+n('pre'), unit:' 건', cls:'live'},
+      {lbl:'대기중', val:freeAgents, unit:' 명', cls:''},
+      {lbl:'대출접수', val:42, unit:' 건', cls:'done'},
       {lbl:'컴플라이언스 준수율', val:'99.7', unit:'%', cls:'cmp'}
     ];
     wrap.innerHTML=stats.map(s=>'<div class="adm-stat '+s.cls+'"><div class="lbl">'+s.lbl+'</div><div class="val">'+s.val+'<small>'+s.unit+'</small></div></div>').join('');
