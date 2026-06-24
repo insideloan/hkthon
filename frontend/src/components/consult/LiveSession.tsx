@@ -43,7 +43,7 @@ type LiveSessionProps = {
 // VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
 const VAD_MIN = 0;
 const VAD_MAX = 0.2;
-const VAD_DEFAULT = 0.11;
+const VAD_DEFAULT = 0.14;
 
 // "..." 타이핑 인디케이터 — Agent가 응답을 생성 중일 때(고객 턴 직후) AI 말풍선에 노출.
 // 점 3개가 stagger 애니메이션으로 깜빡인다(키프레임 typingDot은 LiveSession이 <style>로 주입).
