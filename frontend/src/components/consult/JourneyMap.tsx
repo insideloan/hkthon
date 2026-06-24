@@ -65,7 +65,10 @@ const MOT_MARKER_COORDS: Record<MotMarkerId, { x: number; y: number; label: stri
   'rz-rate':     { x: 215,  y: 322, label: 'MOT_1' },
   'rz-compare':  { x: 430,  y: 330, label: 'MOT_2' },
   'rz-pay':      { x: 930,  y: 332, label: 'MOT_3' },
-  'rz-security': { x: 1205, y: 336, label: 'MOT_4' },
+  // 10턴 축약 데모는 rate/compare/security 3개 MOT만 도달하고 pay(MOT_3)는 표시되지
+  // 않는다(showRisk 미호출 → opacity 0). 따라서 화면상 세 번째로 보이는 security 마커가
+  // MOT_2 다음에 MOT_4로 건너뛰어 보였다. 시각적 연속성을 위해 MOT_3으로 표시한다.
+  'rz-security': { x: 1205, y: 336, label: 'MOT_3' },
   'rz-avoid':    { x: 1300, y: 322, label: 'MOT_5' },
 };
 
