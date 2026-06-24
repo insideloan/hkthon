@@ -31,6 +31,9 @@
   --card: rgba(255, 255, 255, 0.75);
   --card-soft: rgba(255, 255, 255, 0.6);
   --card-solid: #ffffff;
+  /* glassy 패널 — 반투명 유리 표면(배경/서로 비쳐 보이게) */
+  --glass: rgba(255, 255, 255, 0.42);
+  --glass-bd: rgba(255, 255, 255, 0.55);
   --card-bd: rgba(17, 24, 39, 0.06);
   --hair: rgba(17, 24, 39, 0.07);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
@@ -52,8 +55,14 @@
   body {
     font-family: var(--kr);
     color: var(--ink);
-    /* reference: clean flat light-neutral canvas (no texture) */
+    /* glassy 배경 — 은은한 컬러 블롭(radial)을 깔아 카드 유리의 blur/투과가 드러나게 한다.
+       카드가 반투명이라 이 배경이 비쳐 보이고, 카드끼리 겹치는 영역도 들여다보인다. */
     background-color: var(--canvas);
+    background-image:
+      radial-gradient(38rem 38rem at 30% 25%, rgba(99,102,241,.22), transparent 62%),
+      radial-gradient(36rem 36rem at 78% 30%, rgba(56,189,248,.22), transparent 62%),
+      radial-gradient(42rem 42rem at 65% 80%, rgba(45,158,110,.18), transparent 62%),
+      radial-gradient(34rem 34rem at 22% 78%, rgba(244,114,182,.16), transparent 62%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
