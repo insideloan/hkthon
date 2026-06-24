@@ -228,7 +228,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
         {/* 최종 발화 (수정 = 빨강) */}
         {showFinal && (
           <>
-            <div className="cseclbl">
+            <div className="cseclbl cseclbl--sec">
               <span>최종 발화 (수정 = <span style={{ color: '#D6322E' }}>빨강</span>)</span>
               <span className="ln" />
             </div>
