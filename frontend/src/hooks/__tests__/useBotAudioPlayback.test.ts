@@ -19,10 +19,13 @@ vi.mock('@/lib/appsync', () => ({
 type FakeAudio = {
   src: string;
   volume: number;
+  muted: boolean;
+  currentTime: number;
   onended: (() => void) | null;
   onerror: (() => void) | null;
   play: ReturnType<typeof vi.fn>;
   pause: ReturnType<typeof vi.fn>;
+  setAttribute: ReturnType<typeof vi.fn>;
 };
 let audios: FakeAudio[] = [];
 
@@ -35,10 +38,13 @@ beforeEach(() => {
       const a: FakeAudio = {
         src: '',
         volume: 1,
+        muted: false,
+        currentTime: 0,
         onended: null,
         onerror: null,
         play: vi.fn(() => Promise.resolve()),
         pause: vi.fn(),
+        setAttribute: vi.fn(),
       };
       audios.push(a);
       return a;
