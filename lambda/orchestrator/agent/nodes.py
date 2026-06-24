@@ -175,7 +175,8 @@ def classify(state: CallState) -> CallState:
     응답, _compliance_confidence) respond는 그 draft를 재사용하고 compliance는 신뢰도로
     Guardrail 스킵을 판단한다. SPECULATIVE_RESPOND=1이면 classify와 blind respond를 병렬 실행.
     """
-    history = _render_history(state)
+    # 멀티턴 메시지로 전달 — 마지막 user = 현재 발화, 앞선 turn = history.
+    history = _render_history_messages(state)
     stage = state.get("stage", Stage.IDENTIFY)
     customer = state.get("customer")
 
@@ -278,7 +279,7 @@ def respond(state: CallState) -> CallState:
         tactic=signals.to_tactic((state.get("strategy") or {}).get("tactic")),
         emotion=state.get("emotion"),
     )
-    draft = router.converse(system, _render_history(state), stream=False)
+    draft = router.converse(system, _render_history_messages(state), stream=False)
     return {"bot_draft": draft}
 
 
@@ -724,3 +725,31 @@ def _render_history(state: CallState) -> str:
         lines.append(f"{role}: {m['text']}")
     lines.append(f"고객: {state.get('customer_text', '')}")
     return "\n".join(lines)
+
+
+def _render_history_messages(state: CallState) -> list[dict]:
+    """LLM 프롬프트용 history를 멀티턴 메시지 리스트로 직렬화.
+
+    _render_history(단일 문자열)와 달리 turn을 role별 메시지로 분리한다:
+      - 고객 발화 → user 메시지
+      - 상담봇/상담원 발화 → assistant 메시지
+      - 마지막에 **지금 답해야 할** 고객 발화(customer_text)를 user 메시지로 덧붙인다.
+    이렇게 하면 모델이 "마지막 user = 현재 질문, 앞선 turn = 맥락"으로 인식해, 과거 발화에
+    뒤늦게 답하던 문제가 사라진다(전 발화를 한 user 블록에 뭉뚱그리던 것을 교체).
+    화자 라벨은 텍스트 앞에 유지해(고객:/상담봇:) 누가 한 말인지 모델이 또렷이 알게 한다.
+
+    윈도잉(_HISTORY_WINDOW)은 _render_history와 동일하게 적용한다(입력 토큰 상한).
+    연속 동일 role은 Converse가 허용하므로 병합하지 않는다(원 turn 경계 보존).
+    """
+    history = state.get("history", [])
+    if _HISTORY_WINDOW > 0 and len(history) > _HISTORY_WINDOW:
+        history = history[-_HISTORY_WINDOW:]
+    label = {"customer": "고객", "bot": "상담봇", "agent": "상담원"}
+    msgs: list[dict] = []
+    for m in history:
+        speaker = m["speaker"]
+        role = "user" if speaker == "customer" else "assistant"
+        msgs.append({"role": role, "content": f"{label.get(speaker, speaker)}: {m['text']}"})
+    # 지금 답할 발화 — 항상 마지막 user 메시지.
+    msgs.append({"role": "user", "content": f"고객: {state.get('customer_text', '')}"})
+    return msgs

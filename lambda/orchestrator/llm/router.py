@@ -19,7 +19,13 @@ import json
 import logging
 import os
 import re
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, Union
+
+# user 파라미터 타입: 단일 발화 문자열(레거시·compliance redraft 등) 또는 멀티턴
+# 메시지 리스트([{"role": "user"|"assistant", "content": str}, ...]).
+# 멀티턴 리스트면 마지막 user 메시지만 "지금 답할 발화"이고 앞선 turn은 history다 —
+# 과거 발화까지 한 user 블록에 뭉뚱그려 모델이 옛 발화에 답하던 문제를 구조로 해소한다.
+UserInput = Union[str, list[dict]]
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -222,7 +228,7 @@ def get_llm():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def classify_turn(system: str, user: str) -> Optional[ClassifyResult]:
+def classify_turn(system: str, user: UserInput) -> Optional[ClassifyResult]:
     """단일 Converse 호출로 의도/라우팅/감정/전략을 구조화 추출.
 
     CLASSIFY_JSON_MODE=1(기본): 프롬프트로 JSON 출력을 지시하고 .invoke() 자유 텍스트를
@@ -233,25 +239,19 @@ def classify_turn(system: str, user: str) -> Optional[ClassifyResult]:
     try:
         if _CLASSIFY_JSON_MODE:
             raw = _client().invoke(
-                [
-                    {"role": "system", "content": system + _JSON_INSTRUCTION},
-                    {"role": "user", "content": user},
-                ]
+                [{"role": "system", "content": system + _JSON_INSTRUCTION}, *_user_messages(user)]
             )
             return _parse_classify(_as_text(raw.content))
         structured = _client().with_structured_output(ClassifyResult)
         return structured.invoke(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ]
+            [{"role": "system", "content": system}, *_user_messages(user)]
         )
     except Exception:  # noqa: BLE001 — 데모 안정성: LLM 장애가 통화를 끊지 않게
         logger.exception("classify_turn failed; falling back to rule-based defaults")
         return None
 
 
-def converse(system: str, user: str, *, stream: bool = False) -> str:
+def converse(system: str, user: UserInput, *, stream: bool = False) -> str:
     """자유 텍스트 응답 생성(완성된 전체 문자열). 오류 시 FALLBACK_TEXT 반환.
 
     동기 converse는 전체 응답이 모인 뒤에야 반환한다(respond→compliance가 완성 draft를
@@ -262,10 +262,7 @@ def converse(system: str, user: str, *, stream: bool = False) -> str:
     Args:
         stream: 하위호환용 인자(무시됨). 점진 스트리밍은 astream_converse() 사용.
     """
-    msgs = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
+    msgs = [{"role": "system", "content": system}, *_user_messages(user)]
     try:
         text = _as_text(_client().invoke(msgs).content).strip()
         return text or FALLBACK_TEXT
@@ -277,7 +274,7 @@ def converse(system: str, user: str, *, stream: bool = False) -> str:
 def classify_and_respond_concurrent(
     classify_system: str,
     respond_system: str,
-    history: str,
+    history: UserInput,
 ) -> tuple[Optional[ClassifyResult], str]:
     """classify와 (전략 미주입) blind respond를 동시 실행해 직렬 지연을 줄인다.
 
@@ -306,7 +303,7 @@ def classify_and_respond_concurrent(
 
 def classify_respond_fused(
     fused_system: str,
-    history: str,
+    history: UserInput,
 ) -> Optional[tuple[ClassifyResult, str, float]]:
     """분류 + 응답 + 컴플라이언스 자가신뢰도를 단일 Converse 호출로 한 번에 추출(FUSED_TURN).
 
@@ -321,10 +318,7 @@ def classify_respond_fused(
     """
     try:
         raw = _client().invoke(
-            [
-                {"role": "system", "content": fused_system},
-                {"role": "user", "content": history},
-            ]
+            [{"role": "system", "content": fused_system}, *_user_messages(history)]
         )
         return _parse_fused(_as_text(raw.content))
     except Exception:  # noqa: BLE001 — 데모 안정성: LLM 장애가 통화를 끊지 않게
@@ -334,7 +328,7 @@ def classify_respond_fused(
 
 async def astream_converse(
     system: str,
-    user: str,
+    user: UserInput,
     *,
     timeout_s: float = _FIRST_TOKEN_TIMEOUT_S,
 ) -> AsyncIterator[str]:
@@ -351,10 +345,7 @@ async def astream_converse(
     Yields:
         str: 텍스트 청크.
     """
-    msgs = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
+    msgs = [{"role": "system", "content": system}, *_user_messages(user)]
     try:
         aiter = _client().astream(msgs)
         # 첫 토큰 타임아웃 가드
@@ -379,6 +370,25 @@ async def astream_converse(
     except Exception:  # noqa: BLE001
         logger.exception("astream_converse failed; returning fallback text")
         yield FALLBACK_TEXT
+
+
+def _user_messages(user: UserInput) -> list[dict]:
+    """user 입력을 Converse 메시지 리스트로 정규화.
+
+    - str: 단일 user 메시지로 감싼다(레거시 경로 — compliance redraft 등 자기완결 프롬프트).
+    - list[dict]: 멀티턴 history 그대로 사용(마지막 user = 지금 답할 발화, 앞선 turn = 맥락).
+      방어적으로 role/content 키만 추려 전달한다.
+    """
+    if isinstance(user, str):
+        return [{"role": "user", "content": user}]
+    msgs: list[dict] = []
+    for m in user:
+        role = m.get("role")
+        content = m.get("content", "")
+        if role in ("user", "assistant") and content:
+            msgs.append({"role": role, "content": content})
+    # 빈 리스트(전부 필터됨)는 Converse가 거부하므로 안전한 빈 user로 폴백.
+    return msgs or [{"role": "user", "content": ""}]
 
 
 def _as_text(content) -> str:

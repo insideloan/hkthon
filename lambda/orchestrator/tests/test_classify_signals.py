@@ -212,3 +212,40 @@ def test_render_history_no_window_when_zero(monkeypatch):
     history = [{"speaker": "customer", "text": f"메시지{i}"} for i in range(10)]
     rendered = nodes._render_history({"history": history, "customer_text": "x"})
     assert "메시지0" in rendered and "메시지9" in rendered
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 멀티턴 history 메시지 — 마지막 user = 현재 발화, 앞선 turn = role별 분리
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_render_history_messages_splits_roles_last_is_current():
+    """고객→user, 상담봇/상담원→assistant로 분리하고 현재 발화를 마지막 user로 덧붙인다."""
+    history = [
+        {"speaker": "customer", "text": "여보세요?"},
+        {"speaker": "bot", "text": "안녕하세요"},
+        {"speaker": "customer", "text": "금리 궁금해요"},
+        {"speaker": "agent", "text": "확인해드릴게요"},
+    ]
+    msgs = nodes._render_history_messages(
+        {"history": history, "customer_text": "지금 발화"}
+    )
+    assert [m["role"] for m in msgs] == ["user", "assistant", "user", "assistant", "user"]
+    # 마지막은 현재 답해야 할 고객 발화.
+    assert msgs[-1]["role"] == "user" and "지금 발화" in msgs[-1]["content"]
+    # 화자 라벨 보존.
+    assert msgs[0]["content"].startswith("고객:")
+    assert msgs[1]["content"].startswith("상담봇:")
+
+
+def test_render_history_messages_windows_to_recent(monkeypatch):
+    """_HISTORY_WINDOW 초과 시 최근 N개 turn만(+현재 발화) 메시지로 렌더."""
+    monkeypatch.setattr(nodes, "_HISTORY_WINDOW", 3)
+    history = [{"speaker": "customer", "text": f"메시지{i}"} for i in range(10)]
+    msgs = nodes._render_history_messages(
+        {"history": history, "customer_text": "지금발화"}
+    )
+    joined = " ".join(m["content"] for m in msgs)
+    assert "메시지9" in joined and "메시지7" in joined
+    assert "메시지6" not in joined and "메시지0" not in joined
+    assert msgs[-1]["content"].endswith("지금발화")
