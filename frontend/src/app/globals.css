@@ -402,11 +402,11 @@
 }
 .cc__cards .cseclbl--sec .ln { display: none; }
 /* 높이 정렬 — 세 카드의 첫 콘텐츠 영역(.bins / .usebox / .cmp-checks)을
-   카드③ 규제검토 2×2(~161px) 높이에 맞춰 통일 → 아래 섹션 라벨이 한 줄로 정렬.
+   동일 높이로 통일 → 아래 섹션 라벨이 한 줄로 정렬.
    (기존 #card-db margin-top 스페이서 핵 제거.) */
 .cc__cards .bins,
 .cc__cards .usebox,
-.cc__cards .cmp-checks { min-height: 161px; }
+.cc__cards .cmp-checks { height: 80px; min-height: 80px; overflow: hidden; }
 
 /* ── 카드② DB 분석 (SSOT 769–838) ── */
 .usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
