@@ -37,8 +37,9 @@ def _resolver_map() -> dict[str, Callable[[dict, dict], Any]]:
     from .resolvers import calls, customers, mots, queue, summaries, turns
 
     return {
-        # admin (스키마 비노출 — aws lambda invoke로 직접 호출. 데모 데이터 시드)
+        # admin (스키마 비노출 — aws lambda invoke로 직접 호출. 데모 데이터 시드/정리)
         "_seed": _resolve_seed,
+        "_cleanup": _resolve_cleanup,
         # queue
         "queue": queue.resolve_queue,
         "deleteQueueRow": queue.resolve_delete_queue_row,
@@ -85,6 +86,21 @@ def _resolve_seed(event: dict, args: dict) -> dict:
     queue_n = seed.seed_queue() if what in ("all", "queue") else None
     logger.info("_seed what=%s customers=%s queue=%s", what, customers_n, queue_n)
     return {"ok": True, "what": what, "customers": customers_n, "queue": queue_n}
+
+
+def _resolve_cleanup(event: dict, args: dict) -> dict:
+    """누적된 CREATED 고아 콜 META 정리 (admin). `aws lambda invoke`로 직접 호출.
+
+    createCall이 예전엔 매 진입마다 새 CREATED 콜을 박아 박서준(booth) 데모를
+    돌릴 때마다 콜이 DynamoDB에 무한 누적됐다(이후 멱등 수정됨). 이 경로로 잔재를
+    일괄 삭제한다. _seed와 같은 admin invoke 패턴 — Lambda 실행 역할의 테이블 write
+    권한을 빌려 직접 DynamoDB 권한 없이도 청소한다.
+    """
+    from . import seed
+
+    deleted = seed.cleanup_orphan_calls()
+    logger.info("_cleanup deleted=%s", deleted)
+    return {"ok": True, "deleted": deleted}
 
 
 def _field_name(event: dict) -> str:
