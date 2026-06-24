@@ -690,6 +690,9 @@ export function subscribeCallEnded(
   onData: (ended: CallEnded) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  if (USE_MOCK && isMockLiveCall(callId)) {
+    return subscribeMockLive(callId, 'callended', (p) => onData(p as CallEnded));
+  }
   return subscribeWithReconnect(
     { query: ON_CALL_ENDED_SUB, variables: { callId } },
     (d) => (d as OnCallEnded | undefined)?.onCallEnded,

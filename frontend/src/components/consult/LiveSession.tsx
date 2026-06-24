@@ -13,8 +13,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
-import { startAudio, audioChunk, subscribeTurns } from '@/lib/appsync';
+import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
 import { startPcmCapture, type PcmCaptureHandle } from '@/lib/pcmCapture';
 import type { Turn } from '@/types/realtime';
 
@@ -37,8 +38,10 @@ type LiveSessionProps = {
 };
 
 export function LiveSession({ callId }: LiveSessionProps) {
+  const router = useRouter();
   const [micState, setMicState] = useState<MicState>('idle');
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  const [ended, setEnded] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -79,14 +82,28 @@ export function LiveSession({ callId }: LiveSessionProps) {
   useEffect(() => {
     void requestMic();
 
-    const unsubscribe = subscribeTurns(
+    const unsubscribeTurns = subscribeTurns(
       callId,
       (turn) => pushTurn(turn),
       (err) => console.error('onTurn(live) 구독 오류', err),
     );
 
+    // 통화 종료 → 초록 ✓ 노출 + 마이크 정리(클릭 시 CRM 전환).
+    const unsubscribeEnded = subscribeCallEnded(
+      callId,
+      () => {
+        setEnded(true);
+        captureRef.current?.stop();
+        captureRef.current = null;
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      },
+      (err) => console.error('onCallEnded(live) 구독 오류', err),
+    );
+
     return () => {
-      unsubscribe();
+      unsubscribeTurns();
+      unsubscribeEnded();
       captureRef.current?.stop();
       captureRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -126,17 +143,17 @@ export function LiveSession({ callId }: LiveSessionProps) {
         <div
           className="inline-flex items-center gap-2 rounded-full px-[14px] py-[7px] font-disp text-[13px] font-bold"
           style={{
-            color: micState === 'listening' ? 'var(--danger)' : 'var(--route)',
-            background: micState === 'listening' ? 'rgba(219,83,80,.12)' : 'var(--badge-bg)',
+            color: ended ? 'var(--go)' : micState === 'listening' ? 'var(--danger)' : 'var(--route)',
+            background: ended ? 'rgba(46,158,110,.12)' : micState === 'listening' ? 'rgba(219,83,80,.12)' : 'var(--badge-bg)',
             border: '1px solid var(--card-bd)',
           }}
         >
           <span
-            className={clsx('h-[10px] w-[10px] flex-none rounded-full', micState === 'listening' && 'animate-pulse')}
-            style={{ background: micState === 'listening' ? 'var(--danger)' : 'var(--route)' }}
+            className={clsx('h-[10px] w-[10px] flex-none rounded-full', !ended && micState === 'listening' && 'animate-pulse')}
+            style={{ background: ended ? 'var(--go)' : micState === 'listening' ? 'var(--danger)' : 'var(--route)' }}
             aria-hidden
           />
-          {micState === 'listening' ? '● LIVE · 라이브 통화' : '라이브 통화 준비'}
+          {ended ? '✓ 상담 종료' : micState === 'listening' ? '● LIVE · 라이브 통화' : '라이브 통화 준비'}
         </div>
       </div>
 
@@ -222,7 +239,28 @@ export function LiveSession({ callId }: LiveSessionProps) {
         )}
       </div>
 
-      <span className="px-4 pb-2 text-center font-mono text-[10.5px] text-ink-faint">call · {callId}</span>
+      {/* 통화 종료: 초록 ✓ 완료 버튼 → 클릭 시 상담 CRM 화면 이동(데모 종료 메타포와 동일). */}
+      {ended ? (
+        <div className="flex flex-col items-center gap-2 px-4 pb-4 pt-2">
+          <button
+            type="button"
+            data-testid="live-ended-crm"
+            aria-label="상담 종료 · 상담 CRM 화면으로 이동"
+            onClick={() => router.push(`/crm/${callId}`)}
+            className="grid h-[56px] w-[56px] place-items-center rounded-full cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
+            style={{ background: 'var(--go)', color: '#fff', boxShadow: '0 8px 20px -6px rgba(46,158,110,.55)' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }} aria-hidden>
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <span className="font-disp text-[12px] font-bold" style={{ color: 'var(--go)' }}>
+            상담 종료 · 상담 CRM 보기
+          </span>
+        </div>
+      ) : (
+        <span className="px-4 pb-2 text-center font-mono text-[10.5px] text-ink-faint">call · {callId}</span>
+      )}
     </section>
   );
 }

@@ -9,6 +9,8 @@ let emitTurn: ((t: { seq: number; speaker: string; text: string }) => void) | nu
 const startAudio = vi.fn().mockResolvedValue(true);
 const audioChunk = vi.fn().mockResolvedValue(true);
 
+let emitEnded: (() => void) | null = null;
+
 vi.mock('@/lib/appsync', () => ({
   startAudio: (...a: unknown[]) => startAudio(...a),
   audioChunk: (...a: unknown[]) => audioChunk(...a),
@@ -16,7 +18,14 @@ vi.mock('@/lib/appsync', () => ({
     emitTurn = onData as typeof emitTurn;
     return () => { emitTurn = null; };
   },
+  subscribeCallEnded: (_callId: string, onData: () => void) => {
+    emitEnded = onData;
+    return () => { emitEnded = null; };
+  },
 }));
+
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const stopCapture = vi.fn();
 vi.mock('@/lib/pcmCapture', () => ({
@@ -30,7 +39,9 @@ beforeEach(() => {
   startAudio.mockClear();
   audioChunk.mockClear();
   stopCapture.mockClear();
+  push.mockClear();
   emitTurn = null;
+  emitEnded = null;
   Object.defineProperty(globalThis.navigator, 'mediaDevices', {
     value: { getUserMedia },
     configurable: true,
@@ -81,5 +92,17 @@ describe('LiveSession', () => {
     );
     expect(screen.getByTestId('live-retry')).toBeInTheDocument();
     expect(startAudio).not.toHaveBeenCalled();
+  });
+
+  it('shows the green ✓ end button on onCallEnded and routes to CRM on click', async () => {
+    await renderLive('exp-9');
+    // 통화 종료 이벤트 전에는 종료 버튼 없음.
+    expect(screen.queryByTestId('live-ended-crm')).not.toBeInTheDocument();
+    await act(async () => { emitEnded?.(); });
+    const endBtn = screen.getByTestId('live-ended-crm');
+    expect(endBtn).toBeInTheDocument();
+    expect(screen.getByTestId('live-session')).toHaveTextContent('상담 종료');
+    endBtn.click();
+    expect(push).toHaveBeenCalledWith('/crm/exp-9');
   });
 });
