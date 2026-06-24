@@ -72,14 +72,14 @@ def test_fast_route_branch_mapping():
 
 
 def test_route_intent_mapping():
-    assert nodes.route_intent({"route": Route.TRANSFER}) == "transfer_node"
+    assert nodes.route_intent({"route": Route.TRANSFER}) == "intake_node"
     assert nodes.route_intent({"route": Route.CLOSE}) == "close_node"
     assert nodes.route_intent({"route": Route.SILENCE}) == "silence"
     assert nodes.route_intent({"route": Route.RESPOND}) == "respond"
 
 
-def test_transfer_node_sets_transfer_route():
-    out = nodes.transfer_node({"history": []})
+def test_intake_node_sets_transfer_route():
+    out = nodes.intake_node({"history": []})
     assert out["route"] == Route.TRANSFER
     assert out["bot_text"]
 

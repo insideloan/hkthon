@@ -86,17 +86,21 @@ def test_run_turn_persists_bot_turn_and_meta():
     assert meta.get("current_node") is not None
 
 
-def test_run_turn_transfer_sets_pending_state():
-    """상담원 요청(룰 fast_route) → Call META state=TRANSFER_PENDING 전이."""
+def test_run_turn_intake_stays_active_with_ai_result_type():
+    """상담원 요청(룰 fast_route) → AI 본심사 전환. 통화 ACTIVE 유지, result_type=AI_본심사 기록.
+
+    사람 상담원 연결 폐기: TRANSFER_PENDING으로 전이하지 않고 통화를 이어가며,
+    종료 후 resultType 분류용으로 result_type만 META에 남긴다(handoff_reason 없음).
+    """
     from orchestrator.agent.runner import run_turn
 
     call_id = _seed_call("c-live-tr")
     out = run_turn(call_id, "사람 바꿔주세요")
     assert out is not None
     meta = dynamo.get_item(dynamo.pk_call(call_id), dynamo.SK_META)
-    assert meta["state"] == "TRANSFER_PENDING"
-    # 이관 시 핸드오프 요약이 handoff_reason으로 META에 기록(상담원 맥락 전달).
-    assert meta.get("handoff_reason")
+    assert meta.get("state") != "TRANSFER_PENDING"
+    assert meta.get("result_type") == "AI_본심사"
+    assert not meta.get("handoff_reason")
 
 
 def test_persisted_mot_is_wire_canonical():
@@ -150,8 +154,9 @@ def test_persisted_items_fan_out_to_subscriptions(monkeypatch):
 
     assert "_emitTurn" in names               # 봇 발화 → onTurn
     assert "_emitQueueUpdate" in names         # META 상태변경 → onQueueUpdate
-    # 상담원 이관 → state=TRANSFER_PENDING이 META에 반영됨.
-    assert meta["state"] == "TRANSFER_PENDING"
+    # AI 본심사 전환 → 통화 ACTIVE 유지, result_type=AI_본심사가 META에 기록됨.
+    assert meta.get("state") != "TRANSFER_PENDING"
+    assert meta.get("result_type") == "AI_본심사"
 
 
 # ── nextTurn resolver ──────────────────────────────────────────────────────────

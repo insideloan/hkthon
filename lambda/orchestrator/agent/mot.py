@@ -99,7 +99,8 @@ _CONVERSION_USABILITY = {
     Usability.CONDITIONAL,      # "금리 괜찮으면 진행할게요"
     Usability.BENEFIT_DRIVEN,   # "확실히 더 유리하면 해볼 수 있죠"
     Usability.URGENT_EXEC,      # "오늘 안 되면 의미 없어요"
-    Usability.NEEDS_AGENT,      # 상담원 연결 = 성공경로(TRANSFER_PENDING)
+    Usability.NEEDS_AGENT,      # (레거시) 상담원 요청 — 이제 AI 본심사로 전환되는 성공경로
+    Usability.AI_INTAKE,        # "서류 없이 빠르게" = AI 본심사 접수 = 성공경로
 }
 _RISK_USABILITY = {
     Usability.LOAN_REFUSED,     # "대출은 안 할 거예요"
