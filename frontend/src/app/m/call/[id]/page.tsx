@@ -101,9 +101,10 @@ export default function MobileCallPage({ params }: PageProps) {
           callId={callId}
           onEnded={() => setFinished(true)}
           customerName={customer?.name}
-          // 모바일은 스피커-마이크 근접·생활소음 환경상 0.14가 둔감해 발화가 끊겨
-          // 들어오는 경우가 있어, 데스크톱보다 민감한 0.11로 시작한다.
-          initialVadThreshold={0.11}
+          // Silero 발화 확률 임계값(0.1~0.9). 모바일은 스피커-마이크 근접·생활소음
+          // 환경이라 데스크톱 기본(0.5)보다 민감하게(낮게) 0.4로 시작한다 — 작은/애매한
+          // 발화도 잡되, Silero가 비음성 잡음은 모델 단에서 걸러 오탐은 RMS보다 적다.
+          initialVadThreshold={0.4}
         />
       </div>
     </div>

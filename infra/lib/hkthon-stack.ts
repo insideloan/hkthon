@@ -98,25 +98,19 @@ export class HkthonStack extends cdk.Stack {
       // importable package (handler.py uses relative imports `from .resolvers`).
       handler: 'orchestrator.handler.handler',
       layers: [depsLayer],
-      // Bundle includes churn_risk_lexicon.json (copied from the SSOT at
-      // hk-skills/reference/) so churn_risk.py loads it from /var/task at
-      // runtime via LEXICON_LOCAL_PATH (#83 block 3).
-      // ⚠️ #50 (CLOUD-008): when this asset is swapped to the real orchestrator
-      // bundle (lambda/orchestrator/), carry the lexicon copy forward and keep
-      // LEXICON_LOCAL_PATH pointing at it — the file must ship inside the asset.
-      // The bundle copy is a build artifact of the SSOT; re-sync if the SSOT changes.
-      // Real orchestrator bundle (lambda/orchestrator + AGENT/BACKEND code).
-      // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
-      // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
+      // Bundle includes churn_risk_lexicon.json so churn_risk.py loads it from
+      // /var/task at runtime via LEXICON_LOCAL_PATH (#83 block 3).
       code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       // 라이브 한 턴(nextTurn/audioChunk)은 agent 그래프(Bedrock classify+respond,
       // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
       // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
       timeout: cdk.Duration.seconds(90),
-      // 256MB는 ~0.15 vCPU라 LangGraph 노드 디스패치·Pydantic 직렬화·문자열 처리 등
-      // 파이썬 CPU 작업이 로컬 대비 4-7배 느리다(라이브 한 턴이 10개 노드 직렬이라 누적).
-      // 1024MB(~0.6 vCPU)로 올려 LLM 외 오버헤드를 줄인다(데모 규모 비용 영향 미미).
-      memorySize: 1024,
+      // 3008MB(~1.7 vCPU)로 상향 — 음성 향상(DeepFilterNet)은 클라이언트(브라우저
+      // WASM)에서 돌아 Lambda CPU와 무관하지만, LangGraph 노드 디스패치·Pydantic
+      // 직렬화·문자열 처리 등 파이썬 CPU 작업(라이브 한 턴이 10개 노드 직렬)을 더
+      // 빠르게 처리하려고 메모리를 올린다(Lambda는 CPU를 직접 못 정하고 메모리로
+      // 스케일한다). 상시 워밍 2개분 비용은 데모 시간대 한정이라 미미.
+      memorySize: 3008,
       environment: {
         TABLE_NAME: table.tableName,
         ASSETS_BUCKET: bucket.bucketName,

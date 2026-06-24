@@ -18,9 +18,14 @@ vi.mock('@/lib/appsync', () => ({
   audioChunk: vi.fn().mockResolvedValue(true),
 }));
 
-// PCM 캡처는 AudioContext 의존 — jsdom에 없으므로 목으로 대체.
-vi.mock('@/lib/pcmCapture', () => ({
-  startPcmCapture: () => ({ stop: vi.fn() }),
+// Silero 캡처는 AudioContext/WASM 의존 — jsdom에 없으므로 목으로 대체(Promise<handle>).
+vi.mock('@/lib/sileroCapture', () => ({
+  startSileroCapture: async () => ({ stop: vi.fn() }),
+}));
+
+// DeepFilterNet denoise도 WASM/AudioContext 의존 — 패스스루 handle 목으로 대체.
+vi.mock('@/lib/dfnDenoise', () => ({
+  startDfnDenoise: async (stream: MediaStream) => ({ stream, enhanced: false, stop: vi.fn() }),
 }));
 
 vi.mock('@/stores/motStore', () => {

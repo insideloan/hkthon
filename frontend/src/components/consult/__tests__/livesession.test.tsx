@@ -28,20 +28,28 @@ const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const stopCapture = vi.fn();
-// startPcmCapture에 넘어온 옵션(함수형 vadThreshold + 발화 시작/종료 훅)을 캡처해
-// 슬라이더 연동/"음성 인식 중" 말풍선 검증에 쓴다.
+// startSileroCapture에 넘어온 옵션(함수형 positiveSpeechThreshold + 발화 시작/종료 훅)을
+// 캡처해 슬라이더 연동/"음성 인식 중" 말풍선 검증에 쓴다. Silero는 모델 로드가 비동기라
+// startSileroCapture가 Promise<handle>을 반환한다 — 목도 동일하게 resolve한다.
 let lastCaptureOpts:
-  | { vadThreshold?: number | (() => number); suppressedThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
+  | { positiveSpeechThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
   | undefined;
-vi.mock('@/lib/pcmCapture', () => ({
-  startPcmCapture: (
+vi.mock('@/lib/sileroCapture', () => ({
+  startSileroCapture: async (
     _s: unknown,
     _cb: unknown,
-    opts?: { vadThreshold?: number | (() => number); suppressedThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
+    opts?: { positiveSpeechThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
   ) => {
     lastCaptureOpts = opts;
     return { stop: stopCapture };
   },
+}));
+
+// DeepFilterNet denoise는 WASM/AudioContext 의존 — jsdom에 없으므로 목으로 대체.
+// 원본 스트림을 그대로 통과시키는 패스스루 handle을 돌려준다(enhanced=false).
+const stopDfn = vi.fn();
+vi.mock('@/lib/dfnDenoise', () => ({
+  startDfnDenoise: async (stream: MediaStream) => ({ stream, enhanced: false, stop: stopDfn }),
 }));
 
 const getUserMedia = vi.fn();
@@ -130,29 +138,27 @@ describe('LiveSession', () => {
     expect(push).toHaveBeenCalledWith('/crm/exp-9');
   });
 
-  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.130, 함수형 임계값으로 전달', async () => {
+  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.50, 함수형 발화확률 임계값으로 전달', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider') as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.130');
-    // startPcmCapture는 함수형 vadThreshold를 받아 매 프레임 현재값을 읽어야 한다.
-    expect(typeof lastCaptureOpts?.vadThreshold).toBe('function');
-    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.13, 3);
-    // AI 발화 중에는 더 둔감한 절대 임계값(0.19)을 쓴다(에코 오탐 방지).
-    expect(typeof lastCaptureOpts?.suppressedThreshold).toBe('number');
-    expect(lastCaptureOpts!.suppressedThreshold).toBeCloseTo(0.19, 3);
+    // Silero 발화 확률 기본 0.50(소수 2자리 표기).
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.50');
+    // startSileroCapture는 함수형 positiveSpeechThreshold를 받아 생성 시점 현재값을 읽는다.
+    expect(typeof lastCaptureOpts?.positiveSpeechThreshold).toBe('function');
+    expect((lastCaptureOpts!.positiveSpeechThreshold as () => number)()).toBeCloseTo(0.5, 2);
   });
 
-  it('슬라이더를 움직이면 임계값이 즉시(재시작 없이) 반영된다', async () => {
+  it('슬라이더를 움직이면 임계값이 (재시작 없이) ref에 반영된다', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider');
-    const getThreshold = lastCaptureOpts!.vadThreshold as () => number;
+    const getThreshold = lastCaptureOpts!.positiveSpeechThreshold as () => number;
     await act(async () => {
-      fireEvent.change(slider, { target: { value: '0.1' } });
+      fireEvent.change(slider, { target: { value: '0.3' } });
     });
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.100');
-    // 동일 함수가 갱신된 값을 반환(캡처 재시작 없음 → stopCapture 미호출).
-    expect(getThreshold()).toBeCloseTo(0.1, 3);
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.30');
+    // 동일 함수가 갱신된 ref 값을 반환(캡처 재생성 없음 → stopCapture 미호출).
+    expect(getThreshold()).toBeCloseTo(0.3, 2);
     expect(stopCapture).not.toHaveBeenCalled();
   });
 
