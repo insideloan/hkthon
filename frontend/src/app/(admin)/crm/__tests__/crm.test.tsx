@@ -77,8 +77,8 @@ describe('CrmDetailPage — #view-summary layout', () => {
 
   it('renders needs chips section with 권장 액션', async () => {
     await renderPage();
-    expect(screen.getByText('금리 인하 요구권')).toBeInTheDocument();
-    expect(screen.getByText(/우대금리.*적용 제안/)).toBeInTheDocument();
+    expect(screen.getByText('금리 민감')).toBeInTheDocument();
+    expect(screen.getByText(/자담 10% 대환 접수 완료/)).toBeInTheDocument();
   });
 
   it('renders the sum-tag status label', async () => {

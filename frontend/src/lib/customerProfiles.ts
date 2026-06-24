@@ -22,11 +22,15 @@ export type CustomerProfile = {
   /** "KCB 744". */
   kcb: string;
   loan: string;
+  /** 금리 항목 라벨 (기본 '현 금리'). 대환 시연 행은 '타사 금리 (추정)' 등으로 덮어쓴다. */
+  rateLabel?: string;
   rate: string;
   rateVariant: ProfileVariant;
   asset: string;
   churnLabel: string;
   churnVariant: ProfileVariant;
+  /** true면 이탈 위험을 큐 행 churnRisk로 덮어쓰지 않고 fixture 서사 문구를 유지한다. */
+  churnLocked?: boolean;
   needs: CustomerNeed[];
   /** 권장 다음 액션(▶ 권장). */
   nextAction: string;
@@ -41,18 +45,19 @@ const DEMO_PROFILES: Record<string, CustomerProfile> = {
     genderAge: '남 · 38세',
     kcb: 'KCB 744',
     loan: '주택담보대출 2.4억',
-    rate: '4.85%',
+    rateLabel: '타사 금리 (추정)',
+    rate: '약 13%',
     rateVariant: 'hot',
-    asset: '아파트 5.2억',
-    churnLabel: '낮음',
+    asset: '차량 보유 (담보 가능)',
+    churnLabel: 'HIGH → LOW (전환 완료)',
     churnVariant: 'ok',
+    churnLocked: true,
     needs: [
-      { label: '금리 인하 요구권', variant: '' },
-      { label: '조기 상환 우려', variant: 'warn' },
-      { label: '타행 이관 검토 중', variant: 'warn' },
-      { label: '장기 고객 우대 희망', variant: 'ok' },
+      { label: '금리 민감', variant: '' },
+      { label: '절차 간편', variant: '' },
+      { label: '검증·신뢰 욕구 높음', variant: 'warn' },
     ],
-    nextAction: '우대금리 0.3%p 적용 제안 → 금리 인하 요구권 안내',
+    nextAction: '자담 10% 대환 접수 완료 (본인확인·전자약정 진행) → 심사 결과 안내',
   },
   'c-demo-06': {
     name: '오세훈',
@@ -200,7 +205,9 @@ export function resolveCustomerProfile(
   const fixture = DEMO_PROFILES[callId];
   if (!fixture) return fallbackProfile(callId, row);
   // fixture 우선. 단, 큐 행에 신원 값이 있으면(이름/이탈위험) 실제 레코드로 보정.
-  const churn = row?.churnRisk != null ? churnFrom(row.churnRisk) : null;
+  // churnLocked fixture(전환 서사 행)는 큐 churnRisk로 덮어쓰지 않고 문구를 유지한다.
+  const churn =
+    !fixture.churnLocked && row?.churnRisk != null ? churnFrom(row.churnRisk) : null;
   return {
     ...fixture,
     name: row?.customerName || fixture.name,

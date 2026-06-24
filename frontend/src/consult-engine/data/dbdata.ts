@@ -14,8 +14,8 @@ export const DBDATA: DbDataEntry[] = [
   },
   {
     // custSeq 1 — 우량 고객 ML 금리 최적화 (조건 의심 위험 방어)
-    use: ['우량 고객 (CB · 소득)', 'ML 금리 · 부도 민감도'],
-    res: ['CB 2등급·고소득 / 금리민감 HIGH · 연체 LOW → 추가할인 100bp 여력'],
+    use: ['우량 고객 (CB · 소득 · 부동산)', 'ML 금리 · 부도 민감도'],
+    res: ['고소득 · 자가 / 금리민감 HIGH · 연체 LOW → 추가할인 100bp 여력'],
   },
   {
     // custSeq 2 — 담보 약관 (담보 오해 위험 방어)
@@ -40,13 +40,13 @@ export const DIAG: DiagEntry[] = [
     banner: { text: '타사 13% 확인 — 자담 10% 전환 시 연 34만원 절감', tone: 'ok' },
   },
   {
-    // custSeq 1 — CB 2등급·고소득 / 금리민감 HIGH · 연체 LOW → 추가할인 100bp 여력
+    // custSeq 1 — 고소득 · 자가 / 금리민감 HIGH · 연체 LOW → 추가할인 100bp 여력
     nodes: [
-      { val: 'CB 2등급', label: '신용 등급', ic: '🏦', tone: 'route' },
+      { val: '자가 보유', label: '부동산', ic: '🏠', tone: 'route' },
       { val: 'HIGH', label: '금리 민감도', ic: '🎯', tone: 'go' },
       { val: '100bp', label: '추가할인 여력', ic: '📊', tone: 'go' },
     ],
-    banner: { text: '우량 고객 — 연체 LOW 확인, 추가할인 100bp 여력', tone: 'ok' },
+    banner: { text: '고소득·자가 — 연체 LOW 확인, 추가할인 100bp 여력', tone: 'ok' },
   },
   {
     // custSeq 2 — 저당권 설정형 담보 → 차량 점유 유지 · 운행 제약 없음
