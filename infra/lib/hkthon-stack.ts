@@ -283,7 +283,10 @@ export class HkthonStack extends cdk.Stack {
       layers: [depsLayer],
       code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
+      // 256MB(~0.15 vCPU)는 _emit* 마다 SigV4 서명 + HTTPS POST를 직렬로 도는 팬아웃엔
+      // CPU가 모자라 발화 텍스트가 화면에 뜨는 시간을 늘린다(customer Turn도 이 경로를
+      // 거친다). 512MB(~0.3 vCPU)로 올려 서명/직렬화/네트워크 오버헤드를 줄인다.
+      memorySize: 512,
       environment: {
         APPSYNC_URL: api.graphqlUrl,
         APPSYNC_API_ID: api.apiId,
@@ -299,6 +302,9 @@ export class HkthonStack extends cdk.Stack {
       eventSourceArn: table.tableStreamArn!,
       startingPosition: lambda.StartingPosition.LATEST,
       batchSize: 10,
+      // 배치 윈도를 0으로 명시 — 레코드가 쌓이길 기다리지 않고 즉시 invoke 한다.
+      // customer/bot Turn write → 화면 표시(_emitTurn)까지의 폴링 대기를 최소화.
+      maxBatchingWindow: cdk.Duration.seconds(0),
       retryAttempts: 2,
       bisectBatchOnError: true,
     });

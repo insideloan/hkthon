@@ -125,7 +125,8 @@ def _stt_chunk_to_text(data_b64: str) -> str:
     """base64 PCM 청크 한 개를 AGENT STT 브리지로 보내 최종 텍스트로 변환.
 
     STT 구현은 AGENT 소유(stt/transcribe_stt). 단일 청크를 1-item async
-    이터레이터로 감싸 stream_chunks → accumulate_final_text 흐름을 돌린다.
+    이터레이터로 감싸 stream_chunks → best_effort_text 흐름을 돌린다
+    (최종 우선, 없으면 최신 partial 폴백).
     단위 테스트는 transcribe_stt 모듈을 monkeypatch한다.
     """
     import asyncio
@@ -140,7 +141,9 @@ def _stt_chunk_to_text(data_b64: str) -> str:
 
     async def _run() -> str:
         results = await transcribe_stt.stream_chunks(_one())
-        return await transcribe_stt.accumulate_final_text(results)
+        # 최종이 있으면 최종, 없으면 최신 partial로 폴백 — 발화 끝~표시 지연을 줄이고,
+        # 짧은 발화에서 final 미확정으로 customer Turn이 통째로 드롭되던 문제를 막는다.
+        return await transcribe_stt.best_effort_text(results)
 
     # 전용 이벤트 루프를 새로 만들어 돌리고 닫은 뒤, 프로세스에 "현재 루프"를
     # 하나 남겨둔다. (asyncio.run은 전역 루프를 닫힌 채로 남겨, 동일 프로세스에서
