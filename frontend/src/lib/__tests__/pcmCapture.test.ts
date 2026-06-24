@@ -112,4 +112,27 @@ describe('startPcmCapture VAD endpointing', () => {
     h.stop();
     expect(onChunk).toHaveBeenCalledTimes(1);
   });
+
+  it('onDebug 튜닝 훅: frame/speech-start/flush 이벤트와 reason을 보고한다', () => {
+    const events: string[] = [];
+    const h = startPcmCapture({} as MediaStream, vi.fn(), {
+      vadThreshold: 0.01, silenceMs: 800,
+      onDebug: (ev) => events.push(ev.type === 'flush' ? `flush:${ev.reason}` : ev.type),
+    });
+    feed(0.2);            // frame + speech-start
+    nowMs += 900; feed(0.0); // frame + flush:silence
+    expect(events).toContain('frame');
+    expect(events).toContain('speech-start');
+    expect(events).toContain('flush:silence');
+    // frame 이벤트는 RMS·threshold를 실어 튜닝에 쓸 수 있어야 한다.
+    const frames: number[] = [];
+    startPcmCapture({} as MediaStream, vi.fn(), {
+      vadThreshold: 0.05,
+      onDebug: (ev) => { if (ev.type === 'frame') frames.push(ev.rms); },
+    });
+    feed(0.2);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames[0]).toBeCloseTo(0.2, 2); // 상수 진폭 0.2 → RMS ≈ 0.2
+    h.stop();
+  });
 });

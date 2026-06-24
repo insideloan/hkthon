@@ -69,9 +69,37 @@ export function LiveSession({ callId }: LiveSessionProps) {
 
       // 라이브 세션 시작 + PCM 스트리밍. 실패는 통화 UI를 막지 않게 삼킨다.
       void startAudio(callId).catch(() => {});
-      captureRef.current = startPcmCapture(stream, (b64) => {
-        void audioChunk(callId, b64).catch(() => {});
-      });
+      // VAD 튜닝 모드(?vadDebug=1): 실마이크로 말해보며 콘솔에서 RMS·flush를 관찰해
+      // vadThreshold/silenceMs를 맞춘다. 플래그 없으면 onDebug 미전달(프로덕션 무영향).
+      const vadDebug =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('vadDebug') === '1';
+      let peakRms = 0; // 발화 구간 최대 RMS — 임계값 잡는 기준
+      captureRef.current = startPcmCapture(
+        stream,
+        (b64) => {
+          void audioChunk(callId, b64).catch(() => {});
+        },
+        vadDebug
+          ? {
+              onDebug: (ev) => {
+                if (ev.type === 'frame') {
+                  if (ev.speaking) peakRms = Math.max(peakRms, ev.rms);
+                  return; // 프레임 로그는 과다 — 집계만, speech-start/flush에서 출력
+                }
+                if (ev.type === 'speech-start') {
+                  peakRms = 0;
+                  console.log('[vad] speech-start (임계값', '0.012 기본)');
+                } else if (ev.type === 'flush') {
+                  console.log(
+                    `[vad] flush reason=${ev.reason} dur=${Math.round(ev.durationMs)}ms ` +
+                      `peakRMS=${peakRms.toFixed(4)} samples=${ev.samples}`,
+                  );
+                }
+              },
+            }
+          : undefined,
+      );
     } catch (err) {
       const name = (err as { name?: string } | null)?.name;
       setMicState(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error');
