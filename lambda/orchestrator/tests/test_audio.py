@@ -178,3 +178,97 @@ def test_live_mode_start_audio(monkeypatch):
     monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
     config.get_settings.cache_clear()
     assert audio.resolve_start_audio({}, {"callId": "c1"}) is True
+
+
+def test_start_audio_prewarms_dependencies(monkeypatch):
+    """startAudio가 STT prewarm을 호출해 첫 청크 콜드 비용을 당겨 치른다."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    called = {"n": 0}
+    monkeypatch.setattr(transcribe_stt, "prewarm", lambda *a, **k: called.__setitem__("n", called["n"] + 1) or True)
+    assert audio.resolve_start_audio({}, {"callId": "c1"}) is True
+    assert called["n"] == 1
+
+
+def test_start_audio_prewarm_failure_does_not_break_session(monkeypatch):
+    """prewarm이 던져도 세션 시작(True)은 막지 않는다(best-effort)."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    def _boom(*a, **k):
+        raise RuntimeError("transcribe import 실패")
+
+    monkeypatch.setattr(transcribe_stt, "prewarm", _boom)
+    assert audio.resolve_start_audio({}, {"callId": "c1"}) is True
+
+
+def test_echo_drop_when_stt_matches_last_bot_turn(monkeypatch):
+    """직전 봇 발화와 거의 동일한 STT 결과는 에코로 보고 customer Turn을 만들지 않는다."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    # 직전 봇 발화.
+    bot_text = "안녕하세요 현대캐피탈 AI 상담원입니다 무엇을 도와드릴까요"
+    dynamo.put_item({"PK": dynamo.pk_call("c1"), "SK": dynamo.sk_turn(1),
+                     "seq": 1, "speaker": "bot", "text": bot_text})
+
+    async def fake_stream_chunks(chunks, **kw):
+        async for _ in chunks:
+            pass
+        return []
+
+    # STT가 봇 발화를 거의 그대로 되먹어 돌려준 상황(에코).
+    async def fake_best_effort(results):
+        return "안녕하세요 현대캐피탈 AI 상담원입니다 무엇을 도와드릴까요"
+
+    ran = {"agent": False}
+    monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_best_effort)
+    monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: ran.__setitem__("agent", True))
+
+    assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is False
+    # customer Turn은 생기지 않고(봇 turn 1개만 존재), 그래프도 안 돈다.
+    turns = dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN)
+    assert [t["speaker"] for t in turns] == ["bot"]
+    assert ran["agent"] is False
+
+
+def test_echo_filter_passes_genuine_customer_speech(monkeypatch):
+    """봇 발화와 다른 고객 발화는 에코 필터를 통과해 정상 기록된다."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    dynamo.put_item({"PK": dynamo.pk_call("c1"), "SK": dynamo.sk_turn(1),
+                     "seq": 1, "speaker": "bot", "text": "무엇을 도와드릴까요"})
+
+    async def fake_stream_chunks(chunks, **kw):
+        async for _ in chunks:
+            pass
+        return []
+
+    async def fake_best_effort(results):
+        return "금리 인하가 가능한지 알고 싶어요"  # 봇 발화와 겹치는 토큰 거의 없음
+
+    monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_best_effort)
+    monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: None)
+
+    assert audio.resolve_audio_chunk({}, {"callId": "c1", "data": "AAAA"}) is True
+    turns = dynamo.query(dynamo.pk_call("c1"), dynamo.SK_PREFIX_TURN)
+    texts = {t["speaker"]: t["text"] for t in turns}
+    assert texts["customer"] == "금리 인하가 가능한지 알고 싶어요"
+
+
+def test_echo_filter_helper_similarity():
+    """_looks_like_bot_echo: 동일/유사 문장 True, 무관 문장 False, 봇 발화 없으면 False."""
+    dynamo.put_item({"PK": dynamo.pk_call("cE"), "SK": dynamo.sk_turn(1),
+                     "seq": 1, "speaker": "bot", "text": "대출 한도를 안내해 드리겠습니다"})
+    assert audio._looks_like_bot_echo("cE", "대출 한도를 안내해 드리겠습니다") is True
+    assert audio._looks_like_bot_echo("cE", "네 알겠습니다 감사합니다") is False
+    # 봇 발화가 전혀 없는 콜은 항상 False(정상 발화를 막지 않는다).
+    assert audio._looks_like_bot_echo("cNo", "아무 말") is False

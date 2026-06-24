@@ -76,8 +76,13 @@ describe('ConsultCockpitPage — live mode (?live=1)', () => {
 
   it('requests microphone access on entry', async () => {
     await renderLive();
+    // 표준 AEC/NS/AGC는 반드시 요청(추가 강화 힌트는 브라우저별 best-effort라 허용).
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: expect.objectContaining({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }),
     });
   });
 

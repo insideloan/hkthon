@@ -63,6 +63,20 @@ export type PcmCaptureOptions = {
   /** 한 발화가 이 길이(ms)를 넘으면 침묵 없이도 강제 flush(끊김 방지 안전장치). */
   maxUtteranceMs?: number;
   /**
+   * 에코 게이팅: 봇 음성이 스피커로 나가는 중인지 매 프레임 조회한다(true=재생 중).
+   * 모바일은 스피커-마이크가 가까워 봇 음성이 마이크로 되먹임되는데, AEC가 다 못 거른
+   * 잔여가 VAD를 '고객 발화'로 오인하게 만든다. true인 동안 발화 감지 임계값을
+   * suppressGain 배로 올려, 큰 목소리의 진짜 barge-in만 통과시키고 에코는 차단한다.
+   * 미지정 시 게이팅 없음(기존 동작).
+   */
+  isSuppressed?: () => boolean;
+  /**
+   * isSuppressed가 true일 때 VAD 임계값에 곱하는 배수(기본 4). 클수록 봇 발화 중
+   * 끼어들기가 어려워지지만 에코 오탐은 줄어든다. barge-in을 살리려 무한대(완전 차단)
+   * 대신 유한 배수를 쓴다.
+   */
+  suppressGain?: number;
+  /**
    * 튜닝용 디버그 훅(선택). 프레임별 RMS·발화 시작·flush 사유를 흘린다.
    * 실제 마이크로 말해보며 vadThreshold/silenceMs를 맞출 때만 쓴다(프로덕션 미사용).
    * frame 이벤트는 과다하므로 onDebug 내부에서 샘플링/throttle 권장.
@@ -97,6 +111,8 @@ export function startPcmCapture(
   const maxUtteranceMs = options.maxUtteranceMs ?? 15000;
   const onDebug = options.onDebug;
   const onSpeechStart = options.onSpeechStart;
+  const isSuppressed = options.isSuppressed;
+  const suppressGain = options.suppressGain ?? 4;
 
   type WindowWithWebkit = Window & { webkitAudioContext?: typeof AudioContext };
   const Ctx = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
@@ -106,6 +122,12 @@ export function startPcmCapture(
   }
 
   const ctx = new Ctx();
+  // 모바일은 AudioContext가 suspended로 시작될 수 있어 첫 onaudioprocess까지
+  // 수백 ms~1초가 새어 첫 발화 인식이 늦다. 권한 제스처 직후 호출되므로 즉시
+  // resume해 그래프를 미리 깨운다(이미 running이면 no-op). 실패는 무시.
+  if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+    void ctx.resume().catch(() => {});
+  }
   const source = ctx.createMediaStreamSource(stream);
   // 4096 프레임 버퍼, mono in/out.
   const processor = ctx.createScriptProcessor(4096, 1, 1);
@@ -134,7 +156,11 @@ export function startPcmCapture(
     const input = e.inputBuffer.getChannelData(0);
     const level = rms(input);
     const t = now();
-    const threshold = getThreshold();
+    // 에코 게이팅: 봇 음성이 나가는 중이고 아직 고객 발화가 시작되지 않았다면 임계값을
+    // suppressGain 배로 올려 되먹임 에코를 발화로 오인하지 않게 한다. 이미 발화 중인
+    // 고객의 말꼬리는 게이팅하지 않는다(말 도중 봇 클립이 시작돼도 발화가 끊기지 않게).
+    const suppress = !speaking && isSuppressed?.() === true;
+    const threshold = getThreshold() * (suppress ? suppressGain : 1);
     onDebug?.({ type: 'frame', rms: level, speaking, threshold });
 
     if (level >= threshold) {

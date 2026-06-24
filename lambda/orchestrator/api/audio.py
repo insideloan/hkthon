@@ -20,12 +20,35 @@ logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
 def resolve_start_audio(event: dict, args: dict) -> bool:
-    """라이브 오디오 세션 시작. 스크립트 모드에서는 no-op(False)."""
+    """라이브 오디오 세션 시작. 스크립트 모드에서는 no-op(False).
+
+    세션 시작 시점에 무거운 콜드 의존성(DynamoDB 리소스, AWS Transcribe 클라이언트
+    임포트)을 미리 초기화해 둔다. 그러지 않으면 첫 audioChunk가 이 비용을 전부
+    떠안아 사용자의 "첫 발화 → 텍스트" 지연이 유독 길어진다. prewarm은 best-effort —
+    실패해도 세션 시작을 막지 않는다(첫 청크에서 자연스럽게 재시도).
+    """
     if get_settings().is_script:
         logger.info("startAudio no-op (script mode)")
         return False
     logger.info("startAudio callId=%s", args.get("callId"))
+    _prewarm()
     return True
+
+
+def _prewarm() -> None:
+    """첫 발화 지연을 줄이기 위해 콜드 의존성을 미리 초기화(best-effort)."""
+    try:
+        dynamo.get_table()  # boto3 dynamodb resource lazy 생성을 당겨서 치름.
+    except Exception:  # noqa: BLE001 — prewarm 실패는 세션을 막지 않는다.
+        logger.debug("startAudio prewarm: dynamo 초기화 스킵", exc_info=True)
+    try:
+        # amazon-transcribe 패키지 임포트(콜드에서 수백 ms) + 클라이언트 생성 비용을
+        # 첫 청크 전에 당겨둔다. 스트림은 첫 audioChunk에서 연다.
+        from ..stt import transcribe_stt  # noqa: PLC0415
+
+        transcribe_stt.prewarm()
+    except Exception:  # noqa: BLE001
+        logger.debug("startAudio prewarm: STT 초기화 스킵", exc_info=True)
 
 
 def resolve_audio_chunk(event: dict, args: dict) -> bool:
@@ -52,6 +75,14 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
     # (단 "네"·"음" 같은 실제 최소 응답은 의미 글자가 있으므로 통과 → silence 노드가 처리.)
     if not _has_speech(text):
         logger.info("audioChunk: STT 무음/잡음 스킵 call=%s text=%r", call_id, text)
+        return False
+
+    # 에코 안전망: 모바일은 스피커-마이크가 가까워 봇 음성이 마이크로 되먹임된다.
+    # 프론트 AEC·VAD 게이팅이 다 못 막은 잔여가 STT까지 흘러 "봇이 방금 한 말"이
+    # 유령 customer Turn으로 기록되면, 그래프가 자기 발화에 또 응답해 루프가 돈다.
+    # 직전 봇 발화와 STT 결과가 충분히 유사하면 에코로 보고 드롭한다.
+    if _looks_like_bot_echo(call_id, text):
+        logger.info("audioChunk: 봇 에코 의심 드롭 call=%s text=%r", call_id, text)
         return False
 
     # 다음 seq 계산 후 customer Turn 기록. 동시 audioChunk(연속 오디오 스트림에서
@@ -108,6 +139,46 @@ def _run_agent_turn(call_id: str, customer_text: str) -> None:
         run_turn(call_id, customer_text)
     except Exception:  # noqa: BLE001 — 데모 안정성: 그래프 장애가 customer Turn 기록을 무효화하지 않게
         logger.exception("audioChunk: agent turn failed for call=%s", call_id)
+
+
+# 직전 봇 발화와 STT 결과의 토큰 자카드 유사도가 이 값 이상이면 에코로 간주.
+# 0.6은 데모 발화 길이에서 "사실상 같은 문장"을 잡되, 고객이 봇 말을 일부 따라하는
+# 정상 응답(예: 봇 질문 키워드 일부 반복)은 통과시키는 절충값.
+_ECHO_SIMILARITY_THRESHOLD = 0.6
+
+
+def _normalize_tokens(text: str) -> set[str]:
+    """비교용 토큰 집합 — 소문자화 후 한/영/숫자 토큰만 추출(구두점·공백 무시)."""
+    import re
+
+    return set(re.findall(r"[0-9a-z가-힣]+", text.lower()))
+
+
+def _looks_like_bot_echo(call_id: str, text: str) -> bool:
+    """STT 결과가 직전 봇 발화의 되먹임(에코)으로 의심되는지.
+
+    가장 최근 bot Turn 텍스트와 토큰 자카드 유사도를 재 임계값 이상이면 True.
+    조회 실패·봇 발화 없음·짧은 텍스트는 보수적으로 False(정상 발화를 막지 않는다).
+    """
+    cand = _normalize_tokens(text)
+    if not cand:
+        return False
+    try:
+        turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
+    except Exception:  # noqa: BLE001 — 조회 실패 시 필터를 끄고 정상 경로로.
+        logger.debug("echo 필터: Turn 조회 실패 call=%s", call_id, exc_info=True)
+        return False
+    bot_turns = [t for t in turns if t.get("speaker") == "bot" and t.get("text")]
+    if not bot_turns:
+        return False
+    last_bot = max(bot_turns, key=lambda t: int(t.get("seq", 0)))
+    ref = _normalize_tokens(str(last_bot.get("text", "")))
+    if not ref:
+        return False
+    overlap = len(cand & ref)
+    union = len(cand | ref)
+    similarity = overlap / union if union else 0.0
+    return similarity >= _ECHO_SIMILARITY_THRESHOLD
 
 
 def _has_speech(text: str) -> bool:

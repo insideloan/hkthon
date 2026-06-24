@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
 import { startPcmCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/pcmCapture';
-import { stopBotAudio } from '@/lib/botAudioControl';
+import { stopBotAudio, isBotSpeaking } from '@/lib/botAudioControl';
 import { useExperienceStore } from '@/stores/experienceStore';
 import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
 import type { Turn } from '@/types/realtime';
@@ -148,13 +148,23 @@ export function LiveSession({ callId, onEnded }: LiveSessionProps) {
       // 유령 customer turn을 만들어 그래프가 한 번 더 돈다. AEC가 참조신호(봇 출력)만
       // 제거하므로 실제 고객 발화 barge-in은 그대로 동작한다. noiseSuppression/AGC도 켜
       // 잡음 오탐을 줄인다.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      // 표준 3종(AEC/NS/AGC)에 더해, 지원 브라우저에서만 적용되는 강화 힌트를
+      // advanced로 얹는다. 모바일 스피커-마이크 근접 배치에서 봇 음성 되먹임을 더
+      // 강하게 제거하려는 목적 — 미지원 브라우저는 advanced 항목을 조용히 무시한다.
+      // 비표준 키(google*, voiceIsolation)는 MediaTrackConstraints 타입에 없어 캐스팅.
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        // Chrome 계열 비표준 힌트(구버전 WebRTC 제약). 신버전은 위 표준키로 대체되나
+        // 모바일 Chrome/WebView에서 여전히 효과가 있는 경우가 있어 함께 요청한다.
+        googEchoCancellation: true,
+        googAutoGainControl: true,
+        googNoiseSuppression: true,
+        // 일부 최신 브라우저의 음성 격리(있으면 봇 에코 억제에 가장 효과적).
+        voiceIsolation: true,
+      } as unknown as MediaTrackConstraints;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
       setMicState('listening');
 
@@ -178,6 +188,10 @@ export function LiveSession({ callId, onEnded }: LiveSessionProps) {
           silenceMs: SILENCE_MS,
           // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
           onSpeechStart: () => stopBotAudio(),
+          // 에코 게이팅: 봇 음성이 스피커로 나가는 중(+꼬리 가드)에는 VAD 임계값을
+          // 올려, 모바일 근접 배치에서 되먹임 에코가 유령 고객 발화로 잡히는 걸 막는다.
+          // 큰 목소리의 진짜 barge-in은 그대로 통과(suppressGain 배수까지만 상향).
+          isSuppressed: () => isBotSpeaking(),
           ...(vadDebug
             ? {
                 onDebug: (ev: PcmVadEvent) => {
