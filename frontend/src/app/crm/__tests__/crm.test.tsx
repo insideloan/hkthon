@@ -34,9 +34,10 @@ vi.mock('@/stores/motStore', () => {
 
 // Next.js 15: params는 Promise (페이지가 use(params)로 언래핑).
 // use(params)가 첫 렌더에서 suspend → act로 감싸 microtask를 flush해야 resolve된다.
+// id는 박서준 데모 레코드(c-demo-01) — 프로필/니즈 fixture가 이 callId로 매핑된다.
 async function renderPage() {
   await act(async () => {
-    render(<CrmDetailPage params={Promise.resolve({ id: 'demo' })} />);
+    render(<CrmDetailPage params={Promise.resolve({ id: 'c-demo-01' })} />);
     await Promise.resolve();
     await Promise.resolve();
   });
