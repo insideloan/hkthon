@@ -36,7 +36,40 @@ export function useBotAudioPlayback(callId: string, options: Options = {}): void
 
     const audio = new Audio();
     audio.volume = Math.max(0, Math.min(1, volume));
+    // 모바일 인라인 재생(iOS는 미설정 시 전체화면 플레이어를 띄우거나 재생을 막는다).
+    audio.setAttribute('playsinline', '');
     audioRef.current = audio;
+
+    // 자동재생 잠금 해제(특히 iOS/모바일): audio 요소는 사용자 제스처 핸들러 안에서
+    // 한 번 .play()가 호출돼야 이후 프로그래밍 방식 재생이 허용된다. onTurn은 제스처와
+    // 무관한 시점에 도착하므로, 첫 사용자 상호작용(탭/클릭/키)에서 무음으로 unlock해 둔다.
+    let unlocked = false;
+    const gestureEvents: (keyof DocumentEventMap)[] = ['pointerdown', 'touchend', 'click', 'keydown'];
+    const removeGestureListeners = () => {
+      gestureEvents.forEach((e) => document.removeEventListener(e, onGesture));
+    };
+    const onGesture = () => {
+      if (unlocked) { removeGestureListeners(); return; }
+      unlocked = true;
+      removeGestureListeners();
+      // 재생 중이 아닐 때만 무음 unlock(진행 중 클립을 끊지 않게).
+      if (playingRef.current) return;
+      const prevMuted = audio.muted;
+      audio.muted = true;
+      const p = audio.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = prevMuted;
+        }).catch(() => { audio.muted = prevMuted; });
+      } else {
+        audio.muted = prevMuted;
+      }
+    };
+    if (typeof document !== 'undefined') {
+      gestureEvents.forEach((e) => document.addEventListener(e, onGesture, { passive: true }));
+    }
 
     const playNext = () => {
       if (playingRef.current) return;
@@ -79,15 +112,16 @@ export function useBotAudioPlayback(callId: string, options: Options = {}): void
 
     // Guard: 부분 mock 테스트가 subscribeTurns를 생략할 수 있다(JourneyMap §live 패턴).
     // 존재·타입 확인 후 접근 — Vitest mock 프록시가 undefined named export에 throw하는 것 방지.
-    if (!('subscribeTurns' in appsyncMod)) return;
+    if (!('subscribeTurns' in appsyncMod)) { removeGestureListeners(); return; }
     const subscribeTurns = appsyncMod.subscribeTurns;
-    if (typeof subscribeTurns !== 'function') return;
+    if (typeof subscribeTurns !== 'function') { removeGestureListeners(); return; }
     const unsubscribe = subscribeTurns(callId, onTurn, (err) =>
       console.error('onTurn(audio) 구독 오류', err),
     );
 
     return () => {
       setBotAudioStopper(null);
+      removeGestureListeners();
       unsubscribe();
       audio.onended = null;
       audio.onerror = null;
