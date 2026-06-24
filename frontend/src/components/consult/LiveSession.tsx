@@ -59,7 +59,10 @@ type LiveSessionProps = {
 // VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
 const VAD_MIN = 0;
 const VAD_MAX = 0.2;
-const VAD_DEFAULT = 0.14;
+// 평상시(고객 발화 대기) VAD 임계값. 낮을수록 민감.
+const VAD_DEFAULT = 0.13;
+// AI(봇) 발화 중 VAD 임계값 — 봇 음성 되먹임(에코)을 고객 발화로 오인하지 않게 더 둔감하게.
+const VAD_SUPPRESSED = 0.19;
 
 // 발화 후 이만큼(ms) 연속 침묵하면 발화 종료(flush)로 본다. pcmCapture 기본값(1200)은
 // 종료 인식이 체감상 느려, 발화 끝~화면 표시 지연을 줄이려고 700으로 명시 하향.
@@ -214,9 +217,10 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
           // 곧이어 onTurn(customer)이 도착해 실제 고객 말풍선 + "발화 준비 중"으로 이어진다.
           onSpeechEnd: () => setUserSpeaking(false),
           // 에코 게이팅: 봇 음성이 스피커로 나가는 중(+꼬리 가드)에는 VAD 임계값을
-          // 올려, 모바일 근접 배치에서 되먹임 에코가 유령 고객 발화로 잡히는 걸 막는다.
-          // 큰 목소리의 진짜 barge-in은 그대로 통과(suppressGain 배수까지만 상향).
+          // 명시값(VAD_SUPPRESSED=0.19)으로 올려, 되먹임 에코가 유령 고객 발화로 잡히는
+          // 걸 막는다. 큰 목소리의 진짜 barge-in은 0.19를 넘으므로 그대로 통과.
           isSuppressed: () => isBotSpeaking(),
+          suppressedThreshold: VAD_SUPPRESSED,
           ...(vadDebug
             ? {
                 onDebug: (ev: PcmVadEvent) => {

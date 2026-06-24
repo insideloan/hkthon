@@ -31,13 +31,13 @@ const stopCapture = vi.fn();
 // startPcmCapture에 넘어온 옵션(함수형 vadThreshold + 발화 시작/종료 훅)을 캡처해
 // 슬라이더 연동/"음성 인식 중" 말풍선 검증에 쓴다.
 let lastCaptureOpts:
-  | { vadThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
+  | { vadThreshold?: number | (() => number); suppressedThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
   | undefined;
 vi.mock('@/lib/pcmCapture', () => ({
   startPcmCapture: (
     _s: unknown,
     _cb: unknown,
-    opts?: { vadThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
+    opts?: { vadThreshold?: number | (() => number); suppressedThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
   ) => {
     lastCaptureOpts = opts;
     return { stop: stopCapture };
@@ -130,14 +130,17 @@ describe('LiveSession', () => {
     expect(push).toHaveBeenCalledWith('/crm/exp-9');
   });
 
-  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.140, 함수형 임계값으로 전달', async () => {
+  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.130, 함수형 임계값으로 전달', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider') as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.140');
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.130');
     // startPcmCapture는 함수형 vadThreshold를 받아 매 프레임 현재값을 읽어야 한다.
     expect(typeof lastCaptureOpts?.vadThreshold).toBe('function');
-    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.14, 3);
+    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.13, 3);
+    // AI 발화 중에는 더 둔감한 절대 임계값(0.19)을 쓴다(에코 오탐 방지).
+    expect(typeof lastCaptureOpts?.suppressedThreshold).toBe('number');
+    expect(lastCaptureOpts!.suppressedThreshold).toBeCloseTo(0.19, 3);
   });
 
   it('슬라이더를 움직이면 임계값이 즉시(재시작 없이) 반영된다', async () => {

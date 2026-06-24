@@ -216,7 +216,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
             패널을 띄운다. 그 외(데모)는 시나리오 엔진 + 중앙 재생/일시정지 버튼. */}
         {isLive ? (
           <div className="stt__chat flex flex-1 min-h-0 overflow-y-auto">
-            <LiveSession callId={callId} />
+            {/* 체험 진입 시 입력받은 고객 이름을 함께 넘긴다 — Outbound라 AI가 이름을
+                이미 알고 본인확인("○○○ 고객님 맞으세요?")을 하게 한다(이름 되묻기 금지). */}
+            <LiveSession callId={callId} customerName={customerName} />
           </div>
         ) : (
           <>
