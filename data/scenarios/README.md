@@ -8,7 +8,7 @@
 
 | id | 파일 | 제목 | 턴 | 핵심 신호 | 원천 |
 |----|------|------|----|-----------|------|
-| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 19 | 이탈위험 MOT 5회(`rz-*`) 방어 → 상담원 전환 | `consult_redesigned-3.html` const S |
+| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 10 | 이탈위험 MOT 3회(`rz-rate/compare/security`) 방어 → 무서류 본 심사 진입 | `consult_redesigned-3.html` const S |
 | `s2` | `s2.json` | 보이스피싱 의심 아웃바운드 (급전 요청) | 16 | `fraud_suspected` 사기 감지 → 접수·차단 | `아웃바운드_스크립트_0621.xlsx` 보이스피싱 시트 |
 
 > 등록부는 `scenario_loader.KNOWN_SCENARIOS`와 일치해야 한다. 시나리오를 추가하면
