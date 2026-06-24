@@ -43,6 +43,17 @@ type LiveSessionProps = {
    * 모바일 체험(/m)은 CRM이 없으므로 별도 종료 화면으로 보내는 등 호출자가 주입한다.
    */
   onEnded?: () => void;
+  /**
+   * VAD 임계값 초기값. 미지정 시 VAD_DEFAULT(관리자/데스크톱 기준). 모바일은 스피커-마이크
+   * 근접·소음 환경상 더 민감하게(낮게) 시작하려고 호출자가 주입한다.
+   */
+  initialVadThreshold?: number;
+  /**
+   * 체험 고객 이름. 라이브 백엔드(exp-* 콜)는 DynamoDB에 고객 레코드가 없어 AI가 이름을
+   * 몰라 <고객명> placeholder를 내뱉는다. startAudio로 함께 넘겨 백엔드가 최소 고객
+   * 컨텍스트를 만들게 한다(미지정이면 기존 동작 — 이름 없이 시작).
+   */
+  customerName?: string;
 };
 
 // VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
@@ -72,20 +83,21 @@ function TypingDots() {
   );
 }
 
-export function LiveSession({ callId, onEnded }: LiveSessionProps) {
+export function LiveSession({ callId, onEnded, initialVadThreshold, customerName }: LiveSessionProps) {
   const router = useRouter();
   // 종료 동작: 호출자 주입(onEnded) 우선, 없으면 관리자 CRM 상세로 이동(기존 동작).
   const handleEnded = onEnded ?? (() => router.push(`/crm/${callId}`));
+  const initialVad = initialVadThreshold ?? VAD_DEFAULT;
   const [micState, setMicState] = useState<MicState>('idle');
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [ended, setEnded] = useState(false);
-  const [vadThreshold, setVadThreshold] = useState(VAD_DEFAULT);
+  const [vadThreshold, setVadThreshold] = useState(initialVad);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   // 슬라이더 값을 ref에 미러 — startPcmCapture에 함수형 임계값으로 넘겨
   // 캡처 재시작 없이 실시간 반영(매 프레임 ref.current를 읽음).
-  const vadThresholdRef = useRef(VAD_DEFAULT);
+  const vadThresholdRef = useRef(initialVad);
   vadThresholdRef.current = vadThreshold;
 
   // 타이핑 인디케이터("...") + 타자기 스트리밍 상태.
@@ -169,7 +181,9 @@ export function LiveSession({ callId, onEnded }: LiveSessionProps) {
       setMicState('listening');
 
       // 라이브 세션 시작 + PCM 스트리밍. 실패는 통화 UI를 막지 않게 삼킨다.
-      void startAudio(callId).catch(() => {});
+      // 체험 고객 이름을 함께 넘겨 백엔드가 최소 고객 컨텍스트를 만들게 한다 — 없으면
+      // AI가 이름을 몰라 인사말에 <고객명> placeholder를 내뱉는다.
+      void startAudio(callId, customerName).catch(() => {});
       // VAD 튜닝 모드(?vadDebug=1): 실마이크로 말해보며 콘솔에서 RMS·flush를 관찰해
       // vadThreshold/silenceMs를 맞춘다. 플래그 없으면 onDebug 미전달(프로덕션 무영향).
       const vadDebug =

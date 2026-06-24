@@ -591,8 +591,8 @@ export async function createCall(customerId: string): Promise<CreateCallResult> 
 // 라이브 모드(ORCHESTRATOR_MODE=live) 백엔드에서 STT→agent→TTS를 구동한다.
 // mock 빌드/스크립트 모드에서는 백엔드가 no-op이므로 클라이언트도 안전하게 단락한다.
 const START_AUDIO_MUTATION = /* GraphQL */ `
-  mutation StartAudio($callId: ID!) {
-    startAudio(callId: $callId)
+  mutation StartAudio($callId: ID!, $customerName: String) {
+    startAudio(callId: $callId, customerName: $customerName)
   }
 `;
 
@@ -602,10 +602,19 @@ const AUDIO_CHUNK_MUTATION = /* GraphQL */ `
   }
 `;
 
-/** 라이브 오디오 세션 시작. mock 모드는 true(로컬 시뮬레이션 경로). */
-export async function startAudio(callId: string): Promise<boolean> {
+/**
+ * 라이브 오디오 세션 시작. mock 모드는 true(로컬 시뮬레이션 경로).
+ *
+ * customerName: 체험 고객(exp-*)은 DynamoDB에 레코드가 없어 백엔드가 이름을 몰라
+ * AI 인사말이 <고객명> placeholder가 된다. 이름을 함께 넘기면 백엔드가 최소 고객
+ * 컨텍스트를 만들어 프롬프트에 주입한다(미지정이면 기존 동작).
+ */
+export async function startAudio(callId: string, customerName?: string): Promise<boolean> {
   if (USE_MOCK) return true;
-  const res = await getClient().graphql({ query: START_AUDIO_MUTATION, variables: { callId } });
+  const res = await getClient().graphql({
+    query: START_AUDIO_MUTATION,
+    variables: { callId, customerName: customerName ?? null },
+  });
   if ('data' in res && res.data) {
     return Boolean((res.data as { startAudio: boolean }).startAudio);
   }
