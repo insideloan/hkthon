@@ -37,7 +37,7 @@ function cardCls(phase: CardPhase): string {
 
 const CARD_BASE = 'flex flex-col min-h-0 overflow-hidden';
 const CARD_STYLE: React.CSSProperties = {
-  position: 'relative', gap: '9px', border: '1px solid var(--hair)', borderRadius: '14px',
+  position: 'relative', gap: '9px', border: 'none', borderRadius: '14px',
   background: 'rgba(255,255,255,.50)', padding: '11px 12px',
 };
 const CARD_NO_STYLE: React.CSSProperties = {
