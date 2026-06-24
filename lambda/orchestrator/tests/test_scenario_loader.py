@@ -302,3 +302,29 @@ def test_known_scenarios_all_loadable():
     # KNOWN_SCENARIOS에 등록된 ID는 전부 로컬에서 로드 가능해야 함.
     for sid in sl.KNOWN_SCENARIOS:
         assert sl.load_scenario(sid)["scenario_id"] == sid
+
+
+# -- Mock 재생 화이트리스트 (s1만 mock, s2는 AGENT 전용) -----------------------
+
+def test_mock_scenarios_is_s1_only():
+    # 박서준 s1만 유일한 mock(데모) 재생 시나리오여야 한다.
+    assert sl.MOCK_SCENARIOS == ("s1",)
+
+
+def test_load_mock_scenario_allows_s1():
+    data = sl.load_mock_scenario("s1")
+    assert data["scenario_id"] == "s1"
+
+
+def test_load_mock_scenario_rejects_s2():
+    # s2(보이스피싱)는 AGENT 이상탐지용 — mock 재생 경로로 소비 불가.
+    with pytest.raises(sl.MockScenarioError, match="not a mock scenario"):
+        sl.load_mock_scenario("s2")
+
+
+def test_load_mock_scenario_rejects_non_whitelisted_before_load(s2_raw):
+    # 화이트리스트 검사가 S3/파일 로드보다 먼저라 s3_client를 건드리지 않는다.
+    fake = _FakeS3(s2_raw)
+    with pytest.raises(sl.MockScenarioError):
+        sl.load_mock_scenario("s2", bucket="b", s3_client=fake)
+    assert fake.calls == []
