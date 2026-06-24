@@ -199,9 +199,8 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
       data-testid="compliance-panel"
       data-phase={phase}
     >
-      <div className="cmp">
-        {/* 가안 발화 섹션 제거됨 — 규제 검토 + 최종 발화만 표시. */}
-
+      {/* 카드 상단 영역(라벨 "최종 발화..." 위) — 세 카드 동일 고정 높이 */}
+      <div className="card-top">
         {/* 컴플라이언스 규제 검토 — 4규제 2×2 (첫 섹션 라벨 제거됨) */}
         <div className="cmp-checks" id="cmpChecks">
           {checks.map((c, idx) => {
@@ -223,12 +222,13 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
             );
           })}
         </div>
+      </div>
 
+      {/* 카드 하단 영역(라벨 + 이하) */}
+      <div className="card-bottom cmp">
         {/* 최종 발화 (수정 = 빨강) */}
         {showFinal && (
           <>
-            {/* 규제검토 → 최종 발화 전이 화살표(▼) — PPTX 레이아웃 9번 */}
-            <div className="usedivider on" aria-hidden="true"><span className="dn">▼</span></div>
             <div className="cseclbl cseclbl--sec">
               <span>최종 발화 (수정 부분 색인 표시)</span>
               <span className="ln" />

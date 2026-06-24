@@ -3,6 +3,9 @@ import './globals.css';
 export const metadata = {
   title: 'AI 상담 코파일럿',
   description: '관리자 콜 큐 대시보드',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 // 루트 레이아웃 — html/body 골격만. 사이드바 등 화면 셸은 라우트 그룹별 레이아웃이
