@@ -267,7 +267,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>DB 분석</span>
                 </div>
-                <DbCard live={isLive} />
+                <DbCard live={isLive} callId={callId} />
               </div>
 
               {/* 카드③ 컴플라이언스 체크 */}

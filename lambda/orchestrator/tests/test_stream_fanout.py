@@ -37,6 +37,30 @@ def test_turn_with_analysis_also_emits_index():
     assert "_emitTurn" in names and "_emitIndexUpdate" in names
 
 
+def test_index_update_carries_db_chips_and_nodes():
+    """체험 preset의 DB분석(db_chips/db_nodes)이 _emitIndexUpdate payload에 실린다."""
+    rec = _record({
+        "PK": "CALL#exp-1", "SK": "TURN#0002", "seq": 2,
+        "db_chips": ["보유 대출", "신용평가"],
+        "db_nodes": [{"label": "현재 금리", "val": "13%대", "tone": "warn"}],
+    })
+    out = sf.handler({"Records": [rec]})
+    idx = next(e for e in out["emits"] if e["mutation"] == "_emitIndexUpdate")
+    assert idx["payload"]["dbChips"] == ["보유 대출", "신용평가"]
+    assert idx["payload"]["dbNodes"] == [{"label": "현재 금리", "val": "13%대", "tone": "warn"}]
+
+
+def test_index_node_input_drops_malformed():
+    """label 없는 노드는 _db_node_inputs가 방어적으로 걸러낸다."""
+    rec = _record({
+        "PK": "CALL#exp-1", "SK": "TURN#0003", "seq": 3,
+        "db_nodes": [{"val": "라벨없음"}, {"label": "정상", "val": "ok"}],
+    })
+    out = sf.handler({"Records": [rec]})
+    idx = next(e for e in out["emits"] if e["mutation"] == "_emitIndexUpdate")
+    assert idx["payload"]["dbNodes"] == [{"label": "정상", "val": "ok", "tone": None}]
+
+
 def test_mot_insert_emits_mot_new_shape():
     rec = _record({"PK": "CALL#c1", "SK": "MOT#0001", "markerId": "MOT_1",
                    "state": "ALERT", "stage": "OBJECTION", "turn_seq": 3})

@@ -370,6 +370,11 @@ def persist(state: CallState) -> CallState:
     if not call_id:
         return state
 
+    # 체험(exp-*) 시나리오: intent 기준 preset으로 분석 카드(발화분류/전략/감정/토큰/DB)를
+    # 일관되게 채운다. 박서준(c-demo-*)은 이 분기를 안 타므로 무영향. compliance는 별도
+    # (가안=preset, 최종=실 LLM)로 review_loop에서 이미 처리됨.
+    _apply_experience_preset(call_id, state)
+
     seq = int(state.get("next_seq", 1))
     ts = _now_iso()
 
@@ -394,6 +399,11 @@ def persist(state: CallState) -> CallState:
     emotion = _enum_value(state.get("emotion"))
     if emotion is not None:
         item["emotion"] = emotion
+    # 체험 preset의 DB분석(칩/노드)을 Turn 아이템에 실어 onIndexUpdate로 라이브 DB카드에 전달.
+    if state.get("db_chips") is not None:
+        item["db_chips"] = list(state["db_chips"])
+    if state.get("db_nodes") is not None:
+        item["db_nodes"] = list(state["db_nodes"])
     # 봇 Turn을 audio_url 없이 먼저 write → stream_fanout이 _emitTurn(텍스트)를 즉시 팬아웃.
     # TTS 합성(~2-8s)은 텍스트 표시의 임계 경로에서 제외하고(아래 5단계) 끝나면 MODIFY로
     # audio_url을 덧붙여 두 번째 _emitTurn(audioUrl)이 나가게 한다(_dispatch_record는
@@ -454,6 +464,45 @@ def _synthesize_bot_audio(text: str, call_id: str, seq: int) -> str | None:
     except Exception:  # noqa: BLE001 — TTS 실패가 통화/텍스트 파이프라인을 막지 않게
         logging.getLogger(__name__).exception("TTS synthesize failed (call=%s seq=%s)", call_id, seq)
         return None
+
+
+def is_experience(call_id: str | None) -> bool:
+    """체험(experience) 시나리오 콜인지 — callId가 'exp-'로 시작. preset 적용 가드.
+
+    박서준 데모(c-demo-*)는 False → preset/특수처리를 절대 타지 않는다.
+    """
+    return bool(call_id) and str(call_id).startswith("exp-")
+
+
+def _apply_experience_preset(call_id: str, state: CallState) -> None:
+    """체험 콜이면 intent preset으로 분석 신호(감정/니즈/이용가능성/전략/토큰/DB)를 채운다.
+
+    LLM이 이미 채운 값이 있어도 preset으로 덮어써 카드 표시를 일관되게 한다(체험은 연출 우선).
+    compliance는 여기서 다루지 않는다(가안=preset, 최종=실 LLM — review_loop에서 처리).
+    실패는 통화를 막지 않게 삼킨다.
+    """
+    if not is_experience(call_id):
+        return
+    import logging
+    try:
+        from . import exp_presets
+
+        preset = exp_presets.preset_for(state.get("intent"))
+        if preset is None:
+            return
+        state["emotion"] = signals.to_emotion(preset.emotion)
+        state["need"] = signals.to_need(preset.need)
+        state["usability"] = signals.to_usability(preset.usability)
+        state["strategy"] = _build_strategy(preset.tactic, preset.headline)
+        if not state.get("rationale"):
+            state["rationale"] = preset.rationale
+        # 발화분석 토큰(카드①) — preset이 비어있지 않을 때만 교체(침묵 등은 빈 토큰 허용).
+        if preset.tokens:
+            state["churn_tokens"] = [dict(t) for t in preset.tokens]
+        state["db_chips"] = list(preset.db_chips)
+        state["db_nodes"] = [dict(n) for n in preset.db_nodes]
+    except Exception:  # noqa: BLE001 — preset 적용 실패가 통화를 끊지 않게
+        logging.getLogger(__name__).exception("experience preset apply failed (call=%s)", call_id)
 
 
 def _now_iso() -> str:

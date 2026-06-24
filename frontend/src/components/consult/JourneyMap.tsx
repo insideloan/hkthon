@@ -571,7 +571,7 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
     if (typeof sub !== 'function') return;
     const unsubscribe = sub(
       callId,
-      (index) => setChurnRisk(index.churnRisk),
+      (index) => { if (index.churnRisk != null) setChurnRisk(index.churnRisk); },
       (err) => console.error('onIndexUpdate(JourneyMap) 구독 오류', err),
     );
     return unsubscribe;
