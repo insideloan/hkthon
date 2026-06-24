@@ -327,3 +327,54 @@ def test_load_mock_scenario_rejects_non_whitelisted_before_load(s2_raw):
     with pytest.raises(sl.MockScenarioError):
         sl.load_mock_scenario("s2", bucket="b", s3_client=fake)
     assert fake.calls == []
+
+
+# -- 상담엔진 신호 4축 (감정/니즈/이용가능성/전략) -----------------------------
+
+def test_engine_signal_label_sets_match_signals_ssot():
+    # scenario_loader의 허용 라벨 집합이 AGENT signals 카탈로그와 정합(drift 방지).
+    from orchestrator.agent import signals as sg
+    assert sl._EMOTIONS == set(sg.labels(sg.Emotion))
+    assert sl._NEEDS == set(sg.labels(sg.Need))
+    assert sl._USABILITIES == set(sg.labels(sg.Usability))
+    assert sl._TACTICS == set(sg.labels(sg.Tactic))
+
+
+def test_s1_customer_turns_have_engine_signals(s1_data):
+    # 인사 제외 모든 고객 턴에 4축 신호가 부착되고 카탈로그 안 라벨이어야 함.
+    cust = [t for t in s1_data["turns"]
+            if t["speaker"] == "customer" and not t.get("greet")]
+    assert cust, "고객 턴이 있어야 함"
+    for t in cust:
+        assert t["emotion"] in sl._EMOTIONS
+        assert t["need"] in sl._NEEDS
+        assert t["usability"] in sl._USABILITIES
+        assert isinstance(t["strategy"], list) and t["strategy"]
+        assert all(s in sl._TACTICS for s in t["strategy"])
+
+
+def test_invalid_emotion_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "emotion" in t)["emotion"] = "행복"  # 카탈로그 밖
+    with pytest.raises(sl.ScenarioValidationError, match="invalid emotion"):
+        sl.validate_scenario(bad)
+
+
+def test_invalid_strategy_label_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "strategy" in t)["strategy"] = ["없는 전략"]
+    with pytest.raises(sl.ScenarioValidationError, match="invalid strategy"):
+        sl.validate_scenario(bad)
+
+
+def test_empty_strategy_list_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "strategy" in t)["strategy"] = []
+    with pytest.raises(sl.ScenarioValidationError, match="non-empty list"):
+        sl.validate_scenario(bad)
+
+
+def test_ai_intake_labels_accepted():
+    # 신규 추가한 'AI 접수 필요'/'AI 접수 전환 전략'이 카탈로그에 등록되어 통과.
+    assert "AI 접수 필요" in sl._USABILITIES
+    assert "AI 접수 전환 전략" in sl._TACTICS

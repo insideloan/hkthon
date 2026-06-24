@@ -46,6 +46,7 @@ const STRAT20: ReadonlyArray<{ name: string; lead: string }> = [
   { name: '재통화 예약 전략',        lead: '후속 콜 기회로 전환한다' },
   { name: '거절 존중 전략',          lead: '추가 설득을 멈추고 종료·수신거부를 안내한다' },
   { name: '상담원 인계·컴플라이언스 보호 전략', lead: '안전 문구로 전환하거나 사람에게 넘긴다' },
+  { name: 'AI 접수 전환 전략',       lead: '무서류·신속 니즈를 AI 접수·본 심사로 전환한다' },
 ];
 
 // ── turn-level signal: CONS token → risk, PRO token → def (risk wins) ──────
@@ -115,7 +116,7 @@ function TurnRow({ analysis }: { analysis: SpeechAnalysisData }) {
   );
 }
 
-// ── STRAT20 grid: 20 cards, selected one enlarged (scard sel) ────────────────
+// ── STRAT20 grid: 21 cards (20종 + AI 접수 전환), selected one enlarged (scard sel) ──
 // reason from onSpeechAnalysis is surfaced as the selected card's lead text
 // (SSOT: .stratg.resolved .scard.sel .slead)
 function StratGrid({

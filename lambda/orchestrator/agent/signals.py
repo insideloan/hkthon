@@ -72,7 +72,7 @@ class Need(str, Enum):
 
 
 class Usability(str, Enum):
-    """이용 가능성 — 다음 단계 진행 가능성 (xlsx '이용 가능성' 표, 20종)."""
+    """이용 가능성 — 다음 단계 진행 가능성 (xlsx '이용 가능성' 표 20종 + AI 접수 필요)."""
 
     PROCEED_NOW = "즉시 진행 가능"           # 1
     CONDITIONAL = "조건부 진행"              # 2
@@ -94,6 +94,7 @@ class Usability(str, Enum):
     BENEFIT_DRIVEN = "혜택 기대 진행"         # 18
     NEEDS_AGENT = "상담원 연결 필요"          # 19
     COMPLIANCE_STOP = "컴플라이언스 중단 필요"  # 20
+    AI_INTAKE = "AI 접수 필요"               # 21  AI가 직접 신청/심사를 접수해 진행
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ class Usability(str, Enum):
 
 
 class Tactic(str, Enum):
-    """대표 대응 전략 (xlsx '전략' 표, 20종). 카드①(SSOT-3 #stratGrid / STRAT20)의 정규 값 — Strategy.tactic→headline(.stx)/lead(.slead) 매핑."""
+    """대표 대응 전략 (xlsx '전략' 표 20종 + AI 접수 전환). 카드①(SSOT-3 #stratGrid / STRAT20)의 정규 값 — Strategy.tactic→headline(.stx)/lead(.slead) 매핑."""
 
     AROUSE_INTEREST = "관심 환기 전략"        # 1
     BUILD_TRUST = "신뢰 확보 전략"           # 2
@@ -124,6 +125,7 @@ class Tactic(str, Enum):
     SCHEDULE_CALLBACK = "재통화 예약 전략"     # 18
     RESPECT_REJECTION = "거절 존중 전략"      # 19
     HANDOFF_PROTECT = "상담원 인계·컴플라이언스 보호 전략"  # 20
+    AI_INTAKE_PIVOT = "AI 접수 전환 전략"     # 21  무서류·신속을 원하는 고객을 AI 접수·심사로 전환
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -188,6 +190,7 @@ USABILITY_DEF: dict[Usability, tuple[str, str]] = {
     Usability.BENEFIT_DRIVEN: ("혜택이 명확하면 진행할 가능성이 있음", "확실히 더 유리하면 해볼 수 있죠."),
     Usability.NEEDS_AGENT: ("AI 응대보다 사람 상담을 요구함", "사람 상담원으로 바꿔주세요."),
     Usability.COMPLIANCE_STOP: ("확정 안내, 과장 표현, 민감 정보 요구 등 리스크가 있어 중단 또는 인계 필요", "무조건 승인되는 거죠?"),
+    Usability.AI_INTAKE: ("서류 부담 없이 빠른 진행을 원해 AI가 바로 접수·심사로 진행 가능함", "서류 귀찮은데 빠르게 해줄 수 있어요?"),
 }
 
 # 전략: (상세 정의, 대표 발화 방향) — respond 노드 헤드라인/가이드용
@@ -212,6 +215,7 @@ TACTIC_DEF: dict[Tactic, tuple[str, str]] = {
     Tactic.SCHEDULE_CALLBACK: ("지금 통화가 어려운 고객을 후속 콜 기회로 전환한다", "편하신 시간에 다시 연락드릴 수 있도록 시간대를 확인하겠습니다."),
     Tactic.RESPECT_REJECTION: ("거절·짜증 고객에게 추가 설득을 멈추고 종료 또는 수신거부 처리를 안내한다", "원치 않으시는 것으로 확인되어 추가 안내는 진행하지 않겠습니다."),
     Tactic.HANDOFF_PROTECT: ("AI 단정 응답이 위험한 경우 안전 문구로 전환하거나 사람에게 넘긴다", "확정적으로 안내드리기 어려운 부분이라 상담원을 통해 정확히 확인드리겠습니다."),
+    Tactic.AI_INTAKE_PIVOT: ("무서류·신속을 원하는 고객을 AI 접수·본 심사로 자연스럽게 전환한다", "별도 구비서류 없이 바로 접수·심사 진행해 드리겠습니다."),
 }
 
 # 전략 카드 lead(.slead) — SSOT-3 STRAT20 원문(docs/consult_redesigned-3.html:1677~).
@@ -238,6 +242,7 @@ TACTIC_LEAD: dict[Tactic, str] = {
     Tactic.SCHEDULE_CALLBACK: "후속 콜 기회로 전환한다",
     Tactic.RESPECT_REJECTION: "추가 설득을 멈추고 종료·수신거부를 안내한다",
     Tactic.HANDOFF_PROTECT: "안전 문구로 전환하거나 사람에게 넘긴다",
+    Tactic.AI_INTAKE_PIVOT: "무서류·신속 니즈를 AI 접수·본 심사로 전환한다",
 }
 
 

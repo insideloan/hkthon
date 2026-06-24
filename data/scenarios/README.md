@@ -52,9 +52,12 @@
   `mot{marker_id,state,crm_stage}`,
   `compliance{draft,violated_policies[],final,state}`,
   `strategy_headline`+`strategy_lead`(쌍)
+- 선택(상담엔진 신호 4축, 주로 고객 턴): `emotion`/`need`/`usability`(단일 라벨),
+  `strategy`(전략 라벨 리스트). 허용 라벨은 **AGENT `agent/signals.py`가 SSOT**
+  (감정 15 / 니즈 15 / 이용가능성 21 / 전략 21종). 카탈로그 밖 라벨이면 검증 실패.
 
 검증 규칙은 `scenario_loader.validate_scenario`가 SSOT. 고객 턴 연속 금지(교대),
-seq 순서, enum 값을 모두 강제한다.
+seq 순서, enum 값을 모두 강제한다(신호 4축 라벨은 `agent/signals` 카탈로그 대조).
 
 ## Mock 재생 vs AGENT 소비 — 경로 분리 (중요)
 

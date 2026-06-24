@@ -174,8 +174,9 @@ describe('SpeechAnalysis — #35 전략 파이프라인 (STRAT20 카드①)', ()
       />,
     );
 
-    // All 20 strategy cards rendered (none selected = no hidden cards)
+    // All strategy cards rendered (none selected = no hidden cards).
+    // 20종(xlsx) + AI 접수 전환 전략 = 21.
     const cards = screen.getAllByTestId('sa-scard');
-    expect(cards).toHaveLength(20);
+    expect(cards).toHaveLength(21);
   });
 });
