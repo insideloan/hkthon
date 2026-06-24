@@ -428,22 +428,44 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           </svg>
         </div>
 
-        {/* 우측 컬럼 — 분석 완료 후 전략 정보 + 통화 버튼.
-            SSOT .sg-final: opacity:0 → .show(opacity:1) 페이드인 (mount 토글 아님). */}
-        {analysisComplete && (
-          <div className="sg-side w-full lg:w-[420px] lg:flex-none" data-testid="segment-side">
-            {/* sg-final: SSOT — opacity .5s 페이드인 + gap:12px */}
-            <div
-              className={clsx(
-                'sg-final flex flex-col gap-[12px] opacity-0 transition-opacity duration-500',
-                analysisComplete && 'show opacity-100',
+        {/* 우측 컬럼 — 처음부터(분석 중에도) 표시. 상담 전략은 세그먼트 조합 수
+            분석이 끝나면 채워진다(그 전엔 스켈레톤 플레이스홀더). 발신하기 버튼은
+            항상 보이되 분석 완료 전까지 비활성. */}
+        <div className="sg-side w-full lg:w-[420px] lg:flex-none" data-testid="segment-side">
+          <div className="glass-card sg-sec px-[17px] py-[15px]">
+            <span className="sg-tag t2 mb-[11px] inline-flex items-center gap-1.5 rounded-full bg-[var(--badge-bg)] px-[10px] py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.08em] text-route">
+              상담 전략
+              {!analysisComplete && (
+                <span
+                  className="h-[9px] w-[9px] animate-spin rounded-full border-2 border-route/30 border-t-route"
+                  aria-hidden
+                />
               )}
-              data-testid="analysis-final"
-            >
-              <div className="glass-card sg-sec px-[17px] py-[15px]">
-                <span className="sg-tag t2 mb-[11px] inline-block rounded-full bg-[var(--badge-bg)] px-[10px] py-[3px] font-mono text-[10px] font-bold uppercase tracking-[.08em] text-route">
-                  상담 전략
-                </span>
+            </span>
+
+            {/* 분석 진행 중 — 스켈레톤 플레이스홀더. 완료되면 실제 전략으로 교체. */}
+            {!analysisComplete && (
+              <div className="sg-strat-pending flex flex-col gap-[12px]" data-testid="analysis-pending">
+                <div className="flex items-center gap-2 text-[13px] font-semibold text-ink-faint">
+                  세그먼트 분석이 끝나면 맞춤 상담 전략이 표시됩니다
+                </div>
+                {/* shimmer skeleton blocks */}
+                <div className="h-[18px] w-2/3 animate-pulse rounded-md bg-[var(--canvas-2)]" />
+                <div className="flex gap-[10px]">
+                  <div className="h-[72px] flex-1 animate-pulse rounded-[13px] bg-[var(--canvas-2)]" />
+                  <div className="h-[72px] flex-1 animate-pulse rounded-[13px] bg-[var(--canvas-2)]" />
+                </div>
+                <div className="h-[14px] w-1/2 animate-pulse rounded-md bg-[var(--canvas-2)]" />
+                <div className="h-[18px] w-3/5 animate-pulse rounded-md bg-[var(--canvas-2)]" />
+              </div>
+            )}
+
+            {/* 분석 완료 — sg-final: opacity:0 → show(opacity:1) 페이드인 */}
+            {analysisComplete && (
+              <div
+                className="sg-final show flex flex-col opacity-0 transition-opacity duration-500 opacity-100"
+                data-testid="analysis-final"
+              >
                 <div className="strat-card flex flex-col">
                   {/* First strat-mod: 고금리 대환 니즈 공략 with rate-row */}
                   <div className="strat-mod py-[4px]">
@@ -514,10 +536,13 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* sg-btnwrap: SSOT places this OUTSIDE sg-final, right after it */}
-            <div className="sg-btnwrap flex justify-center gap-[10px]" data-testid="call-button-wrapper">
+          {/* sg-btnwrap — 항상 표시. 발신하기는 분석 완료 전까지 비활성(CallButton 내부
+              처리). 다시 재생은 분석 완료 후에만 노출. */}
+          <div className="sg-btnwrap flex justify-center gap-[10px]" data-testid="call-button-wrapper">
+            {analysisComplete && (
               <button
                 type="button"
                 id="sgReplay"
@@ -527,16 +552,16 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 <i className="ti ti-refresh" aria-hidden="true" />
                 다시 재생
               </button>
-              {callId && (
-                <CallButton
-                  customerId={customerId}
-                  analysisComplete={analysisComplete}
-                  onConnecting={(dialedId) => setDialingCallId(dialedId)}
-                />
-              )}
-            </div>
+            )}
+            {callId && (
+              <CallButton
+                customerId={customerId}
+                analysisComplete={analysisComplete}
+                onConnecting={(dialedId) => setDialingCallId(dialedId)}
+              />
+            )}
           </div>
-        )}
+        </div>{/* /sg-side */}
 
         </div>{/* /sg-row */}
 

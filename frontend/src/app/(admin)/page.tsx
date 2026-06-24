@@ -3,7 +3,7 @@
 // 초기 로드 `queue` 쿼리 + 실시간 `onQueueUpdate` 구독은 OutboundQueueTable이 수행.
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueueStore } from '@/stores/queueStore';
 import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
 import { ExperienceModal } from '@/components/queue/ExperienceModal';
@@ -64,6 +64,65 @@ function StatCard({
   );
 }
 
+// ─── System clock ─────────────────────────────────────────────────────────────
+// 관리자 화면 우상단 시스템 시각 표시. 데모 기준 시각(2026-06-25 14:45:00)에서
+// 출발해 실시간으로 흐른다 — 실제 관제 화면처럼 보이도록 초 단위로 틱.
+
+const DEMO_EPOCH = new Date('2026-06-25T14:45:00').getTime();
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function SystemClock() {
+  // 마운트 시점부터의 경과를 데모 기준 시각에 더해 표시(SSR/hydration 안전:
+  // 최초 렌더는 기준 시각 고정값, 마운트 후 effect 에서 틱 시작).
+  const [now, setNow] = useState(() => new Date(DEMO_EPOCH));
+
+  useEffect(() => {
+    const start = performance.now();
+    const id = window.setInterval(() => {
+      setNow(new Date(DEMO_EPOCH + (performance.now() - start)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const dateText = `${now.getFullYear()}. ${pad(now.getMonth() + 1)}. ${pad(now.getDate())} (${WEEKDAYS[now.getDay()]})`;
+  const timeText = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  return (
+    <div
+      data-testid="admin-datetime"
+      className="ml-auto self-center inline-flex items-center gap-2 rounded-[10px] px-3 py-[7px]"
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--card-bd)',
+        boxShadow: 'var(--shadow)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+      }}
+      title="시스템 시각"
+    >
+      {/* 라이브 표시 점 */}
+      <span
+        aria-hidden
+        className="inline-block h-[7px] w-[7px] flex-none rounded-full"
+        style={{ background: 'var(--go)', boxShadow: '0 0 0 3px rgba(22,163,74,.18)' }}
+      />
+      <span className="font-mono text-[13px] font-[700]" style={{ color: 'var(--ink-dim)' }}>
+        {dateText}
+      </span>
+      <span
+        className="font-mono text-[15px] font-[800] tabular-nums tracking-[0.01em]"
+        style={{ color: 'var(--ink)' }}
+      >
+        {timeText}
+      </span>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -118,14 +177,8 @@ export default function Home() {
         >
           전체 상담 모니터링
         </span>
-        {/* 날짜·시각 — 체험 버튼 왼쪽에 표시(데모용 고정값). */}
-        <span
-          data-testid="admin-datetime"
-          className="ml-auto self-center font-mono text-[12px] font-[700]"
-          style={{ color: 'var(--ink-dim)' }}
-        >
-          6/25 14:45
-        </span>
+        {/* 날짜·시각 — 체험 버튼 왼쪽. 실시간으로 흐르는 시스템 시각 표시. */}
+        <SystemClock />
         {/* 체험 버튼 — 우상단. 클릭 시 고객 정보 입력 팝업. */}
         <button
           type="button"
