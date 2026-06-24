@@ -45,6 +45,10 @@ const VAD_MIN = 0;
 const VAD_MAX = 0.2;
 const VAD_DEFAULT = 0.14;
 
+// 발화 후 이만큼(ms) 연속 침묵하면 발화 종료(flush)로 본다. pcmCapture 기본값(1200)은
+// 종료 인식이 체감상 느려, 발화 끝~화면 표시 지연을 줄이려고 700으로 명시 하향.
+const SILENCE_MS = 700;
+
 // "..." 타이핑 인디케이터 — Agent가 응답을 생성 중일 때(고객 턴 직후) AI 말풍선에 노출.
 // 점 3개가 stagger 애니메이션으로 깜빡인다(키프레임 typingDot은 LiveSession이 <style>로 주입).
 function TypingDots() {
@@ -163,6 +167,8 @@ export function LiveSession({ callId }: LiveSessionProps) {
         {
           // 함수형 임계값 — 슬라이더가 바꾼 ref를 매 프레임 읽어 재시작 없이 반영.
           vadThreshold: () => vadThresholdRef.current,
+          // 발화 종료 침묵 대기 — 기본 1200ms는 종료 인식이 느려 700ms로 단축.
+          silenceMs: SILENCE_MS,
           // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
           onSpeechStart: () => stopBotAudio(),
           ...(vadDebug
