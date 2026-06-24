@@ -170,11 +170,39 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* SSOT .sb-foot: mt:auto; flex-col; align-center; font-mono; 7.5px; font-weight:700;
+      {/* 모바일 체험(/m) QR — LIVE 인디케이터 바로 위에 배치. mt-auto로 nav 아래
+          공간을 밀어 QR+LIVE를 카드 하단부에 모은다. 좌우는 aside 패딩(8px)을 상쇄해
+          가장자리까지 풀블리드 유지하되, 더 이상 카드 최하단이 아니므로 하단 모서리
+          라운드/네거티브 마진은 빼고 LIVE와 8px 간격을 둔다.
+          클릭 시 데스크탑에서도 /m을 새 탭으로 연다. QR 흰 모듈은 투명이라 카드
+          배경이 비치고 파랑(rgb(37,99,235)) 모듈과 대비되어 스캔 가능. */}
+      <Link
+        href="/m"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="모바일 체험 QR — 휴대폰으로 스캔하세요"
+        title="모바일 체험 QR"
+        className="mt-auto block cursor-pointer transition-opacity duration-200 hover:opacity-80"
+        style={{
+          // 좌우 aside 패딩(8px)만 상쇄해 가장자리까지 꽉 채운다(상하는 일반 간격).
+          margin: '0 -8px 8px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/qr.png"
+          alt="모바일 체험 QR 코드"
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+        />
+      </Link>
+
+      {/* SSOT .sb-foot: flex-col; align-center; font-mono; 7.5px; font-weight:700;
           color:var(--ink-faint); border-top:1px solid var(--hair);
-          .d: 7px circle; background:var(--go); animation:beatG 1.6s ease-out infinite */}
+          .d: 7px circle; background:var(--go); animation:beatG 1.6s ease-out infinite.
+          QR을 위로 올렸으므로 mt-auto는 QR이 가져가고, LIVE가 카드 최하단을 차지한다. */}
       <div
-        className="mt-auto flex flex-col items-center gap-1 font-mono font-bold text-ink-faint text-center pt-[9px] pb-[2px]"
+        className="flex flex-col items-center gap-1 font-mono font-bold text-ink-faint text-center pt-[9px] pb-[2px]"
         style={{
           fontSize: '7.5px',
           borderTop: '1px solid var(--hair)',
@@ -190,35 +218,6 @@ export function Sidebar() {
         />
         LIVE
       </div>
-
-      {/* 모바일 체험(/m) QR — 사이드바 최하단에 폭 꽉 차게(좌우/하단 패딩 풀블리드).
-          클릭 시 데스크탑에서도 /m을 새 탭으로 연다. QR 흰 모듈은 투명이라 카드
-          배경이 비치고 파랑(rgb(37,99,235)) 모듈과 대비되어 스캔 가능. */}
-      <Link
-        href="/m"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="모바일 체험 QR — 휴대폰으로 스캔하세요"
-        title="모바일 체험 QR"
-        className="block cursor-pointer transition-opacity duration-200 hover:opacity-80"
-        style={{
-          // aside 패딩(12px 8px)을 상쇄해 좌우·하단 가장자리까지 꽉 채운다.
-          margin: '8px -8px -12px',
-          // 하단 모서리는 카드 라운드(18px)에 맞춤.
-          borderTopLeftRadius: 0,
-          borderTopRightRadius: 0,
-          borderBottomLeftRadius: '18px',
-          borderBottomRightRadius: '18px',
-          overflow: 'hidden',
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/qr.png"
-          alt="모바일 체험 QR 코드"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
-        />
-      </Link>
     </aside>
   );
 }
