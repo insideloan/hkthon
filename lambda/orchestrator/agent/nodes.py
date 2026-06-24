@@ -11,6 +11,7 @@ AGENT 모듈. 설계: docs/agent/LANGGRAPH-DESIGN.md §4.
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from . import churn_risk, compliance as compliance_mod, mot as mot_mod, prompts, signals
 from ..llm import router
@@ -126,39 +127,26 @@ def fast_route_branch(state: CallState) -> str:
 # 켜면 RESPOND 경로에서 respond 지연(~1.6-2.3s)을 classify 뒤로 숨긴다.
 _SPECULATIVE_RESPOND = os.environ.get("SPECULATIVE_RESPOND", "0") == "1"
 
+# fused 모드: classify + respond + compliance 자가신뢰도를 단일 LLM 호출로 합친다(직렬 2콜→1콜).
+# speculative와 달리 같은 추론 패스에서 전략을 골라 응답하므로 스티어링 유지(품질 손실 없음).
+# 기본 OFF — 실 Bedrock A/B(레이턴시·품질·confidence 정확도) 후 기본값 결정. speculative와 동시
+# 활성 시 fused 우선(둘 다 _blind_draft를 채우지만 fused 응답이 전략 반영분이라 우월).
+_FUSED_TURN = os.environ.get("FUSED_TURN", "0") == "1"
 
-def classify(state: CallState) -> CallState:
-    """단일 Bedrock Converse(structured output)로 intent/route/emotion/fraud/
-    churn_adjust/strategy/rationale를 한 번에 추출. stage별 xlsx 가이드를 프롬프트에 주입.
+# history 윈도잉: LLM 프롬프트에 최근 N개 메시지만 렌더(입력 토큰 상한). 0/음수면 무제한.
+# 기본 8 ≈ 직전 4턴 왕복 — 대부분 대화의 직전 맥락을 담으면서 후반 턴 입력을 상한한다.
+_HISTORY_WINDOW = int(os.environ.get("HISTORY_WINDOW", "8"))
 
-    SPECULATIVE_RESPOND=1이면 classify와 동시에 blind respond(전략 미주입)를 병렬 실행하고
-    그 draft를 _blind_draft로 실어둔다 — route가 RESPOND면 respond 노드가 재사용(직렬 1콜 절감).
+
+def _classify_result_to_state(
+    result, blind_draft: Optional[str], confidence: Optional[float] = None,
+) -> CallState:
+    """ClassifyResult → CallState 매핑(직렬/병렬/fused 경로 공용).
+
+    신호 4축은 엄격 파싱: 카탈로그 밖 값이면 None으로 폴백(데모 일관성·관리자 화면 안정).
+    confidence는 fused 경로에서만 채워져 compliance 노드가 Guardrail 스킵 판단에 쓴다.
     """
-    system = prompts.classify_system(state.get("stage", Stage.IDENTIFY), state.get("customer"))
-    history = _render_history(state)
-
-    blind_draft = None
-    if _SPECULATIVE_RESPOND:
-        # blind respond: tactic/emotion 없이 stage 가이드만으로 생성(_strategy_block 빈 블록).
-        blind_system = prompts.respond_system(
-            state.get("stage", Stage.IDENTIFY), state.get("customer"), tactic=None, emotion=None,
-        )
-        result, blind_draft = router.classify_and_respond_concurrent(system, blind_system, history)
-    else:
-        result = router.classify_turn(system, history)
-
-    # LLM 장애 → 보수적 기본값(통화 흐름 유지). 거절/이관은 fast_route가 이미 걸렀음.
-    if result is None:
-        return {
-            "intent": Intent.UNCLEAR,
-            "route": Route.RESPOND,
-            "classified_by": "llm",
-            "_churn_adjust": 0,
-            "_blind_draft": blind_draft,
-        }
-
-    # 신호 4축은 엄격 파싱: 카탈로그 밖 값이면 None으로 폴백(데모 일관성·관리자 화면 안정).
-    return {
+    out: CallState = {
         "intent": _to_intent(result.intent),
         "route": _to_route(result.route),
         "emotion": signals.to_emotion(result.emotion),
@@ -172,6 +160,52 @@ def classify(state: CallState) -> CallState:
         "_churn_adjust": result.churn_adjust,
         "_blind_draft": blind_draft,
     }
+    if confidence is not None:
+        out["_compliance_confidence"] = confidence
+    return out
+
+
+def classify(state: CallState) -> CallState:
+    """단일 Bedrock Converse로 intent/route/emotion/fraud/churn_adjust/strategy/rationale를
+    한 번에 추출. stage별 xlsx 가이드를 프롬프트에 주입.
+
+    FUSED_TURN=1이면 분류+응답+컴플라이언스 신뢰도를 한 호출로 합쳐(_blind_draft=전략 반영
+    응답, _compliance_confidence) respond는 그 draft를 재사용하고 compliance는 신뢰도로
+    Guardrail 스킵을 판단한다. SPECULATIVE_RESPOND=1이면 classify와 blind respond를 병렬 실행.
+    """
+    history = _render_history(state)
+    stage = state.get("stage", Stage.IDENTIFY)
+    customer = state.get("customer")
+
+    # 1) fused: 분류+응답+신뢰도 1콜. 파싱 실패 시 직렬 경로로 폴백(아래로 진행).
+    if _FUSED_TURN:
+        fused = router.classify_respond_fused(prompts.fused_system(stage, customer), history)
+        if fused is not None:
+            result, response, confidence = fused
+            # response가 비면(예: SILENCE) draft 미설정 — respond 노드가 정식 경로로 생성.
+            return _classify_result_to_state(result, response or None, confidence)
+
+    # 2) speculative: classify ∥ blind respond(전략 미주입).
+    system = prompts.classify_system(stage, customer)
+    blind_draft = None
+    if _SPECULATIVE_RESPOND:
+        blind_system = prompts.respond_system(stage, customer, tactic=None, emotion=None)
+        result, blind_draft = router.classify_and_respond_concurrent(system, blind_system, history)
+    else:
+        # 3) 기본: classify 단일 호출.
+        result = router.classify_turn(system, history)
+
+    # LLM 장애 → 보수적 기본값(통화 흐름 유지). 거절/이관은 fast_route가 이미 걸렀음.
+    if result is None:
+        return {
+            "intent": Intent.UNCLEAR,
+            "route": Route.RESPOND,
+            "classified_by": "llm",
+            "_churn_adjust": 0,
+            "_blind_draft": blind_draft,
+        }
+
+    return _classify_result_to_state(result, blind_draft)
 
 
 def route_intent(state: CallState) -> str:
@@ -689,9 +723,17 @@ def _to_route(value: str) -> Route:
 
 
 def _render_history(state: CallState) -> str:
-    """LLM 프롬프트용 history 직렬화."""
+    """LLM 프롬프트용 history 직렬화.
+
+    최근 _HISTORY_WINDOW개 메시지만 렌더한다(윈도잉). 통화가 길어질수록 전체 history를
+    매번 직렬화하면 classify/respond 입력 토큰이 선형 증가해 후반 턴이 느려지므로, 직전
+    맥락만 유지해 입력을 상한한다(stage는 state로 별도 전달되어 분류에 충분). 0/음수면 무제한.
+    """
+    history = state.get("history", [])
+    if _HISTORY_WINDOW > 0 and len(history) > _HISTORY_WINDOW:
+        history = history[-_HISTORY_WINDOW:]
     lines = []
-    for m in state.get("history", []):
+    for m in history:
         role = {"customer": "고객", "bot": "상담봇", "agent": "상담원"}.get(m["speaker"], m["speaker"])
         lines.append(f"{role}: {m['text']}")
     lines.append(f"고객: {state.get('customer_text', '')}")
