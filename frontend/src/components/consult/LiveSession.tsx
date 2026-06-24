@@ -44,6 +44,24 @@ const VAD_MIN = 0.03;
 const VAD_MAX = 0.3;
 const VAD_DEFAULT = 0.03;
 
+// "..." 타이핑 인디케이터 — Agent가 응답을 생성 중일 때(고객 턴 직후) AI 말풍선에 노출.
+// 점 3개가 stagger 애니메이션으로 깜빡인다(키프레임 typingDot은 LiveSession이 <style>로 주입).
+function TypingDots() {
+  return (
+    <span aria-hidden style={{ display: 'inline-flex', gap: '3px', alignItems: 'center', height: '1em' }}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          style={{
+            display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+            background: 'var(--ink-dim)', animation: `typingDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 export function LiveSession({ callId }: LiveSessionProps) {
   const router = useRouter();
   const [micState, setMicState] = useState<MicState>('idle');
@@ -58,6 +76,20 @@ export function LiveSession({ callId }: LiveSessionProps) {
   const vadThresholdRef = useRef(VAD_DEFAULT);
   vadThresholdRef.current = vadThreshold;
 
+  // 타이핑 인디케이터("...") + 타자기 스트리밍 상태.
+  // 고객 턴 도착 → "..." 노출(Agent 실행 중). bot 텍스트 도착 즉시 → "..." 끄고 한 글자씩 reveal.
+  const [typingIndicatorActive, setTypingIndicatorActive] = useState(false);
+  const [revealSeq, setRevealSeq] = useState<number | null>(null);
+  const [revealText, setRevealText] = useState('');
+  const [revealTarget, setRevealTarget] = useState('');
+  // 구독 콜백/인터벌 클로저가 최신값을 읽도록 ref 미러(매 렌더 동기화 — vadThresholdRef와 동일 규약).
+  const revealSeqRef = useRef<number | null>(null);
+  revealSeqRef.current = revealSeq;
+  const revealTargetRef = useRef('');
+  const revealLenRef = useRef(0);
+  // 완료된 bot seq — MODIFY(같은 seq + audioUrl) 재발화가 타자기를 재시작하지 않게 차단.
+  const completedRevealSeqsRef = useRef<Set<number>>(new Set());
+
   // seq로 멱등하게 말풍선 누적(re-emit 방지). 봇/고객 모두 표시(agent는 무시).
   const pushTurn = (turn: Pick<Turn, 'seq' | 'speaker' | 'text'>) => {
     if (turn.speaker !== 'customer' && turn.speaker !== 'bot') return;
@@ -66,6 +98,29 @@ export function LiveSession({ callId }: LiveSessionProps) {
         ? prev
         : [...prev, { seq: turn.seq, speaker: turn.speaker, text: turn.text }],
     );
+  };
+
+  // onTurn 처리: 고객 턴 → "..." 노출, bot 텍스트 첫 도착 → 타자기 reveal 시작.
+  // INSERT(텍스트만)/MODIFY(텍스트+audioUrl) 두 번 발화되므로 같은 seq 재진입을 차단(idempotent).
+  // audioUrl 비의존 단일 규칙 — 라이브/mock(audioUrl:null 단발) 모두 동일 동작.
+  const handleTurn = (turn: Pick<Turn, 'seq' | 'speaker' | 'text'>) => {
+    if (turn.speaker === 'customer') {
+      pushTurn(turn);
+      setTypingIndicatorActive(true);
+      return;
+    }
+    if (turn.speaker === 'bot' && turn.text) {
+      if (revealSeqRef.current === turn.seq || completedRevealSeqsRef.current.has(turn.seq)) return;
+      pushTurn(turn); // 전체 텍스트를 bubbles에 저장(dedup) — reveal 완료 후 그대로 렌더
+      setTypingIndicatorActive(false);
+      revealSeqRef.current = turn.seq;
+      revealTargetRef.current = turn.text;
+      revealLenRef.current = 0;
+      setRevealSeq(turn.seq);
+      setRevealText('');
+      setRevealTarget(turn.text);
+    }
+    // agent speaker는 표시하지 않음.
   };
 
   const requestMic = async () => {
@@ -128,7 +183,7 @@ export function LiveSession({ callId }: LiveSessionProps) {
 
     const unsubscribeTurns = subscribeTurns(
       callId,
-      (turn) => pushTurn(turn),
+      (turn) => handleTurn(turn),
       (err) => console.error('onTurn(live) 구독 오류', err),
     );
 
@@ -152,9 +207,37 @@ export function LiveSession({ callId }: LiveSessionProps) {
       captureRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      // 세션 전환 시 타이핑/타자기 상태 전부 리셋.
+      setTypingIndicatorActive(false);
+      setRevealSeq(null);
+      setRevealText('');
+      setRevealTarget('');
+      revealSeqRef.current = null;
+      revealLenRef.current = 0;
+      completedRevealSeqsRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callId]);
+
+  // 타자기 효과: revealSeq가 설정되면 revealTarget을 한 글자씩(틱마다 몇 글자) 노출.
+  // 완료 시 revealSeq=null로 되돌려 일반 bubble 렌더로 복귀하고, 완료 seq를 기록(MODIFY 재발화 차단).
+  useEffect(() => {
+    if (revealSeq === null) return;
+    const CHARS_PER_TICK = 3;
+    const TICK_MS = 50; // ~60자/초
+    const id = setInterval(() => {
+      revealLenRef.current = Math.min(revealLenRef.current + CHARS_PER_TICK, revealTargetRef.current.length);
+      setRevealText(revealTargetRef.current.slice(0, revealLenRef.current));
+      if (revealLenRef.current >= revealTargetRef.current.length) {
+        clearInterval(id);
+        completedRevealSeqsRef.current.add(revealSeq);
+        revealSeqRef.current = null;
+        setRevealSeq(null);
+      }
+    }, TICK_MS);
+    return () => clearInterval(id);
+    // revealTarget 변경 시 재실행 → 구 인터벌 cleanup 후 새 발화로 시작.
+  }, [revealSeq, revealTarget]);
 
   // mock 데모: 마이크 권한이 잡히면(listening) 백엔드가 없으므로 캔드 교환을 시뮬레이션.
   // 실 배포(live 백엔드)에서는 onTurn 실데이터가 들어오므로 이 분기는 건너뛴다.
@@ -166,17 +249,17 @@ export function LiveSession({ callId }: LiveSessionProps) {
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms));
-    at(900, () => pushTurn({ seq: 1, speaker: 'customer', text: '여보세요?' }));
-    at(2200, () => pushTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. ${custName} 고객님 맞으실까요?` }));
+    at(900, () => handleTurn({ seq: 1, speaker: 'customer', text: '여보세요?' }));
+    at(2200, () => handleTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. ${custName} 고객님 맞으실까요?` }));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [micState, callId]);
 
-  // 새 말풍선 도착 시 하단 스크롤.
+  // 새 말풍선/타이핑 인디케이터/타자기 진행 시 하단 스크롤.
   useEffect(() => {
     const el = bodyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [bubbles]);
+  }, [bubbles, typingIndicatorActive, revealText]);
 
   const hasTranscript = bubbles.length > 0;
 
@@ -186,6 +269,9 @@ export function LiveSession({ callId }: LiveSessionProps) {
       data-mic-state={micState}
       className="relative flex flex-1 flex-col min-h-0"
     >
+      {/* 타이핑 인디케이터(점)·타자기 커서 키프레임 — 인라인 스타일 규약상 여기서 1회 주입. */}
+      <style>{`@keyframes typingDot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}@keyframes blinkCursor{50%{opacity:0}}`}</style>
+
       {/* 상태 배지 */}
       <div className="flex items-center justify-center px-4 pt-3">
         <div
@@ -263,27 +349,61 @@ export function LiveSession({ callId }: LiveSessionProps) {
             )}
           </div>
         ) : (
-          bubbles.map((b) => (
-            <div
-              key={`${b.speaker}-${b.seq}`}
-              data-testid={`live-bubble-${b.speaker}`}
-              className={clsx('flex flex-col gap-0.5', b.speaker === 'customer' ? 'items-start' : 'items-end')}
-            >
-              <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>
-                {b.speaker === 'customer' ? '👤 고객' : '🤖 AI'}
-              </span>
-              <div
-                className="max-w-[85%] rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
-                style={
-                  b.speaker === 'customer'
-                    ? { background: 'var(--route)', color: '#fff' }
-                    : { background: 'rgba(255,255,255,.72)', color: 'var(--ink)', border: '1px solid var(--card-bd)' }
-                }
-              >
-                {b.text}
+          <>
+            {bubbles.map((b) => {
+              // 타자기 진행 중인 봇 말풍선이면 전체 text 대신 revealText + 깜빡이는 커서를 렌더.
+              const isRevealing = b.speaker === 'bot' && b.seq === revealSeq;
+              return (
+                <div
+                  key={`${b.speaker}-${b.seq}`}
+                  data-testid={`live-bubble-${b.speaker}`}
+                  className={clsx('flex flex-col gap-0.5', b.speaker === 'customer' ? 'items-start' : 'items-end')}
+                >
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>
+                    {b.speaker === 'customer' ? '👤 고객' : '🤖 AI'}
+                  </span>
+                  <div
+                    className="max-w-[85%] rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
+                    style={
+                      b.speaker === 'customer'
+                        ? { background: 'var(--route)', color: '#fff' }
+                        : { background: 'rgba(255,255,255,.72)', color: 'var(--ink)', border: '1px solid var(--card-bd)' }
+                    }
+                  >
+                    {isRevealing ? (
+                      <>
+                        {revealText}
+                        <span
+                          aria-hidden
+                          style={{
+                            display: 'inline-block', width: '2px', height: '1em', marginLeft: '1px',
+                            background: 'var(--ink)', verticalAlign: 'text-bottom',
+                            animation: 'blinkCursor 0.7s step-end infinite',
+                          }}
+                        />
+                      </>
+                    ) : (
+                      b.text
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* "..." 타이핑 인디케이터 — 고객 턴 직후 Agent 실행 중에만. 타자기 시작 시 사라짐. */}
+            {typingIndicatorActive && revealSeq === null && (
+              <div data-testid="live-bubble-typing" className="flex flex-col gap-0.5 items-end">
+                <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>🤖 AI</span>
+                <div
+                  className="max-w-[85%] rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
+                  style={{ background: 'rgba(255,255,255,.72)', color: 'var(--ink)', border: '1px solid var(--card-bd)' }}
+                  aria-label="AI가 응답을 생성하고 있습니다"
+                >
+                  <TypingDots />
+                </div>
               </div>
-            </div>
-          ))
+            )}
+          </>
         )}
       </div>
 
