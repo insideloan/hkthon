@@ -6,6 +6,7 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LiveSession } from '@/components/consult/LiveSession';
+import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
 import { useExperienceStore } from '@/stores/experienceStore';
 
 const IS_MOCK =
@@ -19,6 +20,12 @@ export default function MobileCallPage({ params }: PageProps) {
   const router = useRouter();
   const customer = useExperienceStore((s) => s.customers[callId]);
   const [finished, setFinished] = useState(false);
+
+  // 봇 TTS(mp3) 재생 — 관리자 코파일럿은 이 훅으로 봇 음성을 재생하지만 모바일
+  // 화면은 LiveSession만 렌더해 누락돼 있었다(자막만 나오고 소리 없음). 모바일
+  // 라이브 경로는 항상 live이므로 활성화한다. 훅 내부에서 모바일 자동재생 정책을
+  // 고려해 첫 사용자 제스처에 오디오를 unlock한다.
+  useBotAudioPlayback(callId);
 
   // 폼을 거치지 않고 직접 URL로 들어와 고객 정보가 없으면 입력 폼으로 되돌린다.
   // (mock 데모는 인사말 이름 기본값이 있어 그대로 진행 가능하나, 라이브 백엔드는
