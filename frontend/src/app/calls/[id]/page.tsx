@@ -19,6 +19,8 @@ import { LiveSession } from '@/components/consult/LiveSession';
 import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
+import { useQueueStore } from '@/stores/queueStore';
+import { resolveScenarioCustomerName } from '@/lib/customerProfiles';
 
 // 목/스크립트 데모 게이트 (lib/appsync.ts의 USE_MOCK과 동일 규약).
 const IS_MOCK =
@@ -126,7 +128,12 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const mapRef = useRef<JourneyMapHandle | null>(null);
   const cardEmoRef = useRef<HTMLElement | null>(null);
 
-  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId });
+  // 클릭한 큐 레코드(callId)의 고객 이름으로 시나리오 인사말을 구성. 스토어에 행이
+  // 없거나 데모 기본 경로면 원본 이름(박서준)을 유지한다.
+  const row = useQueueStore((s) => s.rows.find((r) => r.callId === callId));
+  const customerName = resolveScenarioCustomerName(callId, row);
+
+  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName });
 
   // 라이브 모드 봇 음성 재생: onTurn의 bot audioUrl(TTS mp3)을 순차 재생.
   // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 단, ?live=1 진입(체험 고객)은
