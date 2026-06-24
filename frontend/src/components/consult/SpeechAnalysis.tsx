@@ -351,7 +351,7 @@ function EngineCard1() {
         </span>
       </div>
 
-      <div className="cseclbl"><span>대표 전략 20</span><span className="ln" /></div>
+      <div className="cseclbl cseclbl--sec"><span>대표 전략 20</span><span className="ln" /></div>
 
       {/* 전략 그리드 20장 → swiping → resolved */}
       <div

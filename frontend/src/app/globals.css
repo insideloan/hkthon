@@ -408,6 +408,21 @@
 .cseclbl span:not(.ln) { font-size: 12.5px; font-weight: 900; color: #4A515E; }
 .cseclbl .ln { flex: 1; height: 1px; background: var(--hair); }
 
+/* 섹션 라벨(대표 전략 20 / 데이터 분석 결과 / 최종 발화) — 회색 둥근 테두리.
+   회색 둥근 모서리 사각형으로 감싸고, 구분선(.ln)은 숨긴다. */
+.cc__cards .cseclbl--sec {
+  border: 1.4px solid #C9CDD6;
+  border-radius: 8px;
+  padding: 4px 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  box-sizing: border-box;
+}
+.cc__cards .cseclbl--sec .ln { display: none; }
+/* 높이 정렬 — 카드① 라벨 Y(약 153px)를 기준으로 정렬.
+   카드②는 위 영역이 낮아(76px) 스페이서로 내려 맞추고,
+   카드③은 위 영역(규제검토 2×2, ~161px)이 이미 비슷해 스페이서 불필요. */
+#card-db .cseclbl--sec { margin-top: 77px; }
+
 /* ── 카드② DB 분석 (SSOT 769–838) ── */
 .usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
 .usecard { display: inline-flex; align-items: center; gap: 6px; border: 1.4px solid #C9D3E8; border-radius: 999px; background: rgba(255,255,255,.72); padding: 4px 10px; width: auto; max-width: 100%; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s, background .3s; }
@@ -417,7 +432,8 @@
 .usecard.flash { border-color: var(--route); background: #EAF0FF; box-shadow: 0 0 0 3px rgba(53,81,214,.16); }
 .usedivider { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-3px); transition: opacity .3s, transform .3s; }
 .usedivider.on { opacity: 1; transform: none; }
-.usedivider .dn { font-size: 11px; animation: arrbob 1s ease-in-out infinite; }
+.usedivider .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
+.usedivider .dn svg { width: 26px; height: 26px; display: block; }
 .resbox { display: flex; flex-direction: column; gap: 4px; }
 
 .diag { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
@@ -519,8 +535,8 @@
 
 .solvearrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
 .solvearrow.on { opacity: 1; transform: none; }
-.solvearrow .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: var(--route); animation: arrbob 1s ease-in-out infinite; }
-.solvearrow .dn svg { width: 26px; height: 26px; display: block; filter: drop-shadow(0 1px 2px rgba(44,91,214,.35)); }
+.solvearrow .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
+.solvearrow .dn svg { width: 26px; height: 26px; display: block; }
 
 .stratg { position: relative; overflow: hidden; border-radius: 10px; padding: 2px 0; }
 .strat-track { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3,auto); align-content: start; gap: 5px; width: max-content; transition: transform .9s cubic-bezier(.22,.61,.36,1); }

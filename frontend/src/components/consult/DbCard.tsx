@@ -63,8 +63,12 @@ function LiveDbCard({ callId }: { callId?: string }) {
           </div>
         ))}
       </div>
-      <div className="usedivider on"><span className="dn">▼</span></div>
-      <div className="cseclbl"><span>데이터 분석 결과</span><span className="ln" /></div>
+      <div className="usedivider on"><span className="dn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span></div>
+      <div className="cseclbl cseclbl--sec"><span>데이터 분석 결과</span><span className="ln" /></div>
       <div className="resbox" data-testid="db-res">
         {hasPreset && nodes.length ? (
           <div className="flex flex-col gap-1.5 px-1 py-2">
@@ -115,10 +119,14 @@ function EngineDbCard() {
 
       {/* 사용데이터 → 분석결과 전이 화살표 */}
       <div className={clsx('usedivider', bridge && 'on')} id="dbBridge">
-        <span className="dn">▼</span>
+        <span className="dn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 4v14M12 18l-6-6M12 18l6-6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </div>
 
-      <div className="cseclbl">
+      <div className="cseclbl cseclbl--sec">
         <span>데이터 분석 결과</span>
         <span className="ln" />
       </div>
