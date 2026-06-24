@@ -85,7 +85,7 @@ describe('OutboundQueueTable', () => {
 
     const row = screen.getByTestId('queue-row-c1');
     // TRANSFER_PENDING → escalate tone (red, semantic queue palette).
-    const badge = within(row).getByText('상담원 연결 대기');
+    const badge = within(row).getByText('대기중');
     for (const cls of BADGE_TONE_CLASS.escalate.split(' ')) {
       expect(badge).toHaveClass(cls);
     }
@@ -159,7 +159,7 @@ describe('OutboundQueueTable', () => {
           callId: 'c-demo-01',
           customerName: '박서준',
           state: 'DIALING',
-          stage: '사전 분석 중',
+          stage: '사전 분석중',
         }),
       ]);
       render(<OutboundQueueTable disableLiveData />);

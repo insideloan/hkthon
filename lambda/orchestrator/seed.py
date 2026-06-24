@@ -164,11 +164,11 @@ def seed_customers(customers: list[Customer] | None = None) -> int:
 SEED_QUEUE_ROWS: list[dict[str, Any]] = [
     # pre → DIALING
     {"id": "c-demo-01", "customer_name": "박서준", "subtitle": "38세·KCB744",
-     "state": "DIALING", "stage": "사전 분석 중", "churn_risk": 34, "assignee": "Agent #3",
+     "state": "DIALING", "stage": "사전 분석중", "churn_risk": 34, "assignee": "Agent #3",
      "channel": "아웃바운드", "elapsed_sec": 0},
     # live → IN_CALL
     {"id": "c-demo-02", "customer_name": "이정훈", "subtitle": "45세·KCB701",
-     "state": "IN_CALL", "stage": "우려 해소 중", "churn_risk": 48, "assignee": "Agent #7",
+     "state": "IN_CALL", "stage": "우려 해소중", "churn_risk": 48, "assignee": "Agent #7",
      "channel": "아웃바운드", "elapsed_sec": 221},
     {"id": "c-demo-03", "customer_name": "김하늘", "subtitle": "33세·KCB762",
      "state": "IN_CALL", "stage": "신뢰 형성중", "churn_risk": 34, "assignee": "Agent #2",
@@ -182,17 +182,17 @@ SEED_QUEUE_ROWS: list[dict[str, Any]] = [
      "channel": "아웃바운드", "elapsed_sec": 0, "needs_agent": True},
     # done → ENDED
     {"id": "c-demo-06", "customer_name": "오세훈", "subtitle": "41세·KCB745",
-     "state": "ENDED", "stage": "문자 URL 발송", "churn_risk": 18, "assignee": "Agent #1",
+     "state": "ENDED", "stage": "문자URL 발송", "churn_risk": 18, "assignee": "Agent #1",
      "channel": "인바운드", "elapsed_sec": 475},
     {"id": "c-demo-07", "customer_name": "배수지", "subtitle": "36세·KCB733",
      "state": "ENDED", "stage": "대출 접수", "churn_risk": 12, "assignee": "Agent #4",
      "channel": "아웃바운드", "elapsed_sec": 330},
     # miss → ENDED
     {"id": "c-demo-08", "customer_name": "윤재호", "subtitle": "48세·KCB695",
-     "state": "ENDED", "stage": "차량 공동명의 이탈", "churn_risk": 88, "assignee": "Agent #11",
+     "state": "ENDED", "stage": "차량명의 이탈", "churn_risk": 88, "assignee": "Agent #11",
      "channel": "아웃바운드", "elapsed_sec": 134},
     {"id": "c-demo-09", "customer_name": "강예린", "subtitle": "27세·KCB710",
-     "state": "ENDED", "stage": "TM 거부", "churn_risk": 94, "assignee": "Agent #13",
+     "state": "ENDED", "stage": "TM거부 이탈", "churn_risk": 94, "assignee": "Agent #13",
      "channel": "인바운드", "elapsed_sec": 46},
 ]
 
