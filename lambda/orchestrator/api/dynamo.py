@@ -23,6 +23,14 @@ from typing import Any, Optional
 _table = None  # lazy / injectable singleton
 
 
+class ConditionalCheckFailedError(RuntimeError):
+    """put_item의 ConditionExpression이 거짓 — 동시 write 충돌(이미 존재하는 키 등).
+
+    audioChunk가 customer Turn을 attribute_not_exists(SK) 조건으로 쓸 때, 동시에
+    뜬 다른 invocation이 같은 seq를 선점했으면 이 예외가 난다 → 호출측이 재조회·재시도.
+    """
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PK/SK 키 빌더 (싱글 테이블 패턴 상수)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +118,36 @@ def put_item(item: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("item must include PK and SK")
     get_table().put_item(Item=item)
     return item
+
+
+def put_item_if_absent(item: dict[str, Any]) -> dict[str, Any]:
+    """동일 (PK, SK)가 아직 없을 때만 저장 (조건부 write). PK/SK 필수.
+
+    동시 audioChunk가 같은 seq로 customer Turn을 쓰려 할 때 한 쪽만 성공시켜
+    seq 중복 발급(→ TTS S3 키 충돌·프론트 멱등 차단)을 막는다. 이미 존재하면
+    ConditionalCheckFailedError를 던져 호출측이 seq를 다시 계산해 재시도하게 한다.
+    """
+    if "PK" not in item or "SK" not in item:
+        raise ValueError("item must include PK and SK")
+    try:
+        get_table().put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+        )
+    except Exception as exc:  # noqa: BLE001 — boto3 ClientError 또는 fake의 충돌 예외
+        if _is_conditional_check_failed(exc):
+            raise ConditionalCheckFailedError(str(exc)) from exc
+        raise
+    return item
+
+
+def _is_conditional_check_failed(exc: Exception) -> bool:
+    """예외가 DynamoDB ConditionalCheckFailedException인지 (boto3/fake 양쪽 판별)."""
+    if isinstance(exc, ConditionalCheckFailedError):
+        return True
+    # boto3 ClientError: response.Error.Code == "ConditionalCheckFailedException"
+    code = getattr(exc, "response", {}).get("Error", {}).get("Code") if hasattr(exc, "response") else None
+    return code == "ConditionalCheckFailedException"
 
 
 def get_item(pk: str, sk: str) -> Optional[dict[str, Any]]:

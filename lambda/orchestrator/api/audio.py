@@ -54,20 +54,46 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
         logger.info("audioChunk: STT 무음/잡음 스킵 call=%s text=%r", call_id, text)
         return False
 
-    # 다음 seq 계산 후 customer Turn 기록.
-    turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
-    seq = len(turns) + 1
-    dynamo.put_item({
-        "PK": dynamo.pk_call(call_id),
-        "SK": dynamo.sk_turn(seq),
-        "seq": seq,
-        "speaker": "customer",
-        "text": text,
-    })
+    # 다음 seq 계산 후 customer Turn 기록. 동시 audioChunk(연속 오디오 스트림에서
+    # 발화가 빠르게 이어지거나, barge-in 되먹임 등)가 같은 seq를 중복 발급하면 TTS
+    # S3 키가 충돌하고 프론트가 멱등 차단으로 음성을 버린다 — len(turns)+1 대신
+    # max(seq)+1을 쓰고, attribute_not_exists 조건부 write로 충돌 시 재계산·재시도한다.
+    seq = _write_customer_turn(call_id, text)
+    if seq is None:
+        logger.warning("audioChunk: customer Turn write 충돌 재시도 소진 call=%s", call_id)
+        return False
 
     # customer 발화에 대한 봇 응답을 그래프로 생성(best-effort — 실패해도 customer Turn은 남는다).
     _run_agent_turn(call_id, text)
     return True
+
+
+# 동시 write 충돌 시 seq 재계산 재시도 횟수(데모 규모에선 충돌이 드물어 소수로 충분).
+_SEQ_RETRY = 5
+
+
+def _write_customer_turn(call_id: str, text: str) -> int | None:
+    """customer Turn을 충돌 없는 seq로 조건부 write하고 그 seq를 반환. 소진 시 None.
+
+    seq = 기존 Turn 최대 seq + 1. 조건부 write가 실패(다른 invocation이 선점)하면
+    Turn을 다시 조회해 seq를 올려 재시도한다.
+    """
+    for _ in range(_SEQ_RETRY):
+        turns = dynamo.query(dynamo.pk_call(call_id), dynamo.SK_PREFIX_TURN)
+        seq = max((int(t.get("seq", 0)) for t in turns), default=0) + 1
+        try:
+            dynamo.put_item_if_absent({
+                "PK": dynamo.pk_call(call_id),
+                "SK": dynamo.sk_turn(seq),
+                "seq": seq,
+                "speaker": "customer",
+                "text": text,
+            })
+            return seq
+        except dynamo.ConditionalCheckFailedError:
+            logger.info("audioChunk: seq=%s 선점됨, 재계산 재시도 call=%s", seq, call_id)
+            continue
+    return None
 
 
 def _run_agent_turn(call_id: str, customer_text: str) -> None:
