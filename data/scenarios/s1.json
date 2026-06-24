@@ -135,7 +135,7 @@
       "seq": 5,
       "speaker": "bot",
       "node": "PROPOSE",
-      "text": "맞습니다. 조건은 실제로 확인하셔야 해요. 10% 넘는 금리면 비교해볼 만하고, 중도상환수수료까지 같이 봐드릴게요.",
+      "text": "맞습니다. 조건은 실제로 확인하셔야 해요. 신용대출 예상 금리는 12%대, 자동차 담보대출 예상 금리는 10%대 예상됩니다.",
       "tokens": [
         {
           "text": "확인하셔야",
@@ -143,9 +143,14 @@
           "reason": "신뢰"
         },
         {
-          "text": "중도상환수수료까지",
-          "polarity": null,
-          "reason": ""
+          "text": "12%대",
+          "polarity": "PRO",
+          "reason": "관심"
+        },
+        {
+          "text": "10%대",
+          "polarity": "PRO",
+          "reason": "관심"
         }
       ],
       "churn_after": 26,
@@ -153,9 +158,11 @@
       "strategy_headline": "불신 인정 · 공감",
       "strategy_lead": "신뢰확보 — 불신 우회 완료",
       "compliance": {
-        "draft": "10% 넘는 금리면 비교해볼 만하고, 중도상환수수료까지 같이 봐드릴게요.",
-        "violated_policies": [],
-        "final": "맞습니다. 조건은 실제로 확인하셔야 해요. 10% 넘는 금리면 비교해볼 만하고, 중도상환수수료까지 같이 봐드릴게요.",
+        "draft": "신용대출 12%, 자동차 담보대출 10%로 확정해서 낮춰드립니다.",
+        "violated_policies": [
+          "FIXED_FIGURE"
+        ],
+        "final": "맞습니다. 조건은 실제로 확인하셔야 해요. 신용대출 예상 금리는 12%대, 자동차 담보대출 예상 금리는 10%대 예상됩니다.",
         "state": "approved"
       }
     },
@@ -290,20 +297,20 @@
       "seq": 11,
       "speaker": "customer",
       "node": "PROPOSE",
-      "text": "차량담보요? 차 할부도 남았는데, 그럼 차 못 쓰는 거 아니에요?",
+      "text": "담보요? 그런거 하다가 자동차 운행 못 하는거 아니에요?",
       "tokens": [
         {
-          "text": "할부도",
+          "text": "담보요?",
+          "polarity": "CONS",
+          "reason": "담보오해"
+        },
+        {
+          "text": "운행",
           "polarity": "CONS",
           "reason": "담보오해"
         },
         {
           "text": "못",
-          "polarity": "CONS",
-          "reason": "담보오해"
-        },
-        {
-          "text": "쓰는",
           "polarity": "CONS",
           "reason": "담보오해"
         }
@@ -320,22 +327,22 @@
       "seq": 12,
       "speaker": "bot",
       "node": "PROPOSE",
-      "text": "일반적으로 운행은 그대로 가능하세요. 그 부분은 걱정 안 하셔도 됩니다.",
+      "text": "대출 중에도 차량은 기존처럼 그대로 운행하실 수 있습니다. 다만, 본 상품은 차량에 저당이 설정되는 담보대출이므로, 상세한 설정 조건과 해지 절차는 심사 후 정확히 안내해 드리겠습니다.",
       "tokens": [
-        {
-          "text": "운행은",
-          "polarity": "PRO",
-          "reason": "안심"
-        },
         {
           "text": "그대로",
           "polarity": "PRO",
           "reason": "안심"
         },
         {
-          "text": "가능하세요.",
+          "text": "운행하실",
           "polarity": "PRO",
           "reason": "안심"
+        },
+        {
+          "text": "심사",
+          "polarity": null,
+          "reason": ""
         }
       ],
       "churn_after": 38,
@@ -415,17 +422,22 @@
       "seq": 15,
       "speaker": "customer",
       "node": "CHANNEL",
-      "text": "그럼 신청 말고 조건만 비교해볼 수 있어요?",
+      "text": "그럼 확인만 해볼게요. 근데 서류내고 귀찮은건 싫은데. 빠르게 해줄수 있는거죠?",
       "tokens": [
         {
-          "text": "조건만",
+          "text": "확인만",
           "polarity": "PRO",
           "reason": "진행의향"
         },
         {
-          "text": "비교해볼",
-          "polarity": "PRO",
-          "reason": "진행의향"
+          "text": "서류내고",
+          "polarity": "CONS",
+          "reason": "번거로움"
+        },
+        {
+          "text": "귀찮은건",
+          "polarity": "CONS",
+          "reason": "번거로움"
         }
       ],
       "churn_after": 18,
@@ -480,17 +492,22 @@
       "seq": 18,
       "speaker": "bot",
       "node": "CLOSING",
-      "text": "네, 잠시만요. 담당 상담원에게 바로 연결해 드릴게요.",
+      "text": "네, 고객님, 대출은 별도 구비서류 없이 진행하실 수 있어요. 그럼 본 심사 시작하겠습니다. 정확한 본인확인을 위해 몇 가지 확인 후 진행해 드리겠습니다.",
       "tokens": [
         {
-          "text": "바로",
+          "text": "구비서류",
           "polarity": "PRO",
-          "reason": "전환"
+          "reason": "안심"
         },
         {
-          "text": "연결해",
+          "text": "없이",
           "polarity": "PRO",
-          "reason": "전환"
+          "reason": "안심"
+        },
+        {
+          "text": "본인확인",
+          "polarity": null,
+          "reason": ""
         }
       ],
       "churn_after": 4,
