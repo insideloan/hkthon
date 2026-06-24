@@ -575,10 +575,11 @@
   @keyframes sgblink{0%,80%,100%{opacity:0}40%{opacity:1}}
   #view-segment .glass{background:var(--card);border:1px solid var(--card-bd);border-radius:18px;
     backdrop-filter:blur(16px) saturate(1.08);-webkit-backdrop-filter:blur(16px) saturate(1.08);box-shadow:var(--shadow)}
-  #view-segment .sg-counter{display:flex;flex-direction:column;align-items:center;gap:3px;padding:16px 0 14px;margin-bottom:13px}
-  #view-segment .sg-clbl{font-size:11.5px;font-weight:600;color:var(--ink-faint)}
-  #view-segment .sg-cnum{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-  #view-segment .sg-cnum.done{color:var(--route)}
+  #view-segment .sg-counter{display:flex;flex-direction:column;align-items:center;gap:3px;padding:16px 0 14px;margin-bottom:13px;
+    background:var(--route);border:1px solid var(--route);border-radius:18px 18px 0 0}
+  #view-segment .sg-clbl{font-size:11.5px;font-weight:600;color:#fff}
+  #view-segment .sg-cnum{font-family:var(--mono);font-size:32px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+  #view-segment .sg-cnum.done{color:#fff}
   #view-segment svg text{font-family:var(--kr)}
   #view-segment .ts{font-size:12px;fill:var(--ink-dim)}
   #view-segment .th{font-size:14px;font-weight:700;fill:var(--ink)}
@@ -588,12 +589,20 @@
   #view-segment .cat{opacity:0;transition:opacity .35s ease}#view-segment .cat.show{opacity:1}
   #view-segment .clu{opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease;transform-box:fill-box;transform-origin:center}#view-segment .clu.show{opacity:1;transform:translateY(0)}
   #view-segment .ln{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .6s ease}#view-segment .ln.show{stroke-dashoffset:0}
+  /* 군집→조합 후보 가지: 여러 가지가 깜빡이며 생성·조합되다가 .resolve 시 사라진다 */
+  #view-segment .cv-probe{opacity:0}
+  #view-segment .cv-probe.on{opacity:1}
+  #view-segment .cv-probe.on path{animation:cvProbe 1.05s ease-in-out infinite;animation-delay:var(--d)}
+  #view-segment .cv-probe path{fill:none;stroke:#9AA0AC;stroke-width:.8;opacity:0}
+  #view-segment .cv-probe.resolve{opacity:0;transition:opacity .5s ease}
+  @keyframes cvProbe{0%,100%{opacity:.12;stroke-width:.7;stroke:#9AA0AC}45%{opacity:.85;stroke-width:1.3;stroke:var(--route)}}
   #view-segment .seg{opacity:0;transition:opacity .45s ease;transform-box:fill-box;transform-origin:center}#view-segment .seg.show{opacity:1}#view-segment .seg.dim{opacity:.36}
   #view-segment .seg.lock{animation:sglock .5s ease}@keyframes sglock{0%{transform:scale(1)}45%{transform:scale(1.045)}100%{transform:scale(1)}}
   #view-segment .sg-final{opacity:0;transition:opacity .5s ease;margin-top:14px;display:flex;flex-direction:column;gap:12px}#view-segment .sg-final.show{opacity:1}
-  #view-segment .sg-sec{padding:15px 17px}
-  #view-segment .sg-tag{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:999px;margin-bottom:11px}
-  #view-segment .sg-tag.t2{background:var(--badge-bg);color:var(--route)}
+  #view-segment .sg-sec{padding:15px 17px;overflow:hidden}
+  #view-segment .sg-tag{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:center;
+    margin:-15px -17px 13px;padding:11px 17px;border-radius:18px 18px 0 0}
+  #view-segment .sg-tag.t2{background:var(--route);color:#fff;border:1px solid var(--route)}
   #view-segment .strat-card{display:flex;flex-direction:column;gap:0}
   #view-segment .strat-mod{padding:4px 0}
   #view-segment .strat-mod+.strat-mod{margin-top:15px;padding-top:16px;border-top:1px solid var(--hair)}
@@ -617,7 +626,7 @@
   #view-segment .flow-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   #view-segment .flow-chip{border-radius:11px;font-weight:700;white-space:nowrap}
   #view-segment .flow-chip.muted{font-size:13px;padding:7px 13px;color:var(--ink-faint);background:rgba(255,255,255,.5);border:1px solid var(--hair);text-decoration:line-through}
-  #view-segment .flow-chip.strong{font-size:16px;padding:9px 16px;color:#fff;background:var(--route);border:1px solid var(--route);box-shadow:0 6px 16px -8px rgba(53,81,214,.6)}
+  #view-segment .flow-chip.strong{font-size:16px;padding:9px 16px;color:var(--route);background:var(--badge-bg);border:1px solid rgba(53,81,214,.35)}
   #view-segment .flow-ar{font-size:18px;color:var(--ink-faint)}
   #view-segment .flow-sub{font-size:12.5px;color:var(--ink-dim);margin-top:12px;line-height:1.55}
   #view-segment .flow-sub b{color:var(--ink);font-weight:700}#view-segment .flow-sub b.hi{color:var(--route)}
@@ -1250,6 +1259,28 @@
    <path class="ln ln-C" pathLength="1" d="M214 368 C242 368,242 316,270 316" fill="none" stroke="#CF8A3C" stroke-width="0.8" opacity="0.5"/>
    <path class="ln ln-D" pathLength="1" d="M214 420 C242 420,242 446,270 446" fill="none" stroke="#6B4FB8" stroke-width="0.8" opacity="0.45"/>
    <path class="ln ln-D" pathLength="1" d="M214 472 C242 472,242 446,270 446" fill="none" stroke="#6B4FB8" stroke-width="0.8" opacity="0.45"/>
+   <g class="cv-probe" id="cvProbe" aria-hidden="true">
+     <path d="M410 82 C424 70,436 232,438 264" style="--d:0ms"/>
+     <path d="M410 82 C424 76,436 248,438 264" style="--d:55ms"/>
+     <path d="M410 82 C424 82,436 264,438 264" style="--d:110ms"/>
+     <path d="M410 82 C424 88,436 280,438 264" style="--d:165ms"/>
+     <path d="M410 82 C424 94,436 296,438 264" style="--d:220ms"/>
+     <path d="M410 186 C424 174,436 232,438 264" style="--d:275ms"/>
+     <path d="M410 186 C424 180,436 248,438 264" style="--d:330ms"/>
+     <path d="M410 186 C424 186,436 264,438 264" style="--d:385ms"/>
+     <path d="M410 186 C424 192,436 280,438 264" style="--d:440ms"/>
+     <path d="M410 186 C424 198,436 296,438 264" style="--d:495ms"/>
+     <path d="M410 316 C424 304,436 232,438 264" style="--d:550ms"/>
+     <path d="M410 316 C424 310,436 248,438 264" style="--d:605ms"/>
+     <path d="M410 316 C424 316,436 264,438 264" style="--d:660ms"/>
+     <path d="M410 316 C424 322,436 280,438 264" style="--d:715ms"/>
+     <path d="M410 316 C424 328,436 296,438 264" style="--d:770ms"/>
+     <path d="M410 446 C424 434,436 232,438 264" style="--d:825ms"/>
+     <path d="M410 446 C424 440,436 248,438 264" style="--d:880ms"/>
+     <path d="M410 446 C424 446,436 264,438 264" style="--d:935ms"/>
+     <path d="M410 446 C424 452,436 280,438 264" style="--d:990ms"/>
+     <path d="M410 446 C424 458,436 296,438 264" style="--d:1045ms"/>
+   </g>
    <path class="ln ln-cv" pathLength="1" d="M410 82 C438 82,438 264,438 264" fill="none" stroke="#9AA0AC" stroke-width="1" opacity="0.45"/>
    <path class="ln ln-cv" pathLength="1" d="M410 186 C438 186,438 264,438 264" fill="none" stroke="#9AA0AC" stroke-width="1" opacity="0.45"/>
    <path class="ln ln-cv" pathLength="1" d="M410 316 C438 316,438 264,438 264" fill="none" stroke="#9AA0AC" stroke-width="1" opacity="0.45"/>
@@ -1296,12 +1327,10 @@
            <i class="ti ti-arrow-right flow-ar" aria-hidden="true"></i>
            <span class="flow-chip strong">자동차 담보대출</span>
          </div>
-         <div class="flow-sub">보유 <b>실물자산(차량)</b> 활용 · 상품 반응도 <b class="hi">HIGH</b></div>
-         <div class="strat-result"><i class="ti ti-shield-check" aria-hidden="true"></i><b>안정적 한도</b> · <b>최적 금리</b> 제안</div>
        </div>
      </div>
    </div>
-   <div class="sg-btnwrap"><button class="sg-btn" id="sgReplay"><i class="ti ti-refresh" aria-hidden="true"></i>다시 재생</button><button class="sg-btn sg-btn--call" id="sgCall" disabled><i class="ti ti-phone-call" aria-hidden="true"></i>발신하기</button></div>
+   <div class="sg-btnwrap"><button class="sg-btn sg-btn--call" id="sgCall" disabled><i class="ti ti-phone-call" aria-hidden="true"></i>발신하기</button></div>
 
    </div>
 
@@ -2422,6 +2451,7 @@
   function sgClu(c){const n=sgRoot.querySelector('.clu[data-c="'+c+'"]');if(n)n.classList.add('show');}
   function sgReset(){sgClear();cancelAnimationFrame(sgRaf);combo.textContent='16,777,216';combo.classList.remove('done');
     sgRoot.querySelectorAll('.cat,.clu,.ln,.seg').forEach(e=>e.classList.remove('show','dim','lock'));
+    const cvp=document.getElementById('cvProbe');if(cvp)cvp.classList.remove('on','resolve');
     document.getElementById('sgFinal').classList.remove('show');
     document.getElementById('dialOverlay').classList.remove('show');
     const cb=document.getElementById('sgCall'); if(cb){ cb.disabled=true; cb.classList.remove('ready'); }}
@@ -2441,7 +2471,10 @@
     sgAt(2050,()=>{sgLn('ln-B');sgClu('B');sgCount(4096,1000);});
     sgAt(3200,()=>{sgLn('ln-C');sgClu('C');sgCount(64,1000);});
     sgAt(4350,()=>{sgLn('ln-D');sgClu('D');sgCount(4,1000);});
-    sgAt(5500,()=>{sgLn('ln-cv');sgClu('cv');});
+    // 군집→조합: 여러 후보 가지가 깜빡이며 생성·조합되는 탐색 연출.
+    sgAt(4700,()=>{const p=document.getElementById('cvProbe');if(p){p.classList.remove('resolve');p.classList.add('on');}sgClu('cv');});
+    // 한 가지로 확정 → 후보 가지 사라지고 단일 ln-cv 만 남는다.
+    sgAt(5500,()=>{const p=document.getElementById('cvProbe');if(p){p.classList.add('resolve');p.classList.remove('on');}sgLn('ln-cv');});
     sgAt(6100,()=>{sgRoot.querySelectorAll('.seg').forEach(e=>e.classList.add('show'));sgLn('ln-sg');sgCount(3,800);});
     sgAt(7050,()=>{sgRoot.querySelector('.seg[data-s="top"]').classList.add('dim');sgRoot.querySelector('.seg[data-s="bottom"]').classList.add('dim');sgRoot.querySelector('.seg[data-s="sel"]').classList.add('lock');sgCount(1,800);combo.classList.add('done');});
     sgAt(8050,()=>{
@@ -2473,7 +2506,6 @@
     sgAt(4200,()=>{ dialCount.className='dial-count ok'; dialCount.textContent='연결됨 ✓'; dialStatus.className='dial-status go'; dialStatus.textContent='통화 연결됨 · 상담 시작'; dialWaves.classList.remove('on'); });
     sgAt(5400,()=>{ toConsult(); });   // 통화 화면으로 자동 전환
   }
-  document.getElementById('sgReplay').addEventListener('click', ()=>{ hideDial(); sgPlay(); });
   // '발신하기' 클릭 → 발신 시퀀스 시작 (분석 완료 후 활성화됨)
   document.getElementById('sgCall').addEventListener('click', function(){
     if(this.disabled) return;
