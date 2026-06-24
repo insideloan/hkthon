@@ -65,6 +65,8 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   const lastCustUsedRef = useRef(false);
   const lastCustBubbleRef = useRef<HTMLElement | null>(null);
   const pipeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // 현재 재생 중인 TTS 오디오 — 턴 전환/리셋 시 중복 재생 방지를 위해 추적.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // 스토어 액션.
   const consult = useConsultStore;
@@ -80,6 +82,32 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   const clearPipeTimers = useCallback(() => {
     pipeTimers.current.forEach(clearTimeout);
     pipeTimers.current = [];
+  }, []);
+
+  // ── TTS 재생 (SSOT 음성 — public/tts/seg{seq}.mp3) ──
+  // S 배열 인덱스(iRef.current) = seq에 1:1 대응하므로 seg{seq}.mp3를 재생한다.
+  // 텍스트 타이핑(revealWords) 시작과 동시에 호출해 음성·자막을 함께 내보낸다.
+  // 직전 오디오는 중단(턴 전환 시 겹침 방지). 자동재생 차단 등 실패는 조용히 무시(자막은 정상).
+  const playSeg = useCallback((seq: number) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      const a = new Audio(`/tts/seg${seq}.mp3`);
+      audioRef.current = a;
+      void a.play().catch(() => {});
+    } catch {
+      /* 오디오 미지원/차단 — 자막만으로 진행 */
+    }
+  }, []);
+
+  const stopSeg = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
   }, []);
 
   // ── 버튼 라벨 갱신 (SSOT setBtn) ──
@@ -329,6 +357,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     const aiS = S[iRef.current];
     const speak = (b: HTMLElement) => {
       try { stageEffects(aiS); } catch (err) { console.error('stage error', err); }
+      playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
       revealWords(b, () => {
         if (aiS.last) { endedRef.current = true; }
         iRef.current++;
@@ -351,7 +380,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     } else {
       typing('ai', () => gatedSpeak());
     }
-  }, [setBtn, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing]);
+  }, [setBtn, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing, playSeg]);
 
   // ── advance (SSOT) — 버튼 클릭 1회 ──
   const advance = useCallback(() => {
@@ -366,6 +395,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
       typing('cust', () => {
         const b = bubble(s);
         try { stageEffects(s); } catch (err) { console.error('stage error', err); }
+        playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
         revealWords(b, () => {
           iRef.current++;
           produceAI();
@@ -375,6 +405,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
       typing('cust', () => {
         const b = bubble(s);
         try { stageEffects(s); } catch (err) { console.error('stage error', err); }
+        playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
         revealWords(b, () => {
           lastCustRef.current = s;
           lastCustUsedRef.current = false;
@@ -387,7 +418,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     } else {
       produceAI();
     }
-  }, [setBtn, typing, bubble, stageEffects, revealWords, produceAI]);
+  }, [setBtn, typing, bubble, stageEffects, revealWords, produceAI, playSeg]);
 
   // ── 타이머 시작 ──
   const startTimer = useCallback(() => {
@@ -401,6 +432,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   // ── reset (SSOT) — 전체 초기화 ──
   const reset = useCallback(() => {
     clearPipeTimers();
+    stopSeg();  // 재생 중인 TTS 중단
     if (secHRef.current) { clearInterval(secHRef.current); secHRef.current = null; }
     iRef.current = 0;
     custSeqRef.current = -1;
@@ -419,7 +451,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     consult.getState().setPipeSrc('상담 시작 대기');
     mapRef.current?.resetMap();
     setState({ btnLabel: '상담 시작', btnDisabled: false, ended: false, timer: '00:00' });
-  }, [clearPipeTimers, chatRef, resetChain, consult, mapRef]);
+  }, [clearPipeTimers, stopSeg, chatRef, resetChain, consult, mapRef]);
 
   // 클릭 핸들러 — 첫 클릭 시 타이머 시작.
   const onAdvance = useCallback(() => {
@@ -431,6 +463,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   useEffect(() => () => {
     pipeTimers.current.forEach(clearTimeout);
     if (secHRef.current) clearInterval(secHRef.current);
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
   }, []);
 
   return { ...state, advance: onAdvance, reset };
