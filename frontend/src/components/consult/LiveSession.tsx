@@ -38,9 +38,9 @@ type LiveSessionProps = {
 };
 
 // VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
-const VAD_MIN = 0.002;
-const VAD_MAX = 0.03;
-const VAD_DEFAULT = 0.006;
+const VAD_MIN = 0.03;
+const VAD_MAX = 0.3;
+const VAD_DEFAULT = 0.03;
 
 export function LiveSession({ callId }: LiveSessionProps) {
   const router = useRouter();
@@ -328,7 +328,7 @@ export function LiveSession({ callId }: LiveSessionProps) {
               type="range"
               min={VAD_MIN}
               max={VAD_MAX}
-              step={0.001}
+              step={0.005}
               value={vadThreshold}
               onChange={(e) => setVadThreshold(Number(e.target.value))}
               className="w-[120px] cursor-pointer accent-[var(--route)]"

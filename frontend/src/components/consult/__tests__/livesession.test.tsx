@@ -111,26 +111,26 @@ describe('LiveSession', () => {
     expect(push).toHaveBeenCalledWith('/crm/exp-9');
   });
 
-  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.006, 함수형 임계값으로 전달', async () => {
+  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.030, 함수형 임계값으로 전달', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider') as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.006');
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.030');
     // startPcmCapture는 함수형 vadThreshold를 받아 매 프레임 현재값을 읽어야 한다.
     expect(typeof lastCaptureOpts?.vadThreshold).toBe('function');
-    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.006, 3);
+    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.03, 3);
   });
 
-  it('슬라이더를 낮추면 임계값이 즉시(재시작 없이) 낮아진다', async () => {
+  it('슬라이더를 움직이면 임계값이 즉시(재시작 없이) 반영된다', async () => {
     await renderLive();
     const slider = screen.getByTestId('vad-threshold-slider');
     const getThreshold = lastCaptureOpts!.vadThreshold as () => number;
     await act(async () => {
-      fireEvent.change(slider, { target: { value: '0.003' } });
+      fireEvent.change(slider, { target: { value: '0.1' } });
     });
-    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.003');
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.100');
     // 동일 함수가 갱신된 값을 반환(캡처 재시작 없음 → stopCapture 미호출).
-    expect(getThreshold()).toBeCloseTo(0.003, 3);
+    expect(getThreshold()).toBeCloseTo(0.1, 3);
     expect(stopCapture).not.toHaveBeenCalled();
   });
 
