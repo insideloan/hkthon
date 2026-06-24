@@ -409,13 +409,12 @@
 .cseclbl span:not(.ln) { font-size: 12.5px; font-weight: 900; color: #4A515E; }
 .cseclbl .ln { flex: 1; height: 1px; background: var(--hair); }
 
-/* 섹션 라벨(대표 전략 20 / 데이터 분석 결과 / 최종 발화) — 회색 둥근 테두리.
-   회색 둥근 모서리 사각형으로 감싸고, 구분선(.ln)은 숨긴다. */
+/* 섹션 라벨(대표 전략 20 / 데이터 분석 결과 / 최종 발화) — 테두리 제거.
+   구분선(.ln)은 숨긴다. */
 .cc__cards .cseclbl--sec {
-  border: 1.4px solid #C9CDD6;
+  border: none;
   border-radius: 8px;
   padding: 4px 10px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.05);
   box-sizing: border-box;
 }
 .cc__cards .cseclbl--sec .ln { display: none; }
