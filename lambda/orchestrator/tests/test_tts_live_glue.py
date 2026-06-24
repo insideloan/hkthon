@@ -134,6 +134,89 @@ def test_persist_records_audio_url_on_bot_turn(monkeypatch):
         dynamo.set_table(None)
 
 
+def test_persist_ending_turn_emits_audio_before_call_ended(monkeypatch):
+    """종료 턴(call_status=ENDED): audio_url write를 META(ENDED) write보다 "먼저" 한다.
+
+    회귀 방지: META write가 _emitCallEnded를 발화 → 프론트가 즉시 종료 화면으로 전환하므로,
+    TTS가 META 뒤에 오면 음성 audio_url MODIFY가 종료 후 도착해 재생되지 못한다(자막만 뜨고
+    음성 누락). "전화 하지 말라" 같은 close 발화에서 음성이 빠지던 버그.
+    """
+    from orchestrator.agent import nodes
+    from orchestrator.agent.state import CallStatus, Stage
+
+    dynamo.set_table(_FakeTable())
+    order: list[str] = []
+
+    monkeypatch.setattr(nodes, "_synthesize_bot_audio", lambda *a: "https://s3/x.mp3")
+
+    real_safe_update = nodes._safe_update
+
+    def spy_safe_update(d, pk, sk, fields, label):
+        if label == "Turn.audio_url":
+            order.append("audio")
+        return real_safe_update(d, pk, sk, fields, label)
+
+    real_persist_meta = nodes._persist_call_meta
+
+    def spy_persist_meta(*a, **k):
+        order.append("meta")
+        return real_persist_meta(*a, **k)
+
+    monkeypatch.setattr(nodes, "_safe_update", spy_safe_update)
+    monkeypatch.setattr(nodes, "_persist_call_meta", spy_persist_meta)
+    try:
+        state = {
+            "call_id": "c1", "next_seq": 3, "bot_text": "네, 알겠습니다. 감사합니다.",
+            "stage": Stage.CLOSING, "call_status": CallStatus.ENDED,
+            "churn_tokens": [],
+        }
+        out = nodes.persist(state)
+        assert out["audio_url"] == "https://s3/x.mp3"
+        assert order == ["audio", "meta"], f"종료 턴은 audio가 meta보다 먼저여야 함: {order}"
+    finally:
+        dynamo.set_table(None)
+
+
+def test_persist_active_turn_emits_audio_after_meta(monkeypatch):
+    """정상 턴(ENDED 아님): audio_url은 임계 경로 밖 — META write "뒤"에 합성·emit한다.
+
+    onCallEnded가 없으므로 음성이 늦게 붙어도 무방하고, 텍스트/분석 표시가 TTS 지연에
+    막히지 않도록 기존처럼 맨 끝에 둔다.
+    """
+    from orchestrator.agent import nodes
+    from orchestrator.agent.state import Stage
+
+    dynamo.set_table(_FakeTable())
+    order: list[str] = []
+
+    monkeypatch.setattr(nodes, "_synthesize_bot_audio", lambda *a: "https://s3/x.mp3")
+
+    real_safe_update = nodes._safe_update
+
+    def spy_safe_update(d, pk, sk, fields, label):
+        if label == "Turn.audio_url":
+            order.append("audio")
+        return real_safe_update(d, pk, sk, fields, label)
+
+    real_persist_meta = nodes._persist_call_meta
+
+    def spy_persist_meta(*a, **k):
+        order.append("meta")
+        return real_persist_meta(*a, **k)
+
+    monkeypatch.setattr(nodes, "_safe_update", spy_safe_update)
+    monkeypatch.setattr(nodes, "_persist_call_meta", spy_persist_meta)
+    try:
+        state = {
+            "call_id": "c1", "next_seq": 2, "bot_text": "네 안내드릴게요",
+            "stage": Stage.PROPOSE, "churn_after": 40, "churn_tokens": [],
+        }
+        nodes.persist(state)
+        assert order == ["meta", "audio"], f"정상 턴은 meta가 audio보다 먼저여야 함: {order}"
+    finally:
+        dynamo.set_table(None)
+
+
 def _FakeTable():
     from ._fake_dynamo import FakeTable
 
