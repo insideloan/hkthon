@@ -472,6 +472,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 하단 영역을 약 20px 낮춤(콘텐츠 박스 높이 축소). */
+  margin-bottom: 20px;
 }
 
 /* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임. */
