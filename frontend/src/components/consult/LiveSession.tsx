@@ -60,7 +60,7 @@ type LiveSessionProps = {
 const VAD_MIN = 0;
 const VAD_MAX = 0.2;
 // 평상시(고객 발화 대기) VAD 임계값. 낮을수록 민감.
-const VAD_DEFAULT = 0.13;
+const VAD_DEFAULT = 0.135;
 // AI(봇) 발화 중 VAD 임계값 — 봇 음성 되먹임(에코)을 고객 발화로 오인하지 않게 더 둔감하게.
 const VAD_SUPPRESSED = 0.19;
 
