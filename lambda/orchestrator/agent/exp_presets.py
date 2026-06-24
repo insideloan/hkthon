@@ -104,7 +104,7 @@ EXP_PRESETS: dict[Intent, ExpPreset] = {
         rationale="금리·조건을 확인하려 한다. 확정 단정 없이 예시로 비교 안내한다.",
         tokens=[_tok("금리가 몇 퍼센트", "NEUTRAL", "조건 질문"), _tok("지금보다 나아요?", "PRO", "비교 의향")],
         db_chips=["보유 대출", "신용평가", "금리 비교"],
-        db_nodes=[_node("현재 금리", "13%대", "warn"), _node("대환 예상", "심사 후 확정", None)],
+        db_nodes=[_node("타사 금리", "13%대", "warn"), _node("대환 예상", "심사 후 확정", None)],
         compliance_draft="신용대출 12%, 담보대출 10%로 확정해드립니다.",
         compliance_violations=["12%, 담보대출 10%로 확정해드립니다"],
     ),

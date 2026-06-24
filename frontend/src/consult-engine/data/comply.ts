@@ -5,9 +5,9 @@
 import type { ComplianceRule, ComplyEntry } from '@/consult-engine/types';
 
 export const COMPLIANCE: ComplianceRule[] = [
-  { law: '금융소비자보호법', desc: '확정·과장 표현 점검' },
+  { law: '금융소비자보호법', desc: '확정·허위·과장 표현 점검' },
   { law: '개인정보법', desc: '불필요 정보 요청 점검' },
-  { law: '신용정보법', desc: '활용 범위 준수 점검' },
+  { law: '신용정보법', desc: '동의 목적 외 활용 점검' },
   { law: '표현리스크', desc: '오해·강요 문구 점검' },
 ];
 

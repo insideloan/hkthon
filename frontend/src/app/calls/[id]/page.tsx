@@ -170,7 +170,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
           <div className="act-bg flex flex-row items-center justify-between" style={{ padding: '10px 16px', background: 'rgba(231,236,252,.55)' }}>
             <span className="act-ai inline-flex items-center" style={{ gap: '9px' }}>
               <span className="ai-ic inline-grid place-items-center text-base flex-none" style={{ width: '30px', height: '30px', borderRadius: '9px', background: '#fff', boxShadow: '0 4px 12px -5px rgba(53,81,214,.6)' }}>🤖</span>
-              <span className="ai-tx font-disp flex flex-col leading-tight" style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--route)', lineHeight: 1.2 }}>AI 상담<br />진행 중</span>
+              <span className="ai-tx font-disp flex flex-col leading-tight" style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--route)', lineHeight: 1.2 }}>실시간 상담중</span>
             </span>
             <span className="act-right inline-flex items-center flex-none" style={{ gap: '10px' }}>
               <span className="act-live font-mono inline-flex items-center" style={{ gap: '6px', fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', color: 'var(--danger)' }}>
@@ -241,7 +241,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.9" />
               </svg>
             </span>
-            <span className="font-disp" style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--title)' }}>상담 여정</span>
+            <span className="font-disp" style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--title)' }}>대출 상담 여정</span>
           </div>
           <JourneyMap ref={mapRef} callId={callId} disableLiveData />
         </div>
@@ -254,7 +254,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
             </span>
-            <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 응답 준비</h2>
+            <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 판단 근거</h2>
           </div>
 
           <div className="cc__body flex flex-col flex-1 min-h-0" id="ccBody" style={{ gap: '11px', padding: '7px 8px 13px' }}>
@@ -263,7 +263,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               <div ref={cardEmoRef as React.Ref<HTMLDivElement>} className={clsx(cardCls(card1), CARD_BASE)} id="card-emo" data-testid="cc-card" style={CARD_STYLE}>
                 <div className="card__h flex items-center" style={{ gap: '8px' }}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>1</span>
-                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객발화분석</span>
+                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객 발화</span>
                 </div>
                 {/* 라이브: AppSync 구독(onSpeechAnalysis/onStrategyUpdate/onIndexUpdate).
                     데모: 시나리오 엔진(card1Store) 기반 engineMode. */}
@@ -274,7 +274,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               <div className={clsx(cardCls(card2), CARD_BASE)} id="card-db" data-testid="cc-card" style={CARD_STYLE}>
                 <div className="card__h flex items-center" style={{ gap: '8px' }}>
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
-                  <span className="card__t font-disp" style={CARD_T_STYLE}>DB 분석</span>
+                  <span className="card__t font-disp" style={CARD_T_STYLE}>고객 DB</span>
                 </div>
                 <DbCard live={isLive} callId={callId} />
               </div>
