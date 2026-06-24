@@ -214,7 +214,7 @@ function EmoBins({ emotion }: { emotion: string | null }) {
         <div
           key={key}
           className={clsx(
-            'flex flex-col gap-1 rounded-xl border border-[var(--hair)] bg-[var(--card)] p-2',
+            'flex flex-col gap-1 rounded-xl border-[1.4px] border-solid border-[#2563EB] bg-[var(--card)] p-2',
             `bin bin--${key}`,
           )}
           data-cat={key}
