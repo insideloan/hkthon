@@ -411,6 +411,12 @@
 .cc__cards .usebox,
 .cc__cards .cmp-checks { height: 80px; min-height: 80px; overflow: hidden; }
 
+/* 카드① 내부 세로 간격 제거 — .bins → ▼ → 전략라벨 → .stratg 를 빈틈 없이 붙임. */
+#card-emo .card-scroll { gap: 0; }
+#card-emo .solvearrow { margin: 0; }
+#card-emo .cseclbl { margin: 0; }
+#card-emo .stratg { padding: 0; }
+
 /* ── 카드② DB 분석 (SSOT 769–838) ── */
 .usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
 .usecard { display: inline-flex; align-items: center; gap: 6px; border: 1.4px solid #C9D3E8; border-radius: 999px; background: rgba(255,255,255,.72); padding: 4px 10px; width: auto; max-width: 100%; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s, background .3s; }
