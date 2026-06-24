@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { S, STEP_OF } from '@/consult-engine/data/scenario';
+import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
 import type { ScenarioEntry, Kw } from '@/consult-engine/types';
 import { DIM } from '@/consult-engine/data/strategy';
 import {
@@ -28,6 +29,11 @@ export type ConsultEngineHandles = {
   /** 카드① element (flyKeywords 목적지). */
   cardEmoRef: RefObject<HTMLElement | null>;
   callId: string;
+  /**
+   * 인사말에 넣을 고객 이름. 시나리오 원본의 '박서준' 토큰을 이 값으로 치환한다
+   * (원본 데이터는 불변; 렌더 시점 치환). 미지정 시 원본 이름 유지.
+   */
+  customerName?: string;
 };
 
 type EngineState = {
@@ -41,7 +47,7 @@ type EngineState = {
 
 const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId }: ConsultEngineHandles) {
+export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName }: ConsultEngineHandles) {
   // 표시값(리렌더 필요).
   const [state, setState] = useState<EngineState>({
     btnLabel: '상담 시작', btnDisabled: false, ended: false, timer: '00:00',
@@ -136,13 +142,19 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId }: Consul
     nm.textContent = s.who === 'cust' ? '👤 고객' : '🤖 AI';
     const b = document.createElement('div');
     b.className = 'bubble';
-    buildWords(b, s.txt, s.kw);
+    // 시나리오 원본의 고객 이름 토큰을 레코드 이름으로 치환(이름은 키워드가 아니라
+    // 강조 토큰화에 영향 없음). customerName 미지정 시 원본 그대로.
+    const txt =
+      customerName && customerName !== SCENARIO_CUSTOMER_NAME
+        ? s.txt.replaceAll(SCENARIO_CUSTOMER_NAME, customerName)
+        : s.txt;
+    buildWords(b, txt, s.kw);
     m.appendChild(nm);
     m.appendChild(b);
     chatHolder().appendChild(m);
     scrollChat();
     return b;
-  }, [buildWords, chatHolder, scrollChat]);
+  }, [buildWords, chatHolder, scrollChat, customerName]);
 
   // typing: 임시 타이핑 버블 → ms 후 제거 + cb.
   const typing = useCallback((who: 'cust' | 'ai', cb: () => void) => {

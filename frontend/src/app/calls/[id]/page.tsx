@@ -19,6 +19,8 @@ import { LiveSession } from '@/components/consult/LiveSession';
 import { useConsultEngine } from '@/consult-engine/useConsultEngine';
 import { useConsultStore, type CardPhase } from '@/stores/consultStore';
 import { useBotAudioPlayback } from '@/hooks/useBotAudioPlayback';
+import { useQueueStore } from '@/stores/queueStore';
+import { resolveScenarioCustomerName } from '@/lib/customerProfiles';
 
 // 목/스크립트 데모 게이트 (lib/appsync.ts의 USE_MOCK과 동일 규약).
 const IS_MOCK =
@@ -126,7 +128,12 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const mapRef = useRef<JourneyMapHandle | null>(null);
   const cardEmoRef = useRef<HTMLElement | null>(null);
 
-  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId });
+  // 클릭한 큐 레코드(callId)의 고객 이름으로 시나리오 인사말을 구성. 스토어에 행이
+  // 없거나 데모 기본 경로면 원본 이름(박서준)을 유지한다.
+  const row = useQueueStore((s) => s.rows.find((r) => r.callId === callId));
+  const customerName = resolveScenarioCustomerName(callId, row);
+
+  const engine = useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName });
 
   // 라이브 모드 봇 음성 재생: onTurn의 bot audioUrl(TTS mp3)을 순차 재생.
   // 목/스크립트 데모(NEXT_PUBLIC_USE_MOCK)에서는 비활성 — 단, ?live=1 진입(체험 고객)은
@@ -222,9 +229,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       </div>
 
       {/* ═══ 우: rightcol ═══ */}
-      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '13px', height: 'max(560px, calc(100vh - 96px))' }}>
+      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '0px', height: 'max(560px, calc(100vh - 96px))' }}>
         {/* 우-상단: 여정 맵 */}
-        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: 'var(--card-solid)', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
+        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', zIndex: 1, borderRadius: '18px', border: '1px solid var(--glass-bd)', background: 'var(--glass)', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="map__title absolute flex items-center z-[6]" style={{ top: '11px', left: '12px', gap: '8px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
@@ -238,7 +245,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         </div>
 
         {/* 우-하단: AI 응답 준비 */}
-        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: 'var(--card-solid)', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow)' }}>
+        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100% + 13px)', marginTop: '-13px', position: 'relative', zIndex: 2, background: 'var(--glass)', border: '1px solid var(--glass-bd)', borderRadius: '18px', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="cc__head flex items-center" style={{ gap: '8px', padding: '3px 14px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
@@ -267,7 +274,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>2</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>DB 분석</span>
                 </div>
-                <DbCard live={isLive} />
+                <DbCard live={isLive} callId={callId} />
               </div>
 
               {/* 카드③ 컴플라이언스 체크 */}

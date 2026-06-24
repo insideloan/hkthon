@@ -128,10 +128,11 @@ export class HkthonStack extends cdk.Stack {
         // so at runtime it unzips to /var/task/orchestrator/. Missing file →
         // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
         LEXICON_LOCAL_PATH: '/var/task/orchestrator/churn_risk_lexicon.json',
-        // 기본 script(시나리오 재생). 라이브(STT/그래프/TTS) 활성화는 배포 시
-        //   cdk deploy -c orchestratorMode=live
-        // 로 옵트인 — 데모 안정성을 위해 기본값은 그대로 둔다.
-        ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'script',
+        // 기본 live(STT/그래프/TTS). 시나리오 재생만 하려면 배포 시
+        //   cdk deploy -c orchestratorMode=script
+        // 로 옵트아웃. 라이브가 상시 운영 모드라 기본값을 live로 둔다 — script
+        // 기본값일 때 audioChunk가 no-op로 청크를 silent drop하던 문제(audio.py)를 막는다.
+        ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'live',
         LLM_MODEL: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
@@ -225,6 +226,7 @@ export class HkthonStack extends cdk.Stack {
     const MUTATION_FIELDS = [
       'createCall', 'dialCall', 'approveProduct', 'transferToAgent',
       'sendLink', 'endCall', 'nextTurn', 'startAudio', 'audioChunk',
+      'deleteQueueRow',
     ];
     // createCall/nextTurn existed in the placeholder stack under these construct
     // IDs. Reuse them so CloudFormation updates the resolvers in place instead of

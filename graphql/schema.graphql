@@ -156,7 +156,12 @@ type TurnPayload @aws_iam @aws_api_key {
   audioUrl: String        # 봇 발화 TTS mp3 presigned URL (라이브 모드, bot Turn만). 없으면 null.
 }
 
-type IndexUpdatePayload @aws_iam @aws_api_key { callId: ID!, churnRisk: Int, emotion: String }
+# 카드② DB분석 노드 1건. tone: pos|warn|neg|null(중립).
+type DbNode @aws_iam @aws_api_key { label: String!, val: String, tone: String }
+input DbNodeInput { label: String!, val: String, tone: String }
+
+# onIndexUpdate: 이탈위험/감정 + (체험 시나리오) DB분석 칩·노드. dbChips/dbNodes는 선택.
+type IndexUpdatePayload @aws_iam @aws_api_key { callId: ID!, churnRisk: Int, emotion: String, dbChips: [String!], dbNodes: [DbNode!] }
 
 # SSOT-3 발화분석: 턴 단위 토큰 배열(키워드 강조 + polarity로 risk/def flag 분기).
 # tokens는 Turn에 기록되는 churn_tokens와 동일 형상(Token: text/polarity/reason).
@@ -235,7 +240,7 @@ type Mutation {
   # NONE 데이터소스 resolver가 arguments를 그대로 payload로 echo(hkthon-stack.ts)하므로,
   # payload 형상 = arguments 형상이어야 한다. 리스트/객체 인자는 input 타입 사용.
   _emitTurn(callId: ID!, seq: Int, speaker: String, text: String, flag: TurnFlag, audioUrl: String, tokens: [TokenInput!]): TurnPayload @aws_iam
-  _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String): IndexUpdatePayload @aws_iam
+  _emitIndexUpdate(callId: ID!, churnRisk: Int, emotion: String, dbChips: [String!], dbNodes: [DbNodeInput!]): IndexUpdatePayload @aws_iam
   _emitSpeechAnalysis(callId: ID!, turnSeq: Int, tokens: [TokenInput!]): SpeechAnalysisPayload @aws_iam
   _emitStrategyUpdate(callId: ID!, turnSeq: Int, strategyHeadline: String!, rationale: String!): StrategyUpdatePayload @aws_iam
   _emitComplianceState(callId: ID!, phase: ComplianceStateEnum!, draft: String, violations: [String!], checks: [ComplianceCheckInput!], violatedPolicies: [String!], final: [ComplianceFinalSegmentInput!]): ComplianceStatePayload @aws_iam

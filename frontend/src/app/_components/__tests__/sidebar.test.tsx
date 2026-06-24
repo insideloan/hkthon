@@ -55,7 +55,7 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     const activeLinks = screen.getAllByRole('link', { current: 'page' });
     expect(activeLinks).toHaveLength(1);
-    expect(activeLinks[0]).toHaveAttribute('href', '/calls/demo');
+    expect(activeLinks[0]).toHaveAttribute('href', '/calls');
   });
 
   it('marks /crm item active when pathname starts with /crm', () => {
@@ -63,7 +63,7 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     const activeLinks = screen.getAllByRole('link', { current: 'page' });
     expect(activeLinks).toHaveLength(1);
-    expect(activeLinks[0]).toHaveAttribute('href', '/crm/demo');
+    expect(activeLinks[0]).toHaveAttribute('href', '/crm');
   });
 
   it('renders the LIVE footer dot', () => {

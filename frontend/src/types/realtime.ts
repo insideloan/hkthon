@@ -28,10 +28,21 @@ export type Turn = z.infer<typeof TurnSchema>;
 // ── onIndexUpdate — 이탈위험도·감정 (API.md §2.3) ─────────────────────────────
 // churnRisk: 0-100 정수, AGENT 산출 (SSOT: CHURN-RISK-LEXICON.md). FRONTEND 소비만.
 // emotion: 한국어 자연어 레이블 ("불안" | "관심" | "중립" | "저항" 등) — 자유 문자열.
+// dbChips/dbNodes: 체험 시나리오 preset의 카드② DB분석. 선택(없으면 미표시).
+export const DbNodeSchema = z.object({
+  label: z.string(),
+  val: z.string().nullable().optional(),
+  tone: z.string().nullable().optional(),
+});
+export type DbNode = z.infer<typeof DbNodeSchema>;
+
 export const IndexUpdateSchema = z.object({
   callId: z.string(),
-  churnRisk: z.number().int().min(0).max(100),
-  emotion: z.string(),
+  // churnRisk/emotion은 선택 — DB분석만 단독 발화될 수 있어 nullable로 완화.
+  churnRisk: z.number().int().min(0).max(100).nullable().optional(),
+  emotion: z.string().nullable().optional(),
+  dbChips: z.array(z.string()).nullable().optional(),
+  dbNodes: z.array(DbNodeSchema).nullable().optional(),
 });
 export type IndexUpdate = z.infer<typeof IndexUpdateSchema>;
 

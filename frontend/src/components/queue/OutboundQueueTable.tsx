@@ -17,9 +17,9 @@ import type { CallState, QueueRow } from '@/types/queue';
 const STATE_LABEL: Record<CallState, string> = {
   CREATED: '대기중',
   DIALING: '발신중',
-  IN_CALL: '통화중',
-  TRANSFER_PENDING: '상담원 연결 대기',
-  ENDED: '종료',
+  IN_CALL: '상담중',
+  TRANSFER_PENDING: '대기중',
+  ENDED: '완료',
 };
 
 const STATE_TONE: Record<CallState, BadgeTone> = {
@@ -29,6 +29,19 @@ const STATE_TONE: Record<CallState, BadgeTone> = {
   TRANSFER_PENDING: 'escalate',
   ENDED: 'neutral',
 };
+
+// 이탈 임계치 — ENDED 콜은 이탈위험이 높으면 '이탈'(빨강), 아니면 '완료'(초록).
+// 같은 ENDED라도 윤재호(88)·강예린(94)은 이탈로, 오세훈(18)·배수지(12)는 완료로 갈린다.
+const CHURN_MISS_THRESHOLD = 70;
+
+/** 행의 상태 배지 라벨/톤 — ENDED는 이탈위험으로 완료/이탈을 구분한다. */
+function stateBadge(row: QueueRow): { label: string; tone: BadgeTone } {
+  const state = row.state as CallState;
+  if (state === 'ENDED' && (row.churnRisk ?? 0) >= CHURN_MISS_THRESHOLD) {
+    return { label: '이탈', tone: 'rejected' };
+  }
+  return { label: STATE_LABEL[state], tone: STATE_TONE[state] };
+}
 
 /** Map a row's highlight flag to row background style (warm semi-transparent palette). */
 function rowHighlightStyle(highlight: QueueRow['highlight']): React.CSSProperties {
@@ -55,7 +68,7 @@ function nameInitial(name: string | null | undefined): string {
 //   IN_CALL          → AI 상담화면 (/calls) — joins mid-conversation
 //   DIALING          → AI 상담화면 (/calls) — booth demo from the call's start
 //   TRANSFER_PENDING → not navigable yet (awaiting agent assignment)
-//   CREATED          → 사전 분석 중 (/segment) — pre-call analysis screen
+//   CREATED          → 사전 분석중 (/segment) — pre-call analysis screen
 //
 // The 박서준 demo row is the showcase entry point: clicking it must always play
 // the scripted 세그먼트 분석 → 발신 → 상담 flow (불특정 발신중 행처럼 곧장 상담
@@ -72,7 +85,7 @@ const DEMO_NAME_TO_CUSTOMER_ID: Record<string, string> = {
   박서준: 'cust-001',
 };
 
-const PRE_ANALYSIS_STAGE = '사전 분석 중';
+const PRE_ANALYSIS_STAGE = '사전 분석중';
 
 // 시연 시나리오의 시작점(박서준)이라 큐에서 사라지면 데모 흐름이 깨진다.
 // 이 행은 휴지통 버튼을 렌더하지 않아 삭제를 원천 차단한다.
@@ -301,7 +314,10 @@ export function OutboundQueueTable({
             {/* 상태 badge */}
             <div>
               {row.state ? (
-                <Badge tone={STATE_TONE[row.state]}>{STATE_LABEL[row.state]}</Badge>
+                (() => {
+                  const { label, tone } = stateBadge(row);
+                  return <Badge tone={tone}>{label}</Badge>;
+                })()
               ) : (
                 <span className="text-xs text-gray-400">—</span>
               )}
