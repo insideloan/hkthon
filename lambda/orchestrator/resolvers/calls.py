@@ -33,6 +33,22 @@ def _call_out(item: dict) -> dict:
     }
 
 
+def _customer_subtitle(cust: dict) -> str | None:
+    """Customer META → 큐 row 부가정보 subtitle("41세·KCB744" 형식).
+
+    age는 persona.age, 신용점수는 credit_score에서 파생한다(seed 형식과 일치).
+    데이터가 없으면 가능한 부분만 — 둘 다 없으면 None(row에서 subtitle 생략).
+    """
+    parts: list[str] = []
+    age = (cust.get("persona") or {}).get("age")
+    if age:
+        parts.append(f"{age}세")
+    credit = cust.get("credit_score")
+    if credit:
+        parts.append(f"KCB{credit}")
+    return "·".join(parts) or None
+
+
 def _upsert_queue_index(call: dict) -> None:
     """큐 인덱스(PK=QUEUE, SK=CALL#{id}) 갱신.
 
@@ -52,10 +68,18 @@ def _upsert_queue_index(call: dict) -> None:
         "started_at": call.get("started_at"),
     }
     # 선택 필드는 META에 있을 때만 미러링(없으면 row에서 None).
-    for src in ("customer_name", "stage", "churn_risk", "assignee", "channel",
-                "fraud_suspected", "needs_agent"):
+    # subtitle(나이·신용점수)은 createCall이 META에 한 번 박고 이후엔 안 바뀌므로
+    # 미러링 목록에 포함하되, 상태변경 호출에 subtitle이 없을 때는 기존 큐 인덱스
+    # 행의 값을 보존한다(put_item 전체 덮어쓰기로 seed/createCall subtitle이 날아가
+    # 큐 부가정보가 null이 되던 버그 방지).
+    for src in ("customer_name", "subtitle", "stage", "churn_risk", "assignee",
+                "channel", "fraud_suspected", "needs_agent"):
         if call.get(src) is not None:
             item[src] = call[src]
+    if "subtitle" not in item:
+        prev = dynamo.get_item(dynamo.PK_QUEUE, dynamo.sk_call(call_id)) or {}
+        if prev.get("subtitle") is not None:
+            item["subtitle"] = prev["subtitle"]
     dynamo.put_item(item)
 
 
@@ -169,6 +193,9 @@ def resolve_dial_call(event: dict, args: dict) -> dict:
     }
     if cust.get("name"):
         item["customer_name"] = cust["name"]
+    subtitle = _customer_subtitle(cust)
+    if subtitle:
+        item["subtitle"] = subtitle
     dynamo.put_item(item)
     # 고객→활성콜 인덱스 (싱글 테이블, GSI 없이 중복 발신 검사용).
     dynamo.put_item({
