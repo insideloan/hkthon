@@ -87,7 +87,7 @@ function runScript(callId: string): void {
 
   // seq 2 — AI 인사 + 발화분석/전략/컴플라이언스
   at(1900, () => {
-    emit(callId, 'turn', mkTurn(callId, 2, 'bot', `안녕하세요, 현대캐피탈 AI 상담원입니다. ${custName} 고객님 맞으실까요?`));
+    emit(callId, 'turn', mkTurn(callId, 2, 'bot', `안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성을 통해 제공되며, 상담내용은 녹음됨을 안내드립니다. 실례지만 ${custName} 고객님이 맞으세요?`));
   });
   at(2200, () => {
     emit(callId, 'speech', mkSpeech(callId, 2, [
