@@ -88,7 +88,7 @@ export function startPcmCapture(
   // 음성 인식이 안 되던 문제. 함수형이면 매 프레임 현재값을 읽어 슬라이더로 실시간 조절.
   const vt = options.vadThreshold ?? 0.006;
   const getThreshold = typeof vt === 'function' ? vt : () => vt;
-  const silenceMs = options.silenceMs ?? 800;
+  const silenceMs = options.silenceMs ?? 1200;
   const maxUtteranceMs = options.maxUtteranceMs ?? 15000;
   const onDebug = options.onDebug;
 

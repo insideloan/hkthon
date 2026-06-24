@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { LiveSession } from '@/components/consult/LiveSession';
 
 // onTurn 구독을 손으로 구동할 수 있게 콜백을 보관.
-let emitTurn: ((t: { seq: number; speaker: string; text: string }) => void) | null = null;
+let emitTurn: ((t: { seq: number; speaker: string; text: string; audioUrl?: string | null }) => void) | null = null;
 const startAudio = vi.fn().mockResolvedValue(true);
 const audioChunk = vi.fn().mockResolvedValue(true);
 
@@ -71,13 +71,17 @@ describe('LiveSession', () => {
   });
 
   it('renders customer and bot bubbles from onTurn', async () => {
+    vi.useFakeTimers();
     await renderLive();
     await act(async () => {
       emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
       emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요, 현대캐피탈입니다.' });
     });
+    // bot 텍스트는 타자기로 점진 노출 — 타이머를 끝까지 돌려 전체 텍스트 완성.
+    await act(async () => { vi.runAllTimers(); });
     expect(screen.getByTestId('live-bubble-customer')).toHaveTextContent('여보세요?');
     expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('현대캐피탈');
+    vi.useRealTimers();
   });
 
   it('dedupes re-emitted turns by seq', async () => {
@@ -139,5 +143,47 @@ describe('LiveSession', () => {
     expect(screen.getByTestId('vad-threshold-control')).toBeInTheDocument();
     await act(async () => { emitEnded?.(); });
     expect(screen.queryByTestId('vad-threshold-control')).not.toBeInTheDocument();
+  });
+
+  describe('타이핑 인디케이터 + 타자기 스트리밍', () => {
+    it('고객 턴 도착 시 "..." 인디케이터를 노출하고 bot 턴 도착 시 사라진다', async () => {
+      await renderLive();
+      await act(async () => { emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' }); });
+      expect(screen.getByTestId('live-bubble-typing')).toBeInTheDocument();
+
+      vi.useFakeTimers();
+      await act(async () => { emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.' }); });
+      expect(screen.queryByTestId('live-bubble-typing')).not.toBeInTheDocument();
+      await act(async () => { vi.runAllTimers(); });
+      vi.useRealTimers();
+    });
+
+    it('bot 텍스트를 타자기로 한 글자씩 노출해 완료 시 전체 텍스트가 보인다', async () => {
+      vi.useFakeTimers();
+      await renderLive();
+      await act(async () => {
+        emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
+        emitTurn?.({ seq: 2, speaker: 'bot', text: 'ABCDEFG' });
+      });
+      await act(async () => { vi.runAllTimers(); });
+      expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('ABCDEFG');
+      vi.useRealTimers();
+    });
+
+    it('MODIFY 재발화(같은 seq + audioUrl)는 타자기를 재시작하거나 말풍선을 복제하지 않는다', async () => {
+      vi.useFakeTimers();
+      await renderLive();
+      await act(async () => {
+        emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' });
+        emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.' });
+      });
+      await act(async () => { vi.runAllTimers(); }); // reveal 완료
+      // 백엔드 MODIFY: 같은 seq에 audioUrl만 추가되어 재발화.
+      await act(async () => { emitTurn?.({ seq: 2, speaker: 'bot', text: '안녕하세요.', audioUrl: 'https://x/a.mp3' }); });
+      await act(async () => { vi.runAllTimers(); });
+      expect(screen.getAllByTestId('live-bubble-bot')).toHaveLength(1);
+      expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('안녕하세요.');
+      vi.useRealTimers();
+    });
   });
 });
