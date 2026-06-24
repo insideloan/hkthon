@@ -118,7 +118,7 @@ describe('SpeechAnalysis — #34 reason은 선택 전략 카드 lead, .kw-reason
       emitStrategy!({
         callId: 'c1',
         turnSeq: 1,
-        headline: '상품 확인 전략',
+        strategyHeadline: '상품 확인 전략',
         rationale: '상품 구조를 먼저 설명',
       });
     });

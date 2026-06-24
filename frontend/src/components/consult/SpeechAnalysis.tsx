@@ -408,7 +408,7 @@ function LiveSpeechAnalysis({
       callId,
       (strategy: StrategyUpdate) => {
         // Find which STRAT20 card matches by headline
-        const matchIdx = STRAT20.findIndex((s) => s.name === strategy.headline);
+        const matchIdx = STRAT20.findIndex((s) => s.name === strategy.strategyHeadline);
         setSelectedStratIdx(matchIdx >= 0 ? matchIdx : null);
         setStrategyLead(strategy.rationale || undefined);
       },

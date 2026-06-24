@@ -41,16 +41,22 @@ export type FinalSegment = z.infer<typeof FinalSegmentSchema>;
 
 export const ComplianceStateSchema = z.object({
   callId: z.string(),
-  phase: z.enum(COMPLIANCE_PHASES),
+  // wire enum은 대문자(DRAFTING…) — 소문자 내부 표기로 정규화. 미설정 시 drafting.
+  phase: z
+    .preprocess(
+      (v) => (typeof v === 'string' ? v.toLowerCase() : v),
+      z.enum(COMPLIANCE_PHASES),
+    )
+    .default('drafting'),
   // 가안 발화 (위반 표현은 violations[] 의 substring 으로 강조).
-  draft: z.string(),
+  draft: z.string().nullable().optional().transform((v) => v ?? ''),
   // 가안에서 위반으로 표시할 표현들 (drafting/reviewing/redacting 단계에서 강조).
-  violations: z.array(z.string()).default([]),
+  violations: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
   // 4규제 체크 결과 (reviewing 단계부터 채워짐).
-  checks: z.array(ComplianceCheckSchema).default([]),
+  checks: z.array(ComplianceCheckSchema).nullable().optional().transform((v) => v ?? []),
   // 위반으로 판정된 정책 라벨 (redacting 단계 표시용).
-  violatedPolicies: z.array(z.string()).default([]),
+  violatedPolicies: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
   // 최종 발화 diff (redrafting/approved 단계).
-  final: z.array(FinalSegmentSchema).default([]),
+  final: z.array(FinalSegmentSchema).nullable().optional().transform((v) => v ?? []),
 });
 export type ComplianceState = z.infer<typeof ComplianceStateSchema>;

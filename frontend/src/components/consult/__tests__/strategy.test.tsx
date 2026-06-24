@@ -122,7 +122,7 @@ describe('SpeechAnalysis — #35 전략 파이프라인 (STRAT20 카드①)', ()
       emitStrategy!({
         callId: 'c1',
         turnSeq: 1,
-        headline: '불안 완화 전략',
+        strategyHeadline: '불안 완화 전략',
         rationale: '신용·개인정보 불안에 안전 기준 설명',
       });
     });
@@ -155,7 +155,7 @@ describe('SpeechAnalysis — #35 전략 파이프라인 (STRAT20 카드①)', ()
       emitStrategy!({
         callId: 'c1',
         turnSeq: 1,
-        headline: '존재하지않는전략',
+        strategyHeadline: '존재하지않는전략',
         rationale: '알 수 없음',
       });
     });
