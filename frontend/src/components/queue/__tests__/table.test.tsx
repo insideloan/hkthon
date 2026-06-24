@@ -159,7 +159,7 @@ describe('OutboundQueueTable', () => {
           callId: 'c-demo-01',
           customerName: '박서준',
           state: 'DIALING',
-          stage: '사전 고객분석',
+          stage: '사전 분석 중',
         }),
       ]);
       render(<OutboundQueueTable disableLiveData />);

@@ -17,8 +17,9 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.31.0/iconfont/tabler-icons.min.css" />
       </head>
       <body>
-        {/* SSOT .wrap: display:flex; gap:11px; align-items:stretch */}
-        <div className="flex gap-3 p-[18px_10px] items-stretch min-h-screen">
+        {/* SSOT .wrap: display:flex; gap:11px; align-items:stretch (no min-height —
+            sidebar stretches to content height; body bg is fixed so no short-bg gap) */}
+        <div className="flex gap-3 p-[18px_10px] items-stretch">
           <Sidebar />
           {/* SSOT .content: flex:1; min-width:0 */}
           <div className="flex-1 min-w-0">{children}</div>

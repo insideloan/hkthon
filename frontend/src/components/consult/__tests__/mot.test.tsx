@@ -159,21 +159,19 @@ describe('JourneyMap — onMotDetected 실시간 구독', () => {
   });
 });
 
-describe('JourneyMap — 배너 상태', () => {
-  it('banner shows risk type on risk arrival', () => {
+describe('JourneyMap — 배너 제거됨', () => {
+  // NavBanner(#banner 오버레이)는 여정 화면에서 제거됨 — 더 이상 렌더되지 않는다.
+  it('does NOT render the nav banner overlay on risk arrival', () => {
     render(<JourneyMap callId="call-1" initialMots={[makeMot({ seq: 1 })]} disableLiveData />);
-    const banner = screen.getByTestId('journey-banner');
-    expect(banner).toHaveAttribute('data-banner-type', 'risk');
-    expect(screen.getByTestId('banner-eyebrow')).toHaveTextContent('⚠ 전방 위험 구간');
+    expect(screen.queryByTestId('journey-banner')).toBeNull();
+    expect(screen.queryByTestId('banner-eyebrow')).toBeNull();
   });
 
-  it('banner shows def type on defense', () => {
+  it('does NOT render the nav banner overlay on defense', () => {
     render(
       <JourneyMap callId="call-1" initialMots={[makeMot({ seq: 1, outcome: 'defended' })]} disableLiveData />,
     );
-    const banner = screen.getByTestId('journey-banner');
-    expect(banner).toHaveAttribute('data-banner-type', 'def');
-    expect(screen.getByTestId('banner-eyebrow')).toHaveTextContent('↩ 경로 재탐색');
+    expect(screen.queryByTestId('journey-banner')).toBeNull();
   });
 });
 

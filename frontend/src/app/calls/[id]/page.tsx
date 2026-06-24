@@ -137,7 +137,6 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const card1 = useConsultStore((s) => s.card1);
   const card2 = useConsultStore((s) => s.card2);
   const card3 = useConsultStore((s) => s.card3);
-  const pipeSrc = useConsultStore((s) => s.pipeSrc);
 
   return (
     <div
@@ -246,9 +245,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
             </span>
-            <span className="mk font-mono" style={{ fontSize: '8.5px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--route)', border: '1.4px solid #C3D0EA', background: '#fff', borderRadius: '6px', padding: '2px 7px', textTransform: 'uppercase' }}>AI응답준비</span>
             <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 응답 준비</h2>
-            <span style={{ fontSize: '10.5px', color: 'var(--ink-faint)' }}>{pipeSrc ?? '발화 분석 · DB 조회 · 컴플라이언스'}</span>
           </div>
 
           <div className="cc__body flex flex-col flex-1 min-h-0" id="ccBody" style={{ gap: '11px', padding: '7px 8px 13px' }}>
@@ -279,10 +276,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
                   <span className="card__no font-mono inline-grid place-items-center flex-none" style={CARD_NO_STYLE}>3</span>
                   <span className="card__t font-disp" style={CARD_T_STYLE}>컴플라이언스 체크</span>
                 </div>
-                <div className="card-scroll">
-                  {/* 라이브: onComplianceState 구독. 데모: engineMode. */}
-                  <CompliancePanel callId={callId} engineMode={!isLive} />
-                </div>
+                {/* 라이브: onComplianceState 구독. 데모: engineMode.
+                    SSOT 정렬: card-scroll은 CompliancePanel 내부에서 렌더(중복 래퍼 제거). */}
+                <CompliancePanel callId={callId} engineMode={!isLive} />
               </div>
             </div>
           </div>

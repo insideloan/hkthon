@@ -51,21 +51,22 @@ afterEach(() => {
   useMotStore.getState().reset();
 });
 
-// ── JourneyMap: churnRisk → bannerDist ──────────────────────────────────────
-describe('FRONTEND-012 — JourneyMap: churnRisk → bannerDist', () => {
-  it('initialChurnRisk=62 → bannerDist renders "62%"', () => {
+// ── JourneyMap: churnRisk → data-churn-risk / rz risk-active ────────────────
+// NavBanner(#banner)가 제거되어 churnRisk%는 더 이상 banner-dist로 표시되지 않는다.
+// churnRisk는 이제 journey-map의 data-churn-risk 속성 + rz 마커 risk-active로만 관측된다.
+describe('FRONTEND-012 — JourneyMap: churnRisk → data-churn-risk', () => {
+  it('initialChurnRisk=62 → journey-map data-churn-risk="62"', () => {
     render(
       <JourneyMap callId="call-1" initialChurnRisk={62} disableLiveData />,
     );
-    const dist = screen.getByTestId('banner-dist');
-    expect(dist).toHaveTextContent('62%');
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '62');
   });
 
-  it('initialChurnRisk=0 → bannerDist renders "0%"', () => {
+  it('initialChurnRisk=0 → journey-map data-churn-risk="0"', () => {
     render(
       <JourneyMap callId="call-1" initialChurnRisk={0} disableLiveData />,
     );
-    expect(screen.getByTestId('banner-dist')).toHaveTextContent('0%');
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '0');
   });
 
   it('initialChurnRisk=62 → journey-map has data-churn-risk="62"', () => {
@@ -99,22 +100,22 @@ describe('FRONTEND-012 — JourneyMap: churnRisk → bannerDist', () => {
     }
   });
 
-  it('live onIndexUpdate emission → bannerDist updates to 62%', () => {
+  it('live onIndexUpdate emission → data-churn-risk updates to 62', () => {
     render(<JourneyMap callId="call-1" />);
     expect(emitIndex).toBeTypeOf('function');
 
     act(() => emitIndex!(makeIndex({ churnRisk: 62 })));
-    expect(screen.getByTestId('banner-dist')).toHaveTextContent('62%');
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '62');
   });
 
   it('onIndexUpdate mock → multiple updates reflect latest value', () => {
     render(<JourneyMap callId="call-1" />);
 
     act(() => emitIndex!(makeIndex({ churnRisk: 20 })));
-    expect(screen.getByTestId('banner-dist')).toHaveTextContent('20%');
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '20');
 
     act(() => emitIndex!(makeIndex({ churnRisk: 75 })));
-    expect(screen.getByTestId('banner-dist')).toHaveTextContent('75%');
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '75');
   });
 
   it('unmount → unsubscribe called (subscription cleanup)', () => {
@@ -202,10 +203,10 @@ describe('FRONTEND-012 — SSOT 정합: IndexGauge 미존재', () => {
     expect(document.querySelector('[class*="IndexGauge"]')).not.toBeInTheDocument();
   });
 
-  it('churnRisk is expressed ONLY via bannerDist and rz markers — not a separate gauge', () => {
+  it('churnRisk is expressed ONLY via data-churn-risk and rz markers — not a separate gauge', () => {
     render(<JourneyMap callId="call-1" initialChurnRisk={62} disableLiveData />);
-    // The value appears in bannerDist
-    expect(screen.getByTestId('banner-dist')).toHaveTextContent('62%');
+    // The value appears on journey-map data attribute (NavBanner 제거됨)
+    expect(screen.getByTestId('journey-map')).toHaveAttribute('data-churn-risk', '62');
     // No separate gauge-specific elements
     expect(document.querySelector('[role="meter"]')).not.toBeInTheDocument();
     expect(document.querySelector('[aria-label*="gauge"]')).not.toBeInTheDocument();

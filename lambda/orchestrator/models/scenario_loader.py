@@ -13,9 +13,15 @@ strategy) 모델과 enum 값이 정합한다.
 
 시나리오 종류:
   - s1 (대환): 이탈위험 5회(rz-*) 방어 → 상담원 전환. 18턴.
+    **유일한 mock(데모) 재생 시나리오**(박서준). MOCK_SCENARIOS 참조.
   - s2 (보이스피싱): 사기 의도 감지. MOT(이탈위험) 대신 턴 레벨 `fraud_suspected`
     플래그를 쓴다 — `agent/nodes.py:detect_fraud`/`fraud_suspected` 계약과 정합
     (사기 감지는 통화를 끊지 않고 대시보드 표시 전용). 15턴.
+    LangGraph AGENT 이상탐지용 시나리오이며 **mock으로 재생하지 않는다.**
+
+⚠️ mock/데모 재생 경로는 `load_scenario`가 아니라 `load_mock_scenario`를 써서
+mock 화이트리스트(MOCK_SCENARIOS=s1)를 강제한다. s2를 mock으로 로드하면
+`MockScenarioError`로 막힌다. 단순 로드/검증(AGENT 개발·테스트)은 `load_scenario`.
 
 턴 수는 시나리오마다 다르다. JSON 최상위 `expected_turns`로 선언하면 그 값으로
 검증하고, 없으면 하위호환을 위해 EXPECTED_TURNS(=18, S1)로 검증한다.
@@ -37,6 +43,14 @@ _S3_KEY_PREFIX = "scenarios"
 # 알려진 시나리오 ID (등록된 대화 스크립트). 신규 추가 시 여기 등록.
 KNOWN_SCENARIOS = ("s1", "s2")
 
+# Mock(데모) 재생 화이트리스트. 박서준 s1만 mock 시나리오로 소비된다.
+# s2(보이스피싱)는 LangGraph AGENT 이상탐지(detect_fraud)를 만들기 위한
+# 시나리오일 뿐 mock으로 재생되면 안 된다 — 부스 데모에서는 참석자가 실시간
+# STT로 연기하는 live 경로(AGENT 파이프라인)로만 처리한다.
+# 따라서 mock/script 재생 진입점(load_mock_scenario)은 이 화이트리스트만 허용한다.
+# 단순 로드/검증(load_scenario)은 s2도 허용한다 — AGENT 개발·테스트가 필요하므로.
+MOCK_SCENARIOS = ("s1",)
+
 # SSOT-3 enum 허용값 (DATA-003/004/005 모델과 일치)
 _SPEAKERS = {"bot", "customer", "agent"}
 # 턴 node = AGENT 4단계 + 종료(agent/state.py:Stage). AGENT가 마지막 봇 Turn의
@@ -55,6 +69,14 @@ EXPECTED_TURNS = 18
 
 class ScenarioValidationError(ValueError):
     """시나리오 스키마 검증 실패."""
+
+
+class MockScenarioError(ValueError):
+    """Mock(데모) 재생 화이트리스트(MOCK_SCENARIOS) 위반.
+
+    s2(보이스피싱)처럼 mock으로 소비되면 안 되는 시나리오를 mock 재생
+    경로(load_mock_scenario)로 로드하려 할 때 발생한다.
+    """
 
 
 def load_from_s3(bucket: str, key: str, *, s3_client: Any = None) -> dict:
@@ -122,6 +144,28 @@ def load_scenario(scenario_id: str, *, bucket: str | None = None,
             f"unknown scenario {scenario_id!r}: {path} not found")
     data = load_from_str(path.read_text(encoding="utf-8"))
     return _check_scenario_id(data, scenario_id)
+
+
+def load_mock_scenario(scenario_id: str, *, bucket: str | None = None,
+                       s3_client: Any = None) -> dict:
+    """Mock(데모) 재생용 시나리오 로드. MOCK_SCENARIOS만 허용한다.
+
+    스크립트/데모 재생 경로(프론트 consult-engine 재생, BACKEND 글루 등)는
+    `load_scenario` 대신 이 진입점을 써서 mock 화이트리스트를 강제한다.
+    화이트리스트 밖 ID(예: s2 보이스피싱)는 `MockScenarioError`로 막는다 —
+    s2는 AGENT 이상탐지(detect_fraud) 시나리오이지 mock 재생 대상이 아니다.
+
+    Args:
+        scenario_id: 시나리오 식별자 (소문자, 예: "s1").
+        bucket: S3 버킷명. None이면 로컬 번들에서 로드.
+        s3_client: 주입용 boto3 S3 클라이언트(테스트).
+    """
+    if scenario_id not in MOCK_SCENARIOS:
+        raise MockScenarioError(
+            f"scenario {scenario_id!r} is not a mock scenario "
+            f"(allowed: {MOCK_SCENARIOS}). s2 등 비-mock 시나리오는 "
+            f"AGENT live 경로에서만 소비한다.")
+    return load_scenario(scenario_id, bucket=bucket, s3_client=s3_client)
 
 
 def validate_scenario(data: dict, *, expected_turns: int | None = None) -> dict:

@@ -15,7 +15,7 @@ import type { CallState, QueueRow } from '@/types/queue';
 
 // Call state → human label (Korean) + badge tone. Mirrors SDL `enum CallState`.
 const STATE_LABEL: Record<CallState, string> = {
-  CREATED: '대기',
+  CREATED: '대기중',
   DIALING: '발신중',
   IN_CALL: '통화중',
   TRANSFER_PENDING: '상담원 연결 대기',
@@ -55,9 +55,9 @@ function nameInitial(name: string | null | undefined): string {
 //   IN_CALL          → AI 상담화면 (/calls) — joins mid-conversation
 //   DIALING          → AI 상담화면 (/calls) — booth demo from the call's start
 //   TRANSFER_PENDING → not navigable yet (awaiting agent assignment)
-//   CREATED          → 사전 고객분석 (/segment) — pre-call analysis screen
+//   CREATED          → 사전 분석 중 (/segment) — pre-call analysis screen
 //
-// The 박서준 demo row carries state DIALING + the 사전 고객분석 stage, so it routes
+// The 박서준 demo row carries state DIALING + the 사전 분석 중 stage, so it routes
 // to /segment for the scripted analysis → 발신 → 상담 flow. Wire QueueRow has no
 // customerId yet (see types/queue.ts), so the segment screen is keyed by the seed
 // id mapped from the demo customer name; other customers are wired up later.
@@ -65,7 +65,7 @@ const DEMO_NAME_TO_CUSTOMER_ID: Record<string, string> = {
   박서준: 'cust-001',
 };
 
-const PRE_ANALYSIS_STAGE = '사전 고객분석';
+const PRE_ANALYSIS_STAGE = '사전 분석 중';
 
 // 시연 시나리오의 시작점(박서준)이라 큐에서 사라지면 데모 흐름이 깨진다.
 // 이 행은 휴지통 버튼을 렌더하지 않아 삭제를 원천 차단한다.
@@ -83,7 +83,7 @@ function rowHref(row: QueueRow): string | null {
   if (isExperienceRow(row)) {
     return `/calls/${row.callId}?live=1`;
   }
-  // 사전 고객분석 단계(데모: 박서준) → 세그먼트 분석 화면.
+  // 사전 분석 중 단계(데모: 박서준) → 세그먼트 분석 화면.
   if (row.stage === PRE_ANALYSIS_STAGE) {
     const customerId = DEMO_NAME_TO_CUSTOMER_ID[row.customerName ?? ''];
     return customerId ? `/segment/${customerId}` : null;
@@ -194,11 +194,11 @@ export function OutboundQueueTable({
         }}
       >
         <span>고객</span>
-        <span>상태</span>
-        <span>현 단계</span>
-        <span>이탈위험</span>
-        <span>담당</span>
-        <span>통화시간</span>
+        <span>연결 상태</span>
+        <span>상담 단계</span>
+        <span>이탈 가능성</span>
+        <span>담당 Agent</span>
+        <span>통화 시간</span>
         <span>채널</span>
         <span className="sr-only">삭제</span>
       </div>
@@ -280,7 +280,7 @@ export function OutboundQueueTable({
                   )}
                 </span>
                 <span className="text-[10.5px] truncate" style={{ color: 'var(--ink-dim)' }}>
-                  {row.callId}
+                  {row.subtitle || row.callId}
                 </span>
               </div>
             </div>

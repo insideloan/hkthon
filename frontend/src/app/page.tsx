@@ -17,7 +17,7 @@ type FilterKey = 'all' | 'live' | 'wait' | 'done' | 'miss';
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'live', label: '상담중' },
-  { key: 'wait', label: '대기' },
+  { key: 'wait', label: '대기중' },
   { key: 'done', label: '완료' },
   { key: 'miss', label: '이탈' },
 ];
@@ -120,7 +120,7 @@ export default function Home() {
           className="font-disp font-[800] text-[22px] tracking-[-0.01em] m-0"
           style={{ color: 'var(--ink)' }}
         >
-          관리자 화면 · 콜 리스트
+          상담 모니터링
         </h1>
         <span
           className="font-mono text-[10px] font-[700] rounded-full px-[10px] py-[3px]"
@@ -158,9 +158,9 @@ export default function Home() {
 
       {/* ── adm-stats ── */}
       <div className="grid grid-cols-4 gap-3 mb-4 max-[760px]:grid-cols-2">
-        <StatCard label="현재 진행 중인 콜" value={liveCount} accent="live" />
-        <StatCard label="대기 중 상담원" value={2} />
-        <StatCard label="오늘 상담사 연결" value={endedCount} unit="건" accent="done" />
+        <StatCard label="상담중" value={liveCount} accent="live" />
+        <StatCard label="대기중" value={2} />
+        <StatCard label="대출 접수" value={endedCount} unit="건" accent="done" />
         <StatCard label="컴플라이언스 준수율" value={completionRateDisplay} unit="%" accent="done" />
       </div>
 

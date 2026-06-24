@@ -195,7 +195,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 className="sp-spin h-[13px] w-[13px] animate-spin rounded-full border-2 border-[rgba(107,79,184,.3)] border-t-[#6B4FB8]"
                 aria-hidden
               />
-              사전 고객 분석 중
+              사전 분석중
               <span className="sdots inline-flex w-[14px]">
                 <i className="not-italic opacity-0 [animation:sgblink_1.4s_infinite]">.</i>
                 <i className="not-italic opacity-0 [animation:sgblink_1.4s_infinite_200ms]">.</i>
@@ -220,7 +220,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
         >
           {/* Fix #2: Counter — label '가능한 세그먼트 조합 경우의 수', combo number from 16,777,216 */}
           <div className="sg-counter flex flex-col items-center gap-[3px] px-0 pt-[16px] pb-[14px] mb-[13px]">
-            <span className="sg-clbl text-[11.5px] font-semibold text-ink-faint">가능한 세그먼트 조합 경우의 수</span>
+            <span className="sg-clbl text-[11.5px] font-semibold text-ink-faint">세그먼트 조합 수</span>
             <span
               id="combo"
               ref={comboRef}
@@ -249,7 +249,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
 
             {/* Column headers */}
             <text className="ts" x="114" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">원천 데이터 (9항목)</text>
-            <text className="ts" x="340" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">군집 (4대분류)</text>
+            <text className="ts" x="340" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">군집 (4대 분류)</text>
             <text className="ts" x="569" y="28" textAnchor="middle" fontSize="12" fill="var(--ink-dim)">세그먼트</text>
 
             {/* Connection lines — .ln groups */}
@@ -298,7 +298,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
             <g className="cat" data-i="2">
               <g className="box"><rect x="14" y="143" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="160" r="4" fill="#5168DB"/>
-              <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">CB 신용</text>
+              <text className="ts" x="42" y="160" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">신용 평점</text>
               <text className="th" x="204" y="160" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">744점</text>
             </g>
             <g className="cat" data-i="3">
@@ -317,7 +317,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
               <g className="box"><rect x="14" y="299" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="316" r="4" fill="#CF8A3C"/>
               <text className="ts" x="42" y="316" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">금리민감확률</text>
-              <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">민감 40bp</text>
+              <text className="th" x="204" y="316" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">민감 HIGH</text>
             </g>
             <g className="cat" data-i="6">
               <g className="box"><rect x="14" y="351" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
@@ -335,7 +335,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
               <g className="box"><rect x="14" y="455" width="200" height="34" rx="8" strokeWidth="0.5" fill="rgba(255,255,255,.66)" stroke="var(--hair)"/></g>
               <circle cx="28" cy="472" r="4" fill="#6B4FB8"/>
               <text className="ts" x="42" y="472" dominantBaseline="central" fontSize="12" fill="var(--ink-dim)">앱 행태이력</text>
-              <text className="th" x="204" y="472" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">한도조회</text>
+              <text className="th" x="204" y="472" textAnchor="end" dominantBaseline="central" fontSize="14" fontWeight="700" fill="var(--ink)">한도 조회</text>
             </g>
 
             {/* Cluster boxes — 4 .clu groups + cv circle */}

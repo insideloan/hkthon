@@ -14,11 +14,11 @@ export const COMPLIANCE: ComplianceRule[] = [
 export const COMPLY: ComplyEntry[] = [
   {
     draftHtml:
-      '요즘 대출 전화 많이 받으시죠? <span class="risk">무조건 더 싸게 갈아타게 해드릴 테니</span> <span class="risk">지금 신청만 하시면 됩니다.</span>',
+      '바쁘신데 불쑥 연락드려 죄송해요. 마케팅 및 개인정보 활용에 동의해주셔서 대출상품을 안내드리려고 연락드렸는데요. 오늘은 <span class="risk">무조건 더 싸게 갈아타게 해드릴 테니</span> <span class="risk">지금 신청만 하시면 됩니다.</span>',
     flags: [true, false, false, true],
     final: [
-      { t: '요즘 대출 전화 피로감 크시죠. 오늘은 ' },
-      { del: '무조건 더 싸게 갈아타게', ins: '신청이 아니라 유지가 나은지 비교만' },
+      { t: '바쁘신데 불쑥 연락드려 죄송해요. 마케팅 및 개인정보 활용에 동의해주셔서 대출상품을 안내드리려고 연락드렸는데요. 오늘은 ' },
+      { del: '무조건 더 싸게 갈아타게', ins: '신청이 아니라 기존 대출 유지가 나은지 비교만' },
       { t: ' 도와드리려는 거예요. ' },
       { del: '지금 신청만 하시면 됩니다.', ins: '잠깐 괜찮으실까요?' },
     ],
