@@ -33,6 +33,15 @@ export class HkthonStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // lambda/ 코드 번들에서 제외할 항목 — 가상환경/캐시/테스트는 런타임 불필요하고
+    // 번들을 키워 Lambda 250MB(압축해제) 한도를 깨뜨린다(예: 프로파일러가 만든
+    // .venv-prof 164MB로 배포 실패). git 미추적이라 .gitignore로는 못 막으므로
+    // (CDK asset은 파일시스템을 그대로 zip) 여기서 명시 제외한다.
+    const LAMBDA_BUNDLE_EXCLUDE = [
+      '**/.venv*', '**/venv', '**/__pycache__', '**/*.pyc',
+      '**/.pytest_cache', '**/.ruff_cache', 'tests', '**/tests',
+    ];
+
     // ── DynamoDB single table (+ Streams) ───────────────────────────────
     // Single-table design (PK/SK). Streams feed AppSync subscription fan-out.
     const table = new dynamodb.Table(this, 'CallTable', {
@@ -72,8 +81,9 @@ export class HkthonStack extends cdk.Stack {
     // langchain/langgraph/langchain-aws/pydantic/httpx for the real orchestrator.
     // Built out-of-band into infra/layers/orchestrator-deps/ (gitignored — 110MB)
     // by scripts/build-layer.sh, using x86_64-manylinux wheels to match the
-    // x86_64 Lambda. boto3/botocore omitted (in the runtime); amazon-transcribe
-    // omitted until the STT bridge (AGENT-008) lands. Synth fails if the dir is
+    // x86_64 Lambda. boto3/botocore omitted (in the runtime). amazon-transcribe
+    // (+awscrt) is included — the live STT bridge (transcribe_stt.py) imports it.
+    // Synth fails if the dir is
     // missing → run scripts/build-layer.sh first.
     const depsLayer = new lambda.LayerVersion(this, 'OrchestratorDeps', {
       code: lambda.Code.fromAsset(path.join(__dirname, '..', 'layers', 'orchestrator-deps')),
@@ -98,12 +108,15 @@ export class HkthonStack extends cdk.Stack {
       // Real orchestrator bundle (lambda/orchestrator + AGENT/BACKEND code).
       // Bundle the parent lambda/ dir so the `orchestrator` package is importable.
       // The churn lexicon copy still ships via the bundle (LEXICON_LOCAL_PATH).
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       // 라이브 한 턴(nextTurn/audioChunk)은 agent 그래프(Bedrock classify+respond,
       // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
       // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
       timeout: cdk.Duration.seconds(90),
-      memorySize: 256,
+      // 256MB는 ~0.15 vCPU라 LangGraph 노드 디스패치·Pydantic 직렬화·문자열 처리 등
+      // 파이썬 CPU 작업이 로컬 대비 4-7배 느리다(라이브 한 턴이 10개 노드 직렬이라 누적).
+      // 1024MB(~0.6 vCPU)로 올려 LLM 외 오버헤드를 줄인다(데모 규모 비용 영향 미미).
+      memorySize: 1024,
       environment: {
         TABLE_NAME: table.tableName,
         ASSETS_BUCKET: bucket.bucketName,
@@ -115,10 +128,11 @@ export class HkthonStack extends cdk.Stack {
         // so at runtime it unzips to /var/task/orchestrator/. Missing file →
         // empty-lexicon fallback → churn score 0 (the failure #83 calls out).
         LEXICON_LOCAL_PATH: '/var/task/orchestrator/churn_risk_lexicon.json',
-        // 기본 script(시나리오 재생). 라이브(STT/그래프/TTS) 활성화는 배포 시
-        //   cdk deploy -c orchestratorMode=live
-        // 로 옵트인 — 데모 안정성을 위해 기본값은 그대로 둔다.
-        ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'script',
+        // 기본 live(STT/그래프/TTS). 시나리오 재생만 하려면 배포 시
+        //   cdk deploy -c orchestratorMode=script
+        // 로 옵트아웃. 라이브가 상시 운영 모드라 기본값을 live로 둔다 — script
+        // 기본값일 때 audioChunk가 no-op로 청크를 silent drop하던 문제(audio.py)를 막는다.
+        ORCHESTRATOR_MODE: this.node.tryGetContext('orchestratorMode') ?? 'live',
         LLM_MODEL: 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
         // router.py reads LLM_TIMEOUT_S (first-token timeout, seconds).
         LLM_TIMEOUT_S: '6',
@@ -212,6 +226,7 @@ export class HkthonStack extends cdk.Stack {
     const MUTATION_FIELDS = [
       'createCall', 'dialCall', 'approveProduct', 'transferToAgent',
       'sendLink', 'endCall', 'nextTurn', 'startAudio', 'audioChunk',
+      'deleteQueueRow',
     ];
     // createCall/nextTurn existed in the placeholder stack under these construct
     // IDs. Reuse them so CloudFormation updates the resolvers in place instead of
@@ -258,7 +273,7 @@ export class HkthonStack extends cdk.Stack {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'orchestrator.api.stream_fanout.handler',
       layers: [depsLayer],
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '..', '..', 'lambda'), { exclude: LAMBDA_BUNDLE_EXCLUDE }),
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {

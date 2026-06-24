@@ -6,16 +6,19 @@ from orchestrator.api import appsync_emit as ae
 
 
 def test_filter_vars_drops_unknown_and_none():
-    """payload의 부가 필드(tokens/turnSeq)와 None은 제거, 인자만 남는다."""
+    """payload의 미지 필드(extra)와 None은 제거, 스키마 인자만 남는다.
+
+    tokens는 _emitTurn의 정식 인자(schema.graphql)이므로 유지된다.
+    """
     payload = {
         "callId": "c1", "seq": 1, "speaker": "customer", "text": "안녕",
-        "flag": "RISK", "tokens": [{"text": "x"}],  # tokens는 _emitTurn 인자 아님
+        "flag": "RISK", "tokens": [{"text": "x"}],
         "extra": None,
     }
     out = ae._filter_vars("_emitTurn", payload)
     assert out == {"callId": "c1", "seq": 1, "speaker": "customer",
-                   "text": "안녕", "flag": "RISK"}
-    assert "tokens" not in out
+                   "text": "안녕", "flag": "RISK", "tokens": [{"text": "x"}]}
+    assert "extra" not in out
 
 
 def test_filter_vars_drops_none_values():
@@ -29,11 +32,21 @@ def test_build_query_typed_vars():
     assert "mutation Emit(" in q
     assert "$markerId: MotMarkerId!" in q
     assert "_emitMot(callId: $callId" in q
-    assert "{ callId }" in q
+    # selection set은 payload 타입의 전체 필드여야 한다(callId만 고르면 나머지가
+    # 구독자에게 null로 도착해 프론트 검증이 깨진다).
+    assert "{ callId markerId state stage }" in q
+
+
+def test_build_query_selects_full_payload():
+    """_emitTurn은 seq/speaker/text 등 전체 필드를 selection에 포함해야 한다."""
+    q = ae._build_query("_emitTurn", ae._EMIT_ARGS["_emitTurn"])
+    for f in ("seq", "speaker", "text", "flag", "audioUrl"):
+        assert f in q, f"selection set에 {f} 누락"
+    assert "tokens { text polarity reason }" in q
 
 
 def test_build_query_no_args():
-    # _emitCallEnded는 callId만; 인자 없는 빌드 경로는 빈 dict일 때.
+    # 인자 없는 빌드 경로(빈 dict)는 알 수 없는 뮤테이션 → 기본 callId selection.
     q = ae._build_query("_x", {})
     assert q == "mutation Emit { _x { callId } }"
 

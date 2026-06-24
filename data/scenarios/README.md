@@ -8,7 +8,7 @@
 
 | id | 파일 | 제목 | 턴 | 핵심 신호 | 원천 |
 |----|------|------|----|-----------|------|
-| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 19 | 이탈위험 MOT 5회(`rz-*`) 방어 → 상담원 전환 | `consult_redesigned-3.html` const S |
+| `s1` | `s1.json` | 대환대출 아웃바운드 (박서준, 차량보유) | 10 | 이탈위험 MOT 3회(`rz-rate/compare/security`) 방어 → 무서류 본 심사 진입 | `consult_redesigned-3.html` const S |
 | `s2` | `s2.json` | 보이스피싱 의심 아웃바운드 (급전 요청) | 16 | `fraud_suspected` 사기 감지 → 접수·차단 | `아웃바운드_스크립트_0621.xlsx` 보이스피싱 시트 |
 
 > 등록부는 `scenario_loader.KNOWN_SCENARIOS`와 일치해야 한다. 시나리오를 추가하면
@@ -52,9 +52,12 @@
   `mot{marker_id,state,crm_stage}`,
   `compliance{draft,violated_policies[],final,state}`,
   `strategy_headline`+`strategy_lead`(쌍)
+- 선택(상담엔진 신호 4축, 주로 고객 턴): `emotion`/`need`/`usability`(단일 라벨),
+  `strategy`(전략 라벨 리스트). 허용 라벨은 **AGENT `agent/signals.py`가 SSOT**
+  (감정 15 / 니즈 15 / 이용가능성 21 / 전략 21종). 카탈로그 밖 라벨이면 검증 실패.
 
 검증 규칙은 `scenario_loader.validate_scenario`가 SSOT. 고객 턴 연속 금지(교대),
-seq 순서, enum 값을 모두 강제한다.
+seq 순서, enum 값을 모두 강제한다(신호 4축 라벨은 `agent/signals` 카탈로그 대조).
 
 ## Mock 재생 vs AGENT 소비 — 경로 분리 (중요)
 

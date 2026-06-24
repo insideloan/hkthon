@@ -37,19 +37,27 @@ FALLBACK_TEXT = "잠시 후 다시 안내해 드리겠습니다."
 
 
 class ClassifyResult(BaseModel):
-    """classify 노드의 LLM 구조화 출력. 값은 state.Intent / state.Route 문자열과 일치."""
+    """classify 노드의 LLM 구조화 출력. 값은 state.Intent / state.Route 문자열과 일치.
 
-    intent: str = Field(description="정규화된 고객 의도 (state.Intent 값 중 하나)")
-    route: str = Field(description="RESPOND | TRANSFER | CLOSE | SILENCE")
+    레이턴시 주의: 이 스키마의 Field 설명은 매 classify 호출의 입력 토큰으로 주입되고
+    (with_structured_output가 tool schema로 변환), rationale 길이는 출력 토큰을 좌우한다.
+    라벨 카탈로그의 권위 소스는 prompts._signal_catalog(시스템 프롬프트)이므로, 여기 설명은
+    카탈로그를 중복 나열하지 않고 짧게 유지한다(입력 토큰 ↓ → 라이브 한 턴 레이턴시 ↓).
+    """
+
+    intent: str = Field(description="state.Intent 값")
+    route: str = Field(description="RESPOND|TRANSFER|CLOSE|SILENCE")
     # 신호 4축 — signals.py 카탈로그 라벨로만 응답(엄격). 카탈로그 밖이면 호출측이 None 폴백.
-    emotion: str = Field(default="", description="고객 감정 — signals.Emotion 15종 라벨 중 하나")
-    need: str = Field(default="", description="고객 니즈 — signals.Need 15종 라벨 중 하나")
-    usability: str = Field(default="", description="이용 가능성 — signals.Usability 20종 라벨 중 하나")
-    fraud_suspected: bool = Field(default=False, description="보이스피싱/사기 의심 발화 여부")
-    churn_adjust: int = Field(default=0, ge=-10, le=10, description="사전 점수 대비 의미 기반 보정(-10~+10)")
-    strategy_tactic: str = Field(default="", description="대응 전략 — signals.Tactic 20종 라벨 중 하나")
-    strategy_headline: str = Field(default="", description="전략 헤드라인 한 줄")
-    rationale: str = Field(default="", description="판단 근거 한국어 1~2문장")
+    # 허용 라벨 목록은 시스템 프롬프트(_signal_catalog)에 있으므로 여기선 축 이름만.
+    emotion: str = Field(default="", description="감정 라벨")
+    need: str = Field(default="", description="니즈 라벨")
+    usability: str = Field(default="", description="이용가능성 라벨")
+    fraud_suspected: bool = Field(default=False, description="보이스피싱/사기 의심 여부")
+    churn_adjust: int = Field(default=0, ge=-10, le=10, description="사전 점수 보정(-10~+10)")
+    strategy_tactic: str = Field(default="", description="전략 라벨")
+    strategy_headline: str = Field(default="", description="전략 카드 제목 한 줄")
+    # rationale은 관리자 화면 표시용(짧게). 길면 출력 토큰만 늘어 레이턴시 악화.
+    rationale: str = Field(default="", description="판단 근거 한국어 한 문장(최대 40자)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,27 +131,57 @@ def classify_turn(system: str, user: str) -> Optional[ClassifyResult]:
         return None
 
 
-def converse(system: str, user: str, *, stream: bool = True) -> str:
-    """자유 텍스트 응답 생성. 첫 토큰 타임아웃/오류 시 FALLBACK_TEXT 반환.
+def converse(system: str, user: str, *, stream: bool = False) -> str:
+    """자유 텍스트 응답 생성(완성된 전체 문자열). 오류 시 FALLBACK_TEXT 반환.
+
+    동기 converse는 전체 응답이 모인 뒤에야 반환한다(respond→compliance가 완성 draft를
+    필요로 하고, persist/팬아웃도 완성 후에 일어남). 따라서 .stream()으로 청크를 모아
+    join하던 과거 구현은 .invoke()와 결과가 동일하면서 청크 오버헤드만 더했다 —
+    .invoke()로 통일한다. 토큰 단위 점진 전달이 필요한 경로는 astream_converse()를 쓴다.
 
     Args:
-        stream: True면 .stream() 스트리밍(첫 토큰 지연 단축, TTS 파이프라인 친화).
-                비동기 스트리밍은 astream_converse() 사용.
+        stream: 하위호환용 인자(무시됨). 점진 스트리밍은 astream_converse() 사용.
     """
     msgs = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
     try:
-        if stream:
-            chunks = [c.content for c in _client().stream(msgs)]
-            text = "".join(_as_text(c) for c in chunks).strip()
-        else:
-            text = _as_text(_client().invoke(msgs).content).strip()
+        text = _as_text(_client().invoke(msgs).content).strip()
         return text or FALLBACK_TEXT
     except Exception:  # noqa: BLE001
         logger.exception("converse failed; returning fallback text")
         return FALLBACK_TEXT
+
+
+def classify_and_respond_concurrent(
+    classify_system: str,
+    respond_system: str,
+    history: str,
+) -> tuple[Optional[ClassifyResult], str]:
+    """classify와 (전략 미주입) blind respond를 동시 실행해 직렬 지연을 줄인다.
+
+    두 호출은 서로 의존이 없으므로 스레드 풀로 병렬화한다(라이브 한 턴에서 respond
+    지연 ~1.6-2.3s를 classify 지연 뒤로 숨김). respond는 tactic/emotion 스티어링 없이
+    생성되므로(_strategy_block 빈 블록), route가 RESPOND일 때만 쓰고 그 외(TRANSFER/
+    CLOSE/SILENCE)면 호출측이 폐기한다.
+
+    Returns:
+        (ClassifyResult | None, blind_draft). classify 실패 시 (None, draft),
+        respond 실패 시 (result, FALLBACK_TEXT).
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _classify() -> Optional[ClassifyResult]:
+        return classify_turn(classify_system, history)
+
+    def _respond() -> str:
+        return converse(respond_system, history, stream=False)
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_classify = ex.submit(_classify)
+        f_respond = ex.submit(_respond)
+        return f_classify.result(), f_respond.result()
 
 
 async def astream_converse(

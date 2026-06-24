@@ -137,7 +137,6 @@ export default function ConsultCockpitPage({ params }: PageProps) {
   const card1 = useConsultStore((s) => s.card1);
   const card2 = useConsultStore((s) => s.card2);
   const card3 = useConsultStore((s) => s.card3);
-  const pipeSrc = useConsultStore((s) => s.pipeSrc);
 
   return (
     <div
@@ -149,10 +148,10 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         className="stt flex flex-col overflow-hidden"
         style={{
           height: 'max(560px, calc(100vh - 96px))',
-          // STT 패널 배경 이미지 (public/phone_screen.png). 단색 #F9F6EE 대체.
+          // STT 패널 배경 이미지 (public/phone_screen.png). 단색 폴백.
           backgroundImage: 'url(/phone_screen.png)',
           backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
-          backgroundColor: '#F9F6EE', // 이미지 로드 전/투명 영역 폴백
+          backgroundColor: '#f8f9fb', // 이미지 로드 전/투명 영역 폴백
           border: '1px solid var(--card-bd)',
           borderRadius: '18px', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)',
           boxShadow: 'var(--shadow)',
@@ -225,7 +224,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       {/* ═══ 우: rightcol ═══ */}
       <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '13px', height: 'max(560px, calc(100vh - 96px))' }}>
         {/* 우-상단: 여정 맵 */}
-        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: '#F9F6EE', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
+        <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', borderRadius: '18px', border: '1px solid var(--card-bd)', background: 'var(--card-solid)', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.5)' }}>
           <div className="map__title absolute flex items-center z-[6]" style={{ top: '11px', left: '12px', gap: '8px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
@@ -239,16 +238,14 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         </div>
 
         {/* 우-하단: AI 응답 준비 */}
-        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: '#F9F6EE', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(16px) saturate(1.08)', WebkitBackdropFilter: 'blur(16px) saturate(1.08)', boxShadow: 'var(--shadow)' }}>
+        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', background: 'var(--card-solid)', border: '1px solid var(--card-bd)', borderRadius: '18px', backdropFilter: 'blur(20px) saturate(1.05)', WebkitBackdropFilter: 'blur(20px) saturate(1.05)', boxShadow: 'var(--shadow)' }}>
           <div className="cc__head flex items-center" style={{ gap: '8px', padding: '3px 14px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
             </span>
-            <span className="mk font-mono" style={{ fontSize: '8.5px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--route)', border: '1.4px solid #C3D0EA', background: '#fff', borderRadius: '6px', padding: '2px 7px', textTransform: 'uppercase' }}>AI응답준비</span>
             <h2 className="font-disp" style={{ fontSize: '13.5px', fontWeight: 800, letterSpacing: '-.01em', margin: 0, color: 'var(--title)' }}>AI 응답 준비</h2>
-            <span style={{ fontSize: '10.5px', color: 'var(--ink-faint)' }}>{pipeSrc ?? '발화 분석 · DB 조회 · 컴플라이언스'}</span>
           </div>
 
           <div className="cc__body flex flex-col flex-1 min-h-0" id="ccBody" style={{ gap: '11px', padding: '7px 8px 13px' }}>

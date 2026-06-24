@@ -45,8 +45,8 @@ function stateBadge(row: QueueRow): { label: string; tone: BadgeTone } {
 
 /** Map a row's highlight flag to row background style (warm semi-transparent palette). */
 function rowHighlightStyle(highlight: QueueRow['highlight']): React.CSSProperties {
-  if (highlight === 'needs_agent') return { background: 'rgba(219,83,80,.06)' };
-  if (highlight === 'fraud_suspected') return { background: 'rgba(207,138,60,.08)' };
+  if (highlight === 'needs_agent') return { background: 'rgba(239,68,68,.05)' };
+  if (highlight === 'fraud_suspected') return { background: 'rgba(217,119,6,.06)' };
   return {};
 }
 
@@ -70,10 +70,17 @@ function nameInitial(name: string | null | undefined): string {
 //   TRANSFER_PENDING → not navigable yet (awaiting agent assignment)
 //   CREATED          → 사전 분석중 (/segment) — pre-call analysis screen
 //
-// The 박서준 demo row carries state DIALING + the 사전 분석중 stage, so it routes
-// to /segment for the scripted analysis → 발신 → 상담 flow. Wire QueueRow has no
-// customerId yet (see types/queue.ts), so the segment screen is keyed by the seed
-// id mapped from the demo customer name; other customers are wired up later.
+// The 박서준 demo row is the showcase entry point: clicking it must always play
+// the scripted 세그먼트 분석 → 발신 → 상담 flow (불특정 발신중 행처럼 곧장 상담
+// 화면으로 가면 안 된다). We pin it by callId so the routing can't drift — the
+// deployed backend's stage string for this row has diverged from the seed source,
+// so matching on stage alone is unreliable. Maps the demo callId → seed customerId
+// for the /segment screen (wire QueueRow has no customerId yet; see types/queue.ts).
+const DEMO_CALL_TO_CUSTOMER_ID: Record<string, string> = {
+  'c-demo-01': 'cust-001',
+};
+
+// 다른 사전 분석 중 행들도 customerId 가 매핑되면 세그먼트 화면으로 보낸다.
 const DEMO_NAME_TO_CUSTOMER_ID: Record<string, string> = {
   박서준: 'cust-001',
 };
@@ -96,7 +103,13 @@ function rowHref(row: QueueRow): string | null {
   if (isExperienceRow(row)) {
     return `/calls/${row.callId}?live=1`;
   }
-  // 사전 분석중 단계(데모: 박서준) → 세그먼트 분석 화면.
+  // 데모 쇼케이스 행(박서준/c-demo-01)은 stage 값과 무관하게 항상 세그먼트
+  // 분석 화면을 거쳐 발신/상담으로 넘어간다.
+  const demoCustomerId = DEMO_CALL_TO_CUSTOMER_ID[row.callId ?? ''];
+  if (demoCustomerId) {
+    return `/segment/${demoCustomerId}`;
+  }
+  // 그 외 사전 분석 중 단계 행 → 세그먼트 분석 화면(customerId 매핑된 경우만).
   if (row.stage === PRE_ANALYSIS_STAGE) {
     const customerId = DEMO_NAME_TO_CUSTOMER_ID[row.customerName ?? ''];
     return customerId ? `/segment/${customerId}` : null;
@@ -271,7 +284,7 @@ export function OutboundQueueTable({
             <div className="flex items-center gap-[9px] min-w-0">
               <span
                 className="flex-none w-[30px] h-[30px] rounded-full grid place-items-center font-disp text-[13px] font-[800] text-white"
-                style={{ background: 'linear-gradient(135deg,#5168DB,#5B78F0)' }}
+                style={{ background: 'linear-gradient(135deg,#2563eb,#4d7cf0)' }}
                 aria-hidden="true"
               >
                 {nameInitial(row.customerName)}

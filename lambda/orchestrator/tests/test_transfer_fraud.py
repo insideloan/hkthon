@@ -32,32 +32,20 @@ def test_transfer_is_not_ended():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_transfer_emits_handoff_summary_via_llm(monkeypatch):
-    """대화 맥락이 있으면 LLM 요약을 handoff_summary로 반환."""
+def test_transfer_handoff_summary_is_rule_based_no_llm(monkeypatch):
+    """핸드오프 요약은 룰 기반(결정적)으로 즉시 생성 — 이관 임계 경로에서 LLM 호출 안 함.
+
+    요약은 상담원 CRM 탭 표시용 사후 정보라, 라이브 이관 지연을 줄이려 LLM을 쓰지 않는다.
+    (맥락은 단계/의도/이탈위험/직전 발화로 전달되며, 더 풍부한 요약은 통화 종료 후 보강.)
+    """
     from orchestrator.llm import router
 
-    monkeypatch.setattr(router, "converse", lambda system, user, **kw: "고객이 금리 부담으로 상담원 연결 요청.")
+    def _boom(*a, **k):  # LLM이 호출되면 실패시켜 '호출 안 함'을 강제 검증
+        raise AssertionError("handoff summary must not call the LLM on the transfer path")
+
+    monkeypatch.setattr(router, "converse", _boom)
     out = nodes.transfer_node({
         "history": [{"seq": 1, "speaker": "customer", "text": "금리가 너무 높아요", "node": None}],
-        "customer_text": "사람 바꿔주세요",
-    })
-    assert out["handoff_summary"] == "고객이 금리 부담으로 상담원 연결 요청."
-
-
-def test_transfer_handoff_summary_fallback_when_no_context():
-    """대화 맥락이 전혀 없으면 LLM 없이 결정적 폴백 요약."""
-    out = nodes.transfer_node({"history": []})
-    assert out["handoff_summary"]
-    assert "상담원 연결 요청" in out["handoff_summary"]
-
-
-def test_transfer_handoff_summary_fallback_on_llm_failure(monkeypatch):
-    """converse가 FALLBACK_TEXT(장애)면 룰 폴백으로 대체."""
-    from orchestrator.llm import router
-
-    monkeypatch.setattr(router, "converse", lambda system, user, **kw: router.FALLBACK_TEXT)
-    out = nodes.transfer_node({
-        "history": [],
         "customer_text": "사람 바꿔주세요",
         "stage": Stage.PROPOSE,
         "intent": Intent.TRANSFER_INTENT,
@@ -67,6 +55,13 @@ def test_transfer_handoff_summary_fallback_on_llm_failure(monkeypatch):
     assert "상담원 연결 요청" in s
     assert "사람 바꿔주세요" in s  # 직전 발화 포함
     assert "55" in s              # 이탈위험 포함
+
+
+def test_transfer_handoff_summary_fallback_when_no_context():
+    """대화 맥락이 전혀 없어도 결정적 요약을 반환한다."""
+    out = nodes.transfer_node({"history": []})
+    assert out["handoff_summary"]
+    assert "상담원 연결 요청" in out["handoff_summary"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

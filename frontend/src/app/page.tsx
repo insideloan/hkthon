@@ -126,8 +126,8 @@ export default function Home() {
           className="font-mono text-[10px] font-[700] rounded-full px-[10px] py-[3px]"
           style={{
             color: 'var(--go)',
-            background: 'rgba(107,74,42,.12)',
-            border: '1px solid rgba(107,74,42,.3)',
+            background: 'rgba(22,163,74,.1)',
+            border: '1px solid rgba(22,163,74,.25)',
           }}
         >
           전체 상담 모니터링

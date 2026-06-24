@@ -217,3 +217,47 @@ describe('SpeechAnalysis — #33 키워드 폰트 강조 + flag 배지', () => {
     expect(unsubStrategy).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── 발화분류 라벨/칸 텍스트 (영어 제거 + 5글자+ 두 줄) ────────────────────────
+import { OtagText } from '@/components/consult/SpeechAnalysis';
+
+describe('SpeechAnalysis — 발화분류 라벨', () => {
+  it('bins(감정/니즈/이용가능성)에 영어 라벨(i)이 없다', () => {
+    render(<SpeechAnalysis callId="c1" disableLiveData />);
+    // EmoBins(live)·EngineCard1 모두 bin__h 안에 <i> 영어 라벨이 없어야 한다.
+    const enLabels = document.querySelectorAll('.bin__h i');
+    expect(enLabels.length).toBe(0);
+    // 한글 라벨은 유지
+    expect(screen.getByTestId('emo-bin-emotion')).toHaveTextContent('감정');
+  });
+});
+
+describe('OtagText — 두 줄 분할 + 키워드 띄어쓰기', () => {
+  it('5글자 이하 + 사전에 없으면 한 줄(줄바꿈 없음)', () => {
+    const { container } = render(<OtagText text="금리비교" />);
+    expect(container.querySelector('br')).toBeNull();
+    expect(container).toHaveTextContent('금리비교');
+  });
+
+  it('사전에 없는 5글자 초과는 글자 가운데에서 두 줄로 분할', () => {
+    const { container } = render(<OtagText text="가나다라마바사" />);
+    expect(container.querySelector('br')).not.toBeNull();
+    // 7글자 → ceil(7/2)=4 / 3 로 분할
+    expect(container.firstChild?.textContent).toBe('가나다라');
+  });
+
+  it('이용가능성 키워드는 띄어쓰기 적용 후 단어 단위 두 줄 (월납입확인후판단)', () => {
+    const { container } = render(<OtagText text="월납입확인후판단" />);
+    expect(container.querySelector('br')).not.toBeNull();
+    // "월 납입 확인 후 판단" → 균형 분할: "월 납입" / "확인 후 판단"
+    expect(container.firstChild?.textContent).toBe('월 납입');
+    expect(container.lastChild?.textContent).toBe('확인 후 판단');
+  });
+
+  it('이용가능성 키워드 띄어쓰기 (기존대출비교후판단)', () => {
+    const { container } = render(<OtagText text="기존대출비교후판단" />);
+    // "기존 대출 비교 후 판단" → "기존 대출" / "비교 후 판단"
+    expect(container.firstChild?.textContent).toBe('기존 대출');
+    expect(container.lastChild?.textContent).toBe('비교 후 판단');
+  });
+});

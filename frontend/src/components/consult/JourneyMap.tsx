@@ -69,6 +69,13 @@ const MOT_MARKER_COORDS: Record<MotMarkerId, { x: number; y: number; label: stri
   'rz-avoid':    { x: 1300, y: 322, label: 'MOT_5' },
 };
 
+// MOT markers are flat hz-style ellipses (rx46 ry16, SSOT #hz) shifted below the
+// route so they (a) stay inside the frame rect (y 30–408: max 336+56+16=408) and
+// (b) clear the car circle (r=38) on the route: marker top(cy-16) ≥ car bottom.
+// cautionCoords receives the SAME offset so the "!" pop-up stays above the marker.
+const MOT_Y_OFFSET = 56;
+const MOT_RY = 16;
+
 // SSOT animationDelay 순서 대로 (rz-rate 0s, rz-compare 0.6s, rz-pay 1.1s, rz-security 1.6s, rz-avoid 2.1s)
 const ANIMATION_DELAY: Record<MotMarkerId, string> = {
   'rz-rate':     '0s',
@@ -84,34 +91,11 @@ function seqToMarkerId(seq: number): MotMarkerId | null {
   return id ?? null;
 }
 
-// Banner 텍스트 — SSOT bann 구조
-type BannerContent = {
-  type: 'risk' | 'def' | 'done';
-  eyebrow: string;
-  lead: string;
-};
-
-function makeBanner(mot: MotDetected): BannerContent {
-  const isDefended = mot.outcome === 'defended';
-  if (isDefended) {
-    return {
-      type: 'def',
-      eyebrow: '↩ 경로 재탐색',
-      lead: `<b>방어 완료</b> — MOT_${mot.seq} 우회`,
-    };
-  }
-  return {
-    type: 'risk',
-    eyebrow: '⚠ 전방 위험 구간',
-    lead: `<b>위험</b> 구간 진입 — MOT_${mot.seq}`,
-  };
-}
-
 // ── RzMarker — SSOT .rz SVG 그룹 ─────────────────────────────────────────────
-// rz-compare는 SSOT에서 ellipse(rx=44 ry=30), 나머지는 circle(r=33).
+// MOT 마커는 SSOT #hz 언더글로와 같은 평평한 타원(rx46 ry19)으로 통일한다.
+// 낮고 넓은 형태라 프레임 안에 들어가고 경로 위 차량 원과도 거의 겹치지 않는다.
 // rz-core class kept as harmless string for SSOT lineage; no external CSS needed.
 function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerState }) {
-  const isEllipse = id === 'rz-compare';
   const delay = ANIMATION_DELAY[id];
 
   // Stroke color: alert/show→hazard, blocked→go
@@ -121,24 +105,11 @@ function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerStat
   const fillColor =
     markerState === 'blocked' ? 'var(--cmp-final, #f5fbf8)' : '#fff';
 
-  if (isEllipse) {
-    return (
-      <ellipse
-        className="rz-core"
-        rx={44}
-        ry={30}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={2.4}
-        strokeDasharray={markerState === 'blocked' ? 'none' : '4 5'}
-        style={{ animationDelay: delay }}
-      />
-    );
-  }
   return (
-    <circle
+    <ellipse
       className="rz-core"
-      r={33}
+      rx={46}
+      ry={MOT_RY}
       fill={fillColor}
       stroke={strokeColor}
       strokeWidth={2.4}
@@ -175,7 +146,7 @@ function RzMarker({ id, markerState, riskActive = false }: RzMarkerProps) {
     <g
       className={cls}
       id={id}
-      transform={`translate(${x},${y})`}
+      transform={`translate(${x},${y + MOT_Y_OFFSET})`}
       data-testid={`mot-marker-${id}`}
       data-marker-state={markerState}
       data-risk-active={riskActive ? 'true' : undefined}
@@ -265,161 +236,6 @@ function CautionPop({ visible, x, y }: CautionPopProps) {
   );
 }
 
-// ── NavBanner — SSOT #banner (.nav-banner) ────────────────────────────────────
-// Absolutely positioned overlay on top of SVG map.
-// SSOT: position:absolute; top:13px; left:13px; right:13px;
-//       background:rgba(255,255,255,.94); backdrop-filter:blur(7px);
-//       border:1.4px solid #DAE1EA; border-radius:12px;
-//       box-shadow:0 10px 26px -14px rgba(28,44,70,.42); z-index:5
-// type-specific border colors: risk:#F4C6C4 / def:#C9D7F6 / done:#E0CFB8
-type NavBannerProps = {
-  banner: BannerContent | null;
-  dist: number; // 0-100
-};
-
-// Turn icon SVG paths per banner type
-const TURN_SVG: Record<'risk' | 'def' | 'done', string> = {
-  def: '<path d="M12 20V8M12 8l-5 5M12 8l5 5" stroke="var(--route)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
-  risk: '<path d="M12 3l9 16H3L12 3z" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="var(--danger)"/>',
-  done: '<path d="M5 12.5l4.5 4.5L19 7" stroke="var(--go)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
-};
-
-// Border color per type
-const TYPE_BORDER: Record<'risk' | 'def' | 'done', string> = {
-  risk: '#F4C6C4',
-  def: '#C9D7F6',
-  done: '#E0CFB8',
-};
-
-// Turn icon background per type
-const TYPE_TURN_BG: Record<'risk' | 'def' | 'done', string> = {
-  risk: '#FBE3E2',
-  def: '#E2ECFE',
-  done: '#EFE6D8',
-};
-
-// Background per type
-const TYPE_BG: Record<'risk' | 'def' | 'done', string> = {
-  risk: 'rgba(255,246,245,.95)',
-  def: 'rgba(244,248,255,.95)',
-  done: 'rgba(238,250,243,.95)',
-};
-
-// Accent color for dist text
-const TYPE_ACCENT: Record<'risk' | 'def' | 'done', string> = {
-  risk: 'var(--danger)',
-  def: 'var(--route)',
-  done: 'var(--go)',
-};
-
-function NavBanner({ banner, dist }: NavBannerProps) {
-  const type = banner?.type ?? 'def';
-  const eyebrow = banner?.eyebrow ?? 'NEXT · 다음 안내';
-  const lead = banner?.lead ?? '출발지 — <b>초기 관심</b> 구간 진입 대기';
-  const accent = TYPE_ACCENT[type];
-
-  return (
-    <div
-      id="banner"
-      className={clsx('nav-banner flex items-center', type)}
-      data-testid="journey-banner"
-      data-banner-type={type}
-      style={{
-        position: 'absolute',
-        top: 13,
-        left: 13,
-        right: 13,
-        zIndex: 5,
-        padding: '9px 13px',
-        borderRadius: '12px',
-        background: TYPE_BG[type],
-        backdropFilter: 'blur(7px)',
-        WebkitBackdropFilter: 'blur(7px)',
-        border: `1.4px solid ${TYPE_BORDER[type]}`,
-        boxShadow: '0 10px 26px -14px rgba(28,44,70,.42)',
-        gap: '11px',
-        alignItems: 'center',
-        transition: 'border-color .3s, background .3s',
-      }}
-    >
-      {/* Turn icon — 32×32 with background */}
-      <span
-        id="turnIc"
-        className="turn flex-none grid place-items-center"
-        aria-hidden="true"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '9px',
-          background: TYPE_TURN_BG[type],
-          display: 'grid',
-          placeItems: 'center',
-        }}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          style={{ width: '19px', height: '19px' }}
-          dangerouslySetInnerHTML={{ __html: TURN_SVG[type] }}
-        />
-      </span>
-
-      {/* Text block — eyebrow + lead */}
-      <span className="txt flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
-        <span
-          className="eyebrow font-mono uppercase"
-          style={{
-            fontSize: '8.5px',
-            fontWeight: 700,
-            letterSpacing: '.14em',
-            color: 'var(--ink-faint)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-          id="bannerEye"
-          data-testid="banner-eyebrow"
-        >
-          {eyebrow}
-        </span>
-        <span
-          className="lead font-disp"
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            letterSpacing: '-.01em',
-            lineHeight: 1.2,
-            marginTop: '2px',
-            color: 'var(--ink)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          id="bannerLead"
-          data-testid="banner-lead"
-          dangerouslySetInnerHTML={{ __html: lead }}
-        />
-      </span>
-
-      {/* Dist badge — churnRisk% */}
-      <span
-        className="dist font-mono"
-        style={{
-          fontSize: '12px',
-          fontWeight: 700,
-          color: accent,
-          flexShrink: 0,
-          textAlign: 'right',
-        }}
-        id="bannerDist"
-        data-testid="banner-dist"
-      >
-        {dist}%
-      </span>
-    </div>
-  );
-}
-
 // ── MapFrame — SSOT section frame rectangles + labels ────────────────────────
 function MapFrame() {
   return (
@@ -427,7 +243,7 @@ function MapFrame() {
       <rect x={30}   y={30} width={535} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={585}  y={30} width={730} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
       <rect x={1335} y={30} width={258} height={378} rx={20} fill="#fff" opacity={0.28} stroke="#C8D2DD" strokeDasharray="3 6"/>
-      <g fontFamily="Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#23293A">
+      <g fontFamily="Inter,Pretendard,sans-serif" fontSize={20} fontWeight={800} fill="#111827">
         <text x={297}  y={51}>본인확인</text>
         <text x={950}  y={51}>상품제안</text>
         <text x={1464} y={51}>채널선택</text>
@@ -507,7 +323,8 @@ function CpNode({ id, x, y, label, isGoal = false }: CpNodeProps) {
   if (isGoal) {
     return (
       <g className="cp" id={id} transform={`translate(${x},${y})`}>
-        <circle className="cp-ring" r={46} fill="none" stroke="var(--go)" strokeWidth={3}/>
+        {/* cp-ring removed: outermost border ring deleted per user request.
+            globals.css may still contain .cp.now .cp-ring / @keyframes nowring — harmless orphan. */}
         <circle className="cp-core" r={36} fill="#fff" stroke="var(--route)" strokeWidth={4} filter="url(#soft)"/>
         <path d="M-11,-16 v32 M-11,-16 h17 l-4,6 4,6 h-17" fill="var(--route)" stroke="var(--route)" strokeWidth={2} strokeLinejoin="round"/>
         <text
@@ -526,7 +343,8 @@ function CpNode({ id, x, y, label, isGoal = false }: CpNodeProps) {
   }
   return (
     <g className="cp" id={id} transform={`translate(${x},${y})`}>
-      <circle className="cp-ring" r={50} fill="none" stroke="var(--route)" strokeWidth={3}/>
+      {/* cp-ring removed: outermost border ring deleted per user request.
+          globals.css may still contain .cp.now .cp-ring / @keyframes nowring — harmless orphan. */}
       <circle className="cp-core" r={42} fill="#fff" stroke="#9FB0C4" strokeWidth={3} filter="url(#soft)"/>
       <text className="cp-label" y={5} textAnchor="middle" fill="var(--ink-dim)"
         fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}
@@ -546,7 +364,7 @@ function SvgDefs() {
   return (
     <defs>
       <pattern id="dots" width={26} height={26} patternUnits="userSpaceOnUse">
-        <circle cx={2} cy={2} r={1.1} fill="#CBC2B2" opacity={0.55}/>
+        <circle cx={2} cy={2} r={1.1} fill="#cbd0d8" opacity={0.55}/>
       </pattern>
       <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
         <feDropShadow dx={0} dy={3} stdDeviation={4} floodColor="#26374e" floodOpacity={0.2}/>
@@ -588,9 +406,6 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
   const { mots, markers, activeCautionSeq, addMot, setMarkerState, showCaution, hideCaution, reset } =
     useMotStore();
 
-  const bannerRef = useRef<BannerContent | null>(null);
-  const distRef = useRef(0);
-
   // ── 엔진 구동용 (명령형) ──────────────────────────────────────────────────
   // 차량/경로는 getPointAtLength·stroke-dashoffset 기반 → state 아닌 ref + 직접 DOM.
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -602,9 +417,6 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
   const routeLenRef = useRef(0); // getTotalLength() 캐시
   const curProgRef = useRef(0); // 매 rAF 프레임 변형 — state 금지
   const rafRef = useRef<number | null>(null);
-  // engineMode 배너(엔진 setBanner가 갱신) — engineMode일 때 구독 배너보다 우선.
-  const [engineBanner, setEngineBanner] = useState<BannerContent | null>(null);
-  const [engineDist, setEngineDist] = useState<number | null>(null);
   // 통화 시작(차량 주행 개시) 여부 — engineMode에서 #svg.playing 토글.
   const [enginePlaying, setEnginePlaying] = useState(false);
 
@@ -684,11 +496,8 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
         hideCaution();
       }
     },
-    setBanner(b, prog) {
-      if (!b) return;
-      setEngineBanner({ type: b.type, eyebrow: b.eye, lead: b.lead });
-      setEngineDist(Math.round((prog ?? curProgRef.current) * 100));
-    },
+    // NavBanner 제거됨 — 엔진 호출 계약 유지를 위한 no-op.
+    setBanner() {},
     shakeCar() {
       const el = carBodyRef.current;
       if (!el) return;
@@ -701,8 +510,6 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
       rafRef.current = null;
       curProgRef.current = 0;
       setCar(0);
-      setEngineBanner(null);
-      setEngineDist(null);
       setEnginePlaying(false);
       reset();
       svgRef.current?.querySelectorAll('.cp').forEach((el) => el.classList.remove('now', 'done'));
@@ -780,34 +587,23 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
       // Defense: hide cautionPop, mark blocked
       hideCaution();
       setMarkerState(markerId, 'blocked', mot.seq);
-      const content = makeBanner(mot);
-      bannerRef.current = content;
     } else {
       // Risk arrival: show + alert state, show cautionPop
       setMarkerState(markerId, 'alert', mot.seq);
       showCaution(mot.seq);
-      const content = makeBanner(mot);
-      bannerRef.current = content;
-      // Estimate dist from seq (each MOT is ~20% of journey)
-      distRef.current = Math.round((mot.seq / MOT_MARKER_IDS.length) * 100);
     }
   }
 
-  // Determine which marker is showing cautionPop
+  // Determine which marker is showing cautionPop.
+  // Apply MOT_Y_OFFSET so the "!" triangle stays anchored above the (now-lowered) marker.
   const cautionMarkerId =
     activeCautionSeq !== null ? seqToMarkerId(activeCautionSeq) : null;
   const cautionCoords = cautionMarkerId
-    ? MOT_MARKER_COORDS[cautionMarkerId]
+    ? { x: MOT_MARKER_COORDS[cautionMarkerId].x, y: MOT_MARKER_COORDS[cautionMarkerId].y + MOT_Y_OFFSET }
     : { x: 0, y: 0 };
 
-  // FRONTEND-012: churnRisk% drives bannerDist when available; mark rz zones active
-  // engineMode(setBanner)일 때는 엔진 dist가 우선.
-  const bannerDist = engineDist !== null ? engineDist : churnRisk !== null ? churnRisk : distRef.current;
   // A marker is "risk-active" if churnRisk >= 50 (high-risk zone emphasis per SSOT)
   const isHighRisk = churnRisk !== null && churnRisk >= 50;
-
-  // engineMode 배너가 있으면 그것을, 아니면 구독 배너(bannerRef).
-  const activeBanner = engineBanner ?? bannerRef.current;
 
   // SSOT: #svg.playing — 통화 시작(MOT 수신 또는 엔진 주행) 시 mapframe/carPos 표시
   const isPlaying = enginePlaying || mots.length > 0;
@@ -820,9 +616,6 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
       data-churn-risk={churnRisk !== null ? churnRisk : undefined}
       style={{ display: 'block' }}
     >
-      {/* NavBanner — absolutely positioned overlay on top of SVG */}
-      <NavBanner banner={activeBanner} dist={bannerDist} />
-
       <svg
         ref={svgRef}
         id="svg"
@@ -869,13 +662,14 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
           ))}
         </g>
 
-        {/* 체크포인트 노드 (능선) */}
+        {/* 체크포인트 노드 (능선) — 경로 위(전환가능 쪽)로 올려 차량 원과 겹치지 않게.
+            차량은 경로(y≈178–232)를 달리고, cp(core r=42)는 cpCy+42 ≤ 경로y−38 이 되도록 배치. */}
         <g fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}>
-          <CpNode id="cp-interest" x={70}   y={232} label="시작"/>
-          <CpNode id="cp-trust"    x={575}  y={205} label="신뢰확보"/>
-          <CpNode id="cp-cond"     x={800}  y={212} label="조건이해"/>
-          <CpNode id="cp-limit"    x={1095} y={214} label="한도조회"/>
-          <CpNode id="cp-review"   x={1410} y={178} label="신청검토"/>
+          <CpNode id="cp-interest" x={70}   y={150} label="시작"/>
+          <CpNode id="cp-trust"    x={575}  y={123} label="신뢰확보"/>
+          <CpNode id="cp-cond"     x={800}  y={131} label="조건이해"/>
+          <CpNode id="cp-limit"    x={1095} y={131} label="한도조회"/>
+          <CpNode id="cp-review"   x={1410} y={97}  label="신청검토"/>
         </g>
 
         {/* 목적지 */}

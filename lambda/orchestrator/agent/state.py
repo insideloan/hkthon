@@ -201,6 +201,7 @@ class CallState(TypedDict, total=False):
     # respond / compliance
     bot_draft: str
     bot_text: str
+    _blind_draft: Optional[str]   # speculative 모드: classify와 병렬 생성한 전략 미주입 draft
     compliance_log: list[ComplianceStep]
     audio_url: Optional[str]   # persist가 채움: 봇 발화 TTS mp3 presigned URL (라이브 모드)
 

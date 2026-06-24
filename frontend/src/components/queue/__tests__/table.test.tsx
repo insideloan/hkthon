@@ -167,6 +167,22 @@ describe('OutboundQueueTable', () => {
       expect(push).toHaveBeenCalledWith('/segment/cust-001');
     });
 
+    // 데모 쇼케이스 행은 callId 로 고정 라우팅 — 배포 백엔드의 stage 문자열이
+    // 시드 원본과 달라져도(예: '사전 고객분석') 세그먼트 화면을 거쳐야 한다.
+    it('routes the c-demo-01 showcase row to /segment even when stage has drifted', () => {
+      seed([
+        makeRow({
+          callId: 'c-demo-01',
+          customerName: '박서준',
+          state: 'DIALING',
+          stage: '사전 고객분석',
+        }),
+      ]);
+      render(<OutboundQueueTable disableLiveData />);
+      fireEvent.click(screen.getByTestId('queue-row-c-demo-01'));
+      expect(push).toHaveBeenCalledWith('/segment/cust-001');
+    });
+
     it('routes an ENDED row to its CRM summary', () => {
       seed([makeRow({ callId: 'c5', customerName: '한지민', state: 'ENDED', stage: '상담 완료' })]);
       render(<OutboundQueueTable disableLiveData />);

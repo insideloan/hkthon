@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
-import { startPcmCapture, type PcmCaptureHandle } from '@/lib/pcmCapture';
+import { startPcmCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/pcmCapture';
 import type { Turn } from '@/types/realtime';
 
 const IS_MOCK =
@@ -37,14 +37,24 @@ type LiveSessionProps = {
   callId: string;
 };
 
+// VAD 임계값 슬라이더 범위 — 낮을수록 작은 소리도 발화로 인식(민감).
+const VAD_MIN = 0.002;
+const VAD_MAX = 0.03;
+const VAD_DEFAULT = 0.006;
+
 export function LiveSession({ callId }: LiveSessionProps) {
   const router = useRouter();
   const [micState, setMicState] = useState<MicState>('idle');
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [ended, setEnded] = useState(false);
+  const [vadThreshold, setVadThreshold] = useState(VAD_DEFAULT);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  // 슬라이더 값을 ref에 미러 — startPcmCapture에 함수형 임계값으로 넘겨
+  // 캡처 재시작 없이 실시간 반영(매 프레임 ref.current를 읽음).
+  const vadThresholdRef = useRef(VAD_DEFAULT);
+  vadThresholdRef.current = vadThreshold;
 
   // seq로 멱등하게 말풍선 누적(re-emit 방지). 봇/고객 모두 표시(agent는 무시).
   const pushTurn = (turn: Pick<Turn, 'seq' | 'speaker' | 'text'>) => {
@@ -69,9 +79,41 @@ export function LiveSession({ callId }: LiveSessionProps) {
 
       // 라이브 세션 시작 + PCM 스트리밍. 실패는 통화 UI를 막지 않게 삼킨다.
       void startAudio(callId).catch(() => {});
-      captureRef.current = startPcmCapture(stream, (b64) => {
-        void audioChunk(callId, b64).catch(() => {});
-      });
+      // VAD 튜닝 모드(?vadDebug=1): 실마이크로 말해보며 콘솔에서 RMS·flush를 관찰해
+      // vadThreshold/silenceMs를 맞춘다. 플래그 없으면 onDebug 미전달(프로덕션 무영향).
+      const vadDebug =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('vadDebug') === '1';
+      let peakRms = 0; // 발화 구간 최대 RMS — 임계값 잡는 기준
+      captureRef.current = startPcmCapture(
+        stream,
+        (b64) => {
+          void audioChunk(callId, b64).catch(() => {});
+        },
+        {
+          // 함수형 임계값 — 슬라이더가 바꾼 ref를 매 프레임 읽어 재시작 없이 반영.
+          vadThreshold: () => vadThresholdRef.current,
+          ...(vadDebug
+            ? {
+                onDebug: (ev: PcmVadEvent) => {
+                  if (ev.type === 'frame') {
+                    if (ev.speaking) peakRms = Math.max(peakRms, ev.rms);
+                    return; // 프레임 로그는 과다 — 집계만, speech-start/flush에서 출력
+                  }
+                  if (ev.type === 'speech-start') {
+                    peakRms = 0;
+                    console.log('[vad] speech-start (임계값', vadThresholdRef.current, ')');
+                  } else if (ev.type === 'flush') {
+                    console.log(
+                      `[vad] flush reason=${ev.reason} dur=${Math.round(ev.durationMs)}ms ` +
+                        `peakRMS=${peakRms.toFixed(4)} samples=${ev.samples}`,
+                    );
+                  }
+                },
+              }
+            : {}),
+        },
+      );
     } catch (err) {
       const name = (err as { name?: string } | null)?.name;
       setMicState(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error');
@@ -136,7 +178,7 @@ export function LiveSession({ callId }: LiveSessionProps) {
     <section
       data-testid="live-session"
       data-mic-state={micState}
-      className="flex flex-1 flex-col min-h-0"
+      className="relative flex flex-1 flex-col min-h-0"
     >
       {/* 상태 배지 */}
       <div className="flex items-center justify-center px-4 pt-3">
@@ -260,6 +302,41 @@ export function LiveSession({ callId }: LiveSessionProps) {
         </div>
       ) : (
         <span className="px-4 pb-2 text-center font-mono text-[10.5px] text-ink-faint">call · {callId}</span>
+      )}
+
+      {/* VAD 민감도 조절 — 우하단. 음성 인식이 안 되면 임계값을 낮춰(왼쪽) 더 민감하게.
+          listening 중에만 노출(종료/대기 상태에선 숨김). 캡처 재시작 없이 실시간 반영. */}
+      {micState === 'listening' && !ended && (
+        <div
+          data-testid="vad-threshold-control"
+          className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-[10px] px-3 py-2"
+          style={{ background: 'var(--badge-bg)', border: '1px solid var(--card-bd)', backdropFilter: 'blur(4px)' }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="vad-threshold" className="font-disp text-[10.5px] font-bold text-ink-dim">
+              🎙 음성 감도
+            </label>
+            <span className="font-mono text-[10px] text-ink-faint" data-testid="vad-threshold-value">
+              {vadThreshold.toFixed(3)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-ink-faint">민감</span>
+            <input
+              id="vad-threshold"
+              data-testid="vad-threshold-slider"
+              type="range"
+              min={VAD_MIN}
+              max={VAD_MAX}
+              step={0.001}
+              value={vadThreshold}
+              onChange={(e) => setVadThreshold(Number(e.target.value))}
+              className="w-[120px] cursor-pointer accent-[var(--route)]"
+              aria-label="음성 인식 감도 (VAD 임계값)"
+            />
+            <span className="text-[9px] text-ink-faint">둔감</span>
+          </div>
+        </div>
       )}
     </section>
   );

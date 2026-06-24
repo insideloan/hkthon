@@ -20,36 +20,55 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# 뮤테이션별 (인자명 → GraphQL 타입) — schema.graphql의 _emit* 시그니처와 일치.
-# payload에서 이 키만 추려 variables로 보낸다 (tokens/turnSeq 등 부가 필드 제외).
+# 뮤테이션별 (인자명 → GraphQL 타입) — schema.graphql의 _emit* 시그니처와 정확히 일치.
+# payload에서 이 키만 추려 variables로 보낸다 (부가 필드 제외).
+# ⚠️ SSOT는 graphql/schema.graphql의 _emit* 시그니처다. 스키마가 바뀌면 여기도 갱신.
 _EMIT_ARGS: dict[str, dict[str, str]] = {
     "_emitTurn": {"callId": "ID!", "seq": "Int", "speaker": "String",
-                  "text": "String", "flag": "TurnFlag"},
+                  "text": "String", "flag": "TurnFlag", "audioUrl": "String",
+                  "tokens": "[TokenInput!]"},
     "_emitIndexUpdate": {"callId": "ID!", "churnRisk": "Int", "emotion": "String"},
-    "_emitSpeechAnalysis": {"callId": "ID!", "turnId": "ID", "polarity": "Polarity",
-                            "reason": "String", "turnFlag": "TurnFlag"},
-    "_emitStrategyUpdate": {"callId": "ID!", "strategyHeadline": "String!",
-                            "rationale": "String!"},
-    "_emitComplianceState": {"callId": "ID!", "state": "ComplianceStateEnum!",
-                             "draft": "String", "finalDiff": "String"},
+    "_emitSpeechAnalysis": {"callId": "ID!", "turnSeq": "Int", "tokens": "[TokenInput!]"},
+    "_emitStrategyUpdate": {"callId": "ID!", "turnSeq": "Int",
+                            "strategyHeadline": "String!", "rationale": "String!"},
+    "_emitComplianceState": {"callId": "ID!", "phase": "ComplianceStateEnum!",
+                             "draft": "String", "violations": "[String!]",
+                             "checks": "[ComplianceCheckInput!]",
+                             "violatedPolicies": "[String!]",
+                             "final": "[ComplianceFinalSegmentInput!]"},
     "_emitMot": {"callId": "ID!", "markerId": "MotMarkerId!", "state": "MotState!",
                  "stage": "MotStage!"},
     "_emitQueueUpdate": {"callId": "ID!", "state": "CallState"},
-    "_emitCallEnded": {"callId": "ID!"},
+    "_emitCallEnded": {"callId": "ID!", "resultType": "String", "endedAt": "String"},
 }
 
-# 각 뮤테이션 응답에서 돌려받을 필드(구독 selection set과 동일). callId만으로 충분.
-_RETURN_FIELDS = "callId"
+# 각 뮤테이션 응답 selection set — 구독 payload 타입의 전체 필드.
+# ⚠️ AppSync @aws_subscribe는 "트리거 뮤테이션의 selection set에 포함된 필드만"
+# 구독자에게 전달한다. 여기서 callId만 고르면 나머지 필드가 전부 null로 도착해
+# 프론트 스키마 검증(Zod)이 깨진다. 각 payload 타입의 모든 필드를 골라야 한다.
+_RETURN_FIELDS: dict[str, str] = {
+    "_emitTurn": "callId seq speaker text flag tokens { text polarity reason } audioUrl",
+    "_emitIndexUpdate": "callId churnRisk emotion",
+    "_emitSpeechAnalysis": "callId turnSeq tokens { text polarity reason }",
+    "_emitStrategyUpdate": "callId turnSeq strategyHeadline rationale",
+    "_emitComplianceState": ("callId phase draft violations "
+                             "checks { law desc flagged } violatedPolicies "
+                             "final { text del ins added }"),
+    "_emitMot": "callId markerId state stage",
+    "_emitQueueUpdate": "callId state",
+    "_emitCallEnded": "callId resultType endedAt",
+}
 
 
 def _build_query(mutation: str, arg_types: dict[str, str]) -> str:
-    """타입 지정 GraphQL 뮤테이션 문서 생성 ($var 선언 + 필드 전달)."""
+    """타입 지정 GraphQL 뮤테이션 문서 생성 ($var 선언 + 필드 전달 + payload selection)."""
+    fields = _RETURN_FIELDS.get(mutation, "callId")
     if arg_types:
         var_decl = ", ".join(f"${k}: {t}" for k, t in arg_types.items())
         field_args = ", ".join(f"{k}: ${k}" for k in arg_types)
         return (f"mutation Emit({var_decl}) {{ "
-                f"{mutation}({field_args}) {{ {_RETURN_FIELDS} }} }}")
-    return f"mutation Emit {{ {mutation} {{ {_RETURN_FIELDS} }} }}"
+                f"{mutation}({field_args}) {{ {fields} }} }}")
+    return f"mutation Emit {{ {mutation} {{ {fields} }} }}"
 
 
 def _filter_vars(mutation: str, payload: dict) -> dict:

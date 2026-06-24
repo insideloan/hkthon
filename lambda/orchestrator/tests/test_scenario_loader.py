@@ -43,12 +43,12 @@ def test_s1_file_exists():
     assert _S1_PATH.exists(), f"missing {_S1_PATH}"
 
 
-def test_s1_loads_19_turns(s1_raw):
-    # 아웃바운드 인사("여보세요?") greet 턴 추가로 19턴. expected_turns 선언으로
-    # 18턴 기본값을 오버라이드(S2의 15턴 방식과 동일).
+def test_s1_loads_10_turns(s1_raw):
+    # 아웃바운드 인사("여보세요?") greet 턴 포함 10턴. expected_turns 선언으로
+    # 18턴 기본값을 오버라이드(S2의 16턴 방식과 동일).
     data = sl.load_from_str(s1_raw)
-    assert data["expected_turns"] == 19
-    assert len(data["turns"]) == 19
+    assert data["expected_turns"] == 10
+    assert len(data["turns"]) == 10
 
 
 def test_s1_opens_with_customer_greet(s1_data):
@@ -67,10 +67,9 @@ def test_s1_passes_schema_validation(s1_data):
     assert sl.validate_scenario(s1_data) is s1_data
 
 
-def test_s1_has_five_mot_markers(s1_data):
+def test_s1_has_three_mot_markers(s1_data):
     markers = [t["mot"]["marker_id"] for t in s1_data["turns"] if "mot" in t]
-    assert set(markers) == {"rz-rate", "rz-compare", "rz-pay",
-                            "rz-security", "rz-avoid"}
+    assert set(markers) == {"rz-rate", "rz-compare", "rz-security"}
 
 
 def test_s1_flag_values_valid(s1_data):
@@ -114,7 +113,7 @@ def test_missing_required_field_detected(s1_data):
 def test_wrong_turn_count_detected(s1_data):
     bad = copy.deepcopy(s1_data)
     bad["turns"].pop()
-    with pytest.raises(sl.ScenarioValidationError, match="18"):
+    with pytest.raises(sl.ScenarioValidationError, match="got 9"):
         sl.validate_scenario(bad)
 
 
@@ -251,7 +250,7 @@ def test_load_from_s3_getobject(s1_raw):
     fake = _FakeS3(s1_raw)
     data = sl.load_from_s3("assets-bucket", "scenarios/scenario.json",
                            s3_client=fake)
-    assert len(data["turns"]) == 19
+    assert len(data["turns"]) == 10
     assert fake.calls == [("assets-bucket", "scenarios/scenario.json")]
 
 
@@ -272,7 +271,7 @@ def test_s3_key_for():
 
 def test_load_scenario_local_known_ids():
     # 번들된 로컬 파일에서 ID로 로드 (bucket 미지정).
-    for sid, turns in (("s1", 19), ("s2", 16)):
+    for sid, turns in (("s1", 10), ("s2", 16)):
         data = sl.load_scenario(sid)
         assert data["scenario_id"] == sid
         assert len(data["turns"]) == turns
@@ -328,3 +327,54 @@ def test_load_mock_scenario_rejects_non_whitelisted_before_load(s2_raw):
     with pytest.raises(sl.MockScenarioError):
         sl.load_mock_scenario("s2", bucket="b", s3_client=fake)
     assert fake.calls == []
+
+
+# -- 상담엔진 신호 4축 (감정/니즈/이용가능성/전략) -----------------------------
+
+def test_engine_signal_label_sets_match_signals_ssot():
+    # scenario_loader의 허용 라벨 집합이 AGENT signals 카탈로그와 정합(drift 방지).
+    from orchestrator.agent import signals as sg
+    assert sl._EMOTIONS == set(sg.labels(sg.Emotion))
+    assert sl._NEEDS == set(sg.labels(sg.Need))
+    assert sl._USABILITIES == set(sg.labels(sg.Usability))
+    assert sl._TACTICS == set(sg.labels(sg.Tactic))
+
+
+def test_s1_customer_turns_have_engine_signals(s1_data):
+    # 인사 제외 모든 고객 턴에 4축 신호가 부착되고 카탈로그 안 라벨이어야 함.
+    cust = [t for t in s1_data["turns"]
+            if t["speaker"] == "customer" and not t.get("greet")]
+    assert cust, "고객 턴이 있어야 함"
+    for t in cust:
+        assert t["emotion"] in sl._EMOTIONS
+        assert t["need"] in sl._NEEDS
+        assert t["usability"] in sl._USABILITIES
+        assert isinstance(t["strategy"], list) and t["strategy"]
+        assert all(s in sl._TACTICS for s in t["strategy"])
+
+
+def test_invalid_emotion_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "emotion" in t)["emotion"] = "행복"  # 카탈로그 밖
+    with pytest.raises(sl.ScenarioValidationError, match="invalid emotion"):
+        sl.validate_scenario(bad)
+
+
+def test_invalid_strategy_label_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "strategy" in t)["strategy"] = ["없는 전략"]
+    with pytest.raises(sl.ScenarioValidationError, match="invalid strategy"):
+        sl.validate_scenario(bad)
+
+
+def test_empty_strategy_list_detected(s1_data):
+    bad = copy.deepcopy(s1_data)
+    next(t for t in bad["turns"] if "strategy" in t)["strategy"] = []
+    with pytest.raises(sl.ScenarioValidationError, match="non-empty list"):
+        sl.validate_scenario(bad)
+
+
+def test_ai_intake_labels_accepted():
+    # 신규 추가한 'AI 접수 필요'/'AI 접수 전환 전략'이 카탈로그에 등록되어 통과.
+    assert "AI 접수 필요" in sl._USABILITIES
+    assert "AI 접수 전환 전략" in sl._TACTICS

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
@@ -33,11 +34,16 @@ def run_turn(call_id: str, customer_text: str) -> dict | None:
     from .graph import GRAPH
 
     initial = {"call_id": call_id, "customer_text": customer_text}
+    t0 = time.perf_counter()
     try:
         final = GRAPH.invoke(initial)
     except Exception:  # noqa: BLE001 — 데모 안정성: 그래프 장애가 통화를 끊지 않게
         logger.exception("run_turn graph invoke failed for call=%s", call_id)
         return None
+
+    # 턴 전체 소요(ms). 노드별 분해는 graph._timed의 node_timing 로그와 함께 본다.
+    total_ms = (time.perf_counter() - t0) * 1000.0
+    logger.info("turn_timing call=%s total_ms=%.1f", call_id, total_ms)
 
     return _bot_turn_out(final)
 

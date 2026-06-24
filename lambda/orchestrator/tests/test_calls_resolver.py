@@ -182,6 +182,42 @@ def test_dial_call_mirrors_customer_name():
     assert queue.resolve_queue({}, {})["rows"][0]["customerName"] == "박서준"
 
 
+def test_dial_call_derives_subtitle_from_customer():
+    """createCall이 Customer persona.age + credit_score로 subtitle("41세·KCB744") 파생."""
+    dynamo.put_item({"PK": dynamo.pk_cust("cust1"), "SK": "META",
+                     "customerId": "cust1", "name": "박서준",
+                     "credit_score": 744, "persona": {"age": 41}})
+    out = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    assert _queue_index_row(out["id"])["subtitle"] == "41세·KCB744"
+    assert queue.resolve_queue({}, {})["rows"][0]["subtitle"] == "41세·KCB744"
+
+
+def test_subtitle_preserved_across_state_change():
+    """상태변경(transfer/end)으로 큐 인덱스가 갱신돼도 subtitle이 보존된다(null로 안 날아감).
+
+    회귀 방지: _upsert_queue_index의 put_item 전체 덮어쓰기로 subtitle이 사라져
+    큐 부가정보가 null이 되던 버그.
+    """
+    dynamo.put_item({"PK": dynamo.pk_cust("cust1"), "SK": "META",
+                     "customerId": "cust1", "name": "박서준",
+                     "credit_score": 744, "persona": {"age": 41}})
+    cid = calls.resolve_dial_call({}, {"customerId": "cust1"})["id"]
+    assert _queue_index_row(cid)["subtitle"] == "41세·KCB744"
+    # 상태 변경 후에도 subtitle 유지
+    calls.resolve_transfer_to_agent({}, {"callId": cid})
+    assert _queue_index_row(cid)["subtitle"] == "41세·KCB744"
+    row = next(r for r in queue.resolve_queue({}, {})["rows"] if r["callId"] == cid)
+    assert row["subtitle"] == "41세·KCB744"
+
+
+def test_subtitle_partial_when_age_missing():
+    """age 없고 credit_score만 있으면 'KCB744'만 — 데이터 가능한 부분만 구성."""
+    dynamo.put_item({"PK": dynamo.pk_cust("cust1"), "SK": "META",
+                     "customerId": "cust1", "name": "박서준", "credit_score": 744})
+    out = calls.resolve_dial_call({}, {"customerId": "cust1"})
+    assert _queue_index_row(out["id"])["subtitle"] == "KCB744"
+
+
 def test_transfer_updates_queue_index_state():
     cid = _make_call()
     calls.resolve_transfer_to_agent({}, {"callId": cid})

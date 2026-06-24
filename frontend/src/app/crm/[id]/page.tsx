@@ -154,7 +154,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
         <h1 className="font-disp text-[22px] font-extrabold tracking-[-0.01em] m-0 text-[var(--ink)]">
           상담 CRM
         </h1>
-        <span className="font-mono text-[10px] font-bold text-[var(--go)] bg-[rgba(107,74,42,0.12)] border border-[rgba(107,74,42,0.3)] rounded-full px-2.5 py-[3px]">
+        <span className="font-mono text-[10px] font-bold text-[var(--go)] bg-[rgba(22,163,74,0.1)] border border-[rgba(22,163,74,0.25)] rounded-full px-2.5 py-[3px]">
           AI 상담 종료 · 상담사 연결 대기
         </span>
       </div>
@@ -209,9 +209,9 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
                   className={[
                     'text-xs font-bold rounded-full px-[11px] py-[4px]',
                     variant === 'warn'
-                      ? 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]'
+                      ? 'text-[var(--hazard-ink)] bg-[rgba(217,119,6,0.12)]'
                       : variant === 'ok'
-                        ? 'text-[var(--go)] bg-[rgba(107,74,42,0.12)]'
+                        ? 'text-[var(--go)] bg-[rgba(22,163,74,0.1)]'
                         : 'text-[var(--route)] bg-[var(--badge-bg)]',
                   ]
                     .filter(Boolean)
@@ -222,7 +222,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
               ))}
             </div>
             {/* .sum-next */}
-            <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(53,81,214,0.07)] border-l-[3px] border-[var(--route)] rounded-[0_8px_8px_0] px-[12px] py-[9px]">
+            <div className="mt-[11px] text-[12.5px] leading-[1.55] text-[var(--ink)] bg-[rgba(37,99,235,0.06)] border-l-[3px] border-[var(--route)] rounded-[0_8px_8px_0] px-[12px] py-[9px]">
               ▶ 권장:{' '}
               <b className="text-[var(--route)]">우대금리 0.3%p 적용 제안 → 금리 인하 요구권 안내</b>
             </div>
@@ -245,7 +245,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
                   {/* .av — circular gradient avatar */}
                   <span
                     className="flex-none flex items-center justify-center w-[40px] h-[40px] rounded-full text-white font-extrabold text-[15px]"
-                    style={{ background: 'linear-gradient(135deg,#5168DB,#5B78F0)' }}
+                    style={{ background: 'linear-gradient(135deg,#2563eb,#4d7cf0)' }}
                     aria-hidden
                   >
                     {agent.init}
@@ -258,8 +258,8 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
                         className={[
                           'font-mono text-[8.5px] font-bold rounded-full px-[7px] py-[1px]',
                           agent.statusOk
-                            ? 'text-[var(--go)] bg-[rgba(107,74,42,0.14)]'
-                            : 'text-[var(--hazard-ink)] bg-[rgba(207,138,60,0.14)]',
+                            ? 'text-[var(--go)] bg-[rgba(22,163,74,0.1)]'
+                            : 'text-[var(--hazard-ink)] bg-[rgba(217,119,6,0.12)]',
                         ].join(' ')}
                       >
                         {agent.status}
@@ -274,7 +274,7 @@ export default function CrmDetailPage({ params }: { params: Promise<{ id: string
                   {/* .pick button */}
                   <button
                     className="flex-none font-disp text-[11.5px] font-bold text-white rounded-[9px] px-[12px] py-[7px] disabled:cursor-default shadow-[0_4px_12px_-3px_rgba(44,91,214,0.5)]"
-                    style={agent.statusOk ? { background: 'var(--route)' } : { background: '#B9B0A0' }}
+                    style={agent.statusOk ? { background: 'var(--route)' } : { background: '#cbd0d8' }}
                     disabled={!agent.statusOk}
                     data-testid="agent-pick"
                   >

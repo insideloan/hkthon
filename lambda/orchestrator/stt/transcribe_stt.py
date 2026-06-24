@@ -92,12 +92,21 @@ class SttHandler:
 # ─── 고수준 API ───────────────────────────────────────────────────────────────
 
 
+# Transcribe 스트리밍은 오디오 "프레임" 하나가 너무 크면
+# BadRequestException("Your stream is too big. Reduce the frame size ...")로
+# 거부한다. AWS 권장은 한 프레임당 50ms~1s 분량. 16kHz·16bit·mono PCM은
+# 32,000 bytes/s 이므로 8,000 bytes(=250ms)를 기본 프레임 상한으로 둔다.
+# 프론트가 보내는 2–3초(64–96KB) 청크를 이 단위로 쪼개 전송한다.
+_DEFAULT_MAX_FRAME_BYTES = 8000
+
+
 async def stream_chunks(
     chunks: AsyncIterator[bytes],
     *,
     region: str = "ap-northeast-2",
     sample_rate_hz: int = 16000,
     media_encoding: str = "pcm",
+    max_frame_bytes: int = _DEFAULT_MAX_FRAME_BYTES,
     handler_factory: Optional[Callable[[object], SttHandler]] = None,
 ) -> List[SttResult]:
     """오디오 청크 스트림을 AWS Transcribe에 전송하고 STT 결과 목록을 반환.
@@ -107,6 +116,8 @@ async def stream_chunks(
         region:          AWS 리전 (기본 ap-northeast-2).
         sample_rate_hz:  샘플레이트 (기본 16000 Hz).
         media_encoding:  미디어 인코딩 (기본 pcm).
+        max_frame_bytes: Transcribe로 보내는 단일 오디오 프레임 최대 바이트.
+                         입력 청크가 크면 이 단위로 쪼개 전송한다(프레임 과대 거부 방지).
         handler_factory: 테스트 시 mock SttHandler 주입용 팩토리.
                          None이면 TranscribeStreamingClient 실호출.
 
@@ -137,7 +148,11 @@ async def stream_chunks(
 
     async def _send_audio() -> None:
         async for chunk in chunks:
-            await stream.input_stream.send_audio_event(audio_chunk=chunk)
+            # 큰 청크는 max_frame_bytes 단위로 쪼개 전송(프레임 과대 거부 방지).
+            for start in range(0, len(chunk), max_frame_bytes):
+                frame = chunk[start:start + max_frame_bytes]
+                if frame:
+                    await stream.input_stream.send_audio_event(audio_chunk=frame)
         await stream.input_stream.end_stream()
 
     handler = SttHandler(stream.output_stream)

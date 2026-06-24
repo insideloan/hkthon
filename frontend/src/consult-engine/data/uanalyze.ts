@@ -34,9 +34,9 @@ export const UANALYZE: UAnalyzeEntry[] = [
   },
   {
     // 4 담보 오해 (불안)
-    psy: { dim: '불안', frag: '차 못 쓰는 거 아니에요?' },
-    intent: { dim: '안전성확인', frag: '차 할부도 남았는데' },
-    obstacle: { dim: '설명추가필요', frag: '차 못 쓰는 거' },
+    psy: { dim: '불안', frag: '자동차 운행 못 하는거 아니에요?' },
+    intent: { dim: '안전성확인', frag: '담보요? 그런거 하다가' },
+    obstacle: { dim: '설명추가필요', frag: '운행 못 하는거' },
     strat: 1,
   },
   {
@@ -47,10 +47,10 @@ export const UANALYZE: UAnalyzeEntry[] = [
     strat: 7,
   },
   {
-    // 6 비교만 해보자 (수용)
-    psy: { dim: '수용', frag: '신청 말고', tone: 'easing' },
-    intent: { dim: '대환가능성', frag: '조건만 비교해볼' },
-    obstacle: { dim: '기존대출비교후판단', frag: '비교해볼 수', tone: 'easing' },
+    // 6 확인만 해보자 (수용, 서류 번거로움 우려)
+    psy: { dim: '수용', frag: '그럼 확인만 해볼게요', tone: 'easing' },
+    intent: { dim: '대환가능성', frag: '빠르게 해줄수 있는거죠?' },
+    obstacle: { dim: '절차간소화필요', frag: '서류내고 귀찮은건 싫은데' },
     strat: 6,
   },
   {

@@ -23,8 +23,10 @@ from orchestrator.agent.signals import (
 def test_catalog_sizes_match_xlsx():
     assert len(Emotion) == 15
     assert len(Need) == 15
-    assert len(Usability) == 20
-    assert len(Tactic) == 20
+    # xlsx 20종 + AI 접수 필요(s1 무서류 접수 전환 시나리오용 보강).
+    assert len(Usability) == 21
+    # xlsx 20종 + AI 접수 전환 전략(s1 무서류 접수 전환 시나리오용 보강).
+    assert len(Tactic) == 21
 
 
 def test_every_member_has_catalog_meta():
