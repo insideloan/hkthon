@@ -10,7 +10,7 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
-import { createCall, fetchCustomer } from '@/lib/appsync';
+import { createCall, fetchCustomer, subscribeQueueUpdates } from '@/lib/appsync';
 import { CallButton } from '@/components/consult/CallButton';
 import { DialOverlay } from '@/components/consult/DialOverlay';
 import type { Customer } from '@/lib/appsync';
@@ -37,6 +37,9 @@ export default function SegmentPage({ params }: SegmentPageProps) {
   const [phase, setPhase] = useState<AnalysisPhase>('loading');
   // 발신 성공 후 통화 연결 오버레이에 표시할 발신 콜 id. null 이면 오버레이 미표시.
   const [dialingCallId, setDialingCallId] = useState<string | null>(null);
+  // 발신한 콜이 실제로 수신됐는지(=큐에서 해당 콜 state가 IN_CALL). true 가 되면
+  // 오버레이가 고정 타임라인을 단축해 즉시 상담 화면으로 전환한다.
+  const [answered, setAnswered] = useState(false);
   // analysisComplete 만 React 상태 — 전략 카드/발신 버튼 mount 토글용. SVG 진입
   // 연출은 React 재렌더 없이 ref+classList+rAF 로 직접 구동한다 (SSOT 방식). 12회
   // setState 로 거대한 SVG 를 재렌더하면 CSS transition 이 끊겨 애니메이션이 튐.
@@ -155,6 +158,25 @@ export default function SegmentPage({ params }: SegmentPageProps) {
       cancelAnimationFrame(anim.raf);
     };
   }, [phase, runAnimation]);
+
+  // 3) 발신 오버레이가 떠 있는 동안 큐를 구독해 "고객 수신"(state=IN_CALL)을 감지.
+  // 수신이 확인되면 answered=true → 오버레이가 즉시 상담 화면으로 전환한다. 실제
+  // 수신 신호가 없는 mock·데모에서는 이 구독이 트리거되지 않고 오버레이 내부의 고정
+  // 타임라인(폴백)이 전환을 담당한다.
+  useEffect(() => {
+    if (!dialingCallId || answered) return;
+    const unsubscribe = subscribeQueueUpdates(
+      (result) => {
+        const row = result.rows.find((r) => r.callId === dialingCallId);
+        // DIALING 이후의 상태(IN_CALL/이후 단계)면 고객이 수신한 것으로 본다.
+        if (row && row.state && row.state !== 'CREATED' && row.state !== 'DIALING') {
+          setAnswered(true);
+        }
+      },
+      (err) => console.error('발신 콜 수신 구독 오류', err),
+    );
+    return unsubscribe;
+  }, [dialingCallId, answered]);
 
   const initials = customer?.name ? customer.name[0] : '?';
 
@@ -524,6 +546,7 @@ export default function SegmentPage({ params }: SegmentPageProps) {
       {dialingCallId && (
         <DialOverlay
           customerName={customer?.name ? `${customer.name} 고객` : '고객'}
+          answered={answered}
           onConnected={() => router.push(`/calls/${dialingCallId}`)}
         />
       )}
