@@ -14,6 +14,12 @@ type CallButtonProps = {
   customerId: string;
   /** 분석 완료 여부. false 이면 버튼이 disabled 상태로 렌더된다. */
   analysisComplete?: boolean;
+  /**
+   * 발신 성공 시 통화 연결 오버레이를 띄울 콜백. 제공되면 즉시 라우팅하지 않고
+   * 이 콜백에 발신된 callId 를 넘긴다(연결 연출 후 호출자가 라우팅).
+   * 미제공이면 기존 동작대로 곧장 /calls/[id] 로 이동한다.
+   */
+  onConnecting?: (callId: string) => void;
 };
 
 type ButtonState = 'idle' | 'dialing' | 'error';
@@ -39,7 +45,7 @@ function existingCallIdFromError(err: unknown): string | null {
   return null;
 }
 
-export function CallButton({ customerId, analysisComplete = true }: CallButtonProps) {
+export function CallButton({ customerId, analysisComplete = true, onConnecting }: CallButtonProps) {
   const router = useRouter();
   const [btnState, setBtnState] = useState<ButtonState>('idle');
 
@@ -49,6 +55,12 @@ export function CallButton({ customerId, analysisComplete = true }: CallButtonPr
     try {
       const result = await dialCall(customerId);
       if (result.state === 'DIALING' || result.callId) {
+        // 연결 오버레이 핸들러가 있으면 라우팅을 위임(연결 연출 후 이동),
+        // 없으면 기존처럼 곧장 상담 화면으로 이동한다.
+        if (onConnecting) {
+          onConnecting(result.callId);
+          return;
+        }
         router.push(`/calls/${result.callId}`);
       }
     } catch (err) {

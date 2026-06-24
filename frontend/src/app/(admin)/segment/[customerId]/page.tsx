@@ -8,9 +8,11 @@
 'use client';
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { createCall, fetchCustomer } from '@/lib/appsync';
 import { CallButton } from '@/components/consult/CallButton';
+import { DialOverlay } from '@/components/consult/DialOverlay';
 import type { Customer } from '@/lib/appsync';
 
 type AnalysisPhase = 'loading' | 'analysing' | 'complete' | 'error';
@@ -28,10 +30,13 @@ function formatCombo(n: number): string {
 
 export default function SegmentPage({ params }: SegmentPageProps) {
   const { customerId } = use(params);
+  const router = useRouter();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [callId, setCallId] = useState<string | null>(null);
   const [phase, setPhase] = useState<AnalysisPhase>('loading');
+  // 발신 성공 후 통화 연결 오버레이에 표시할 발신 콜 id. null 이면 오버레이 미표시.
+  const [dialingCallId, setDialingCallId] = useState<string | null>(null);
   // analysisComplete 만 React 상태 — 전략 카드/발신 버튼 mount 토글용. SVG 진입
   // 연출은 React 재렌더 없이 ref+classList+rAF 로 직접 구동한다 (SSOT 방식). 12회
   // setState 로 거대한 SVG 를 재렌더하면 CSS transition 이 끊겨 애니메이션이 튐.
@@ -497,7 +502,11 @@ export default function SegmentPage({ params }: SegmentPageProps) {
                 다시 재생
               </button>
               {callId && (
-                <CallButton customerId={customerId} analysisComplete={analysisComplete} />
+                <CallButton
+                  customerId={customerId}
+                  analysisComplete={analysisComplete}
+                  onConnecting={(dialedId) => setDialingCallId(dialedId)}
+                />
               )}
             </div>
           </>
@@ -510,6 +519,14 @@ export default function SegmentPage({ params }: SegmentPageProps) {
           </div>
         )}
       </div>
+
+      {/* 발신하기 → 통화 연결 오버레이 → 연결되면 AI 상담 화면으로 전환. */}
+      {dialingCallId && (
+        <DialOverlay
+          customerName={customer?.name ? `${customer.name} 고객` : '고객'}
+          onConnected={() => router.push(`/calls/${dialingCallId}`)}
+        />
+      )}
     </section>
   );
 }
