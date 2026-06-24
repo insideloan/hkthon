@@ -164,8 +164,16 @@ function mockQueue(): QueueResult {
       assignee: 'AI Agent5', channel: '인바운드', highlight: null, elapsedSec: 68, churnRisk: 34 },
     { callId: 'c-demo-04', customerName: '정민서', state: 'TRANSFER_PENDING', stage: '연결 대기',
       assignee: null, channel: '인바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 55 },
+    { callId: 'c-demo-05', customerName: '한지우', state: 'TRANSFER_PENDING', stage: '연결 대기',
+      assignee: null, channel: '아웃바운드', highlight: 'needs_agent', elapsedSec: 0, churnRisk: 40 },
     { callId: 'c-demo-06', customerName: '오세훈', state: 'ENDED', stage: '문자 URL발송',
       assignee: 'AI Agent3', channel: '인바운드', highlight: null, elapsedSec: 475, churnRisk: 18 },
+    { callId: 'c-demo-07', customerName: '배수지', state: 'ENDED', stage: 'AI 대출접수',
+      assignee: 'AI Agent4', channel: '아웃바운드', highlight: null, elapsedSec: 330, churnRisk: 12 },
+    { callId: 'c-demo-08', customerName: '윤재호', state: 'ENDED', stage: '담보거부 이탈',
+      assignee: 'AI Agent6', channel: '아웃바운드', highlight: null, elapsedSec: 134, churnRisk: 88 },
+    { callId: 'c-demo-09', customerName: '강예린', state: 'ENDED', stage: 'TM거부 이탈',
+      assignee: 'AI Agent7', channel: '인바운드', highlight: null, elapsedSec: 46, churnRisk: 94 },
   ];
   const summary: QueueSummary = {
     total: rows.length,
