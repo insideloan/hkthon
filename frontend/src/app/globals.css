@@ -477,11 +477,13 @@
 #card-emo .stratg { padding: 0; }
 
 /* ── 카드② DB 분석 (SSOT 769–838) ── */
-.usebox { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
-.usecard { display: inline-flex; align-items: center; gap: 6px; border: 1.4px solid #C9D3E8; border-radius: 999px; background: rgba(255,255,255,.72); padding: 4px 10px; width: auto; max-width: 100%; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s, background .3s; }
+.usebox { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+/* 가용 폭을 균등 분할해 채운다(flex:1) — 박스가 너무 작아 보이지 않도록.
+   1개면 한 줄 전체, 2개면 절반씩. 넓어진 만큼 알약→둥근사각, 폰트·패딩 확대. */
+.usecard { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1.4px solid #C9D3E8; border-radius: 11px; background: rgba(255,255,255,.72); padding: 9px 12px; max-width: 100%; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .3s, box-shadow .3s, background .3s; }
 .usecard.on { opacity: 1; transform: none; }
-.usecard .di { width: 14px; height: 14px; flex: none; color: var(--route); }
-.usecard b { font-family: var(--disp); font-size: 10px; font-weight: 800; color: var(--title); letter-spacing: -.01em; line-height: 1.2; word-break: keep-all; }
+.usecard .di { width: 16px; height: 16px; flex: none; color: var(--route); }
+.usecard b { font-family: var(--disp); font-size: 12.5px; font-weight: 800; color: var(--title); letter-spacing: -.01em; line-height: 1.25; word-break: keep-all; text-align: center; }
 .usecard.flash { border-color: var(--route); background: #EAF0FF; box-shadow: 0 0 0 3px rgba(53,81,214,.16); }
 .usedivider { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-3px); transition: opacity .3s, transform .3s; }
 .usedivider.on { opacity: 1; transform: none; }
