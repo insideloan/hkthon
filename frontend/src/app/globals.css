@@ -142,8 +142,9 @@
   background: linear-gradient(to right, #FFFFFF, #FAF9F6);
 }
 
-/* 카드 타이틀(.card__h) — 얇은 회색 단일 색상 테두리.
-   배경색 없음(투명), 그라데이션·chevron·그림자 제거. */
+/* 카드 타이틀(.card__h) — PPT 레이아웃처럼 화살표 모양 테두리.
+   얇은 회색 단색 외곽선(fill=none SVG stroke)을 배경에 깔고 텍스트는 그 위에.
+   카드②③ = chevron(양쪽 화살표), 카드① = homePlate(왼쪽 평평·오른쪽 뾰족). */
 .cc__cards .card__h {
   position: relative;
   /* 카드 폭 전체에 맞춰 타이틀 테두리 확장 */
@@ -151,8 +152,22 @@
   width: 100%;
   padding: 6px 28px 6px 26px;
   background: transparent;
-  border: 1px solid #E5E7EB;
-  border-radius: 6px;
+}
+/* 기본(카드②③) — 양쪽 chevron 외곽선. preserveAspectRatio=none 으로 폭에 맞춰 늘림. */
+.cc__cards .card__h::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H180 L196 20 L180 38 H2 L16 20 Z' fill='none' stroke='%23C9CDD6' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+/* 카드① — homePlate(왼쪽 평평, 오른쪽만 뾰족). 왼쪽 꼬리가 없으므로 왼쪽 패딩 축소. */
+#card-emo .card__h { padding-left: 14px; }
+#card-emo .card__h::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H180 L196 20 L180 38 H2 Z' fill='none' stroke='%23C9CDD6' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 /* .card .card-scroll — SSOT line 670–671: flex 레이아웃 + 네거티브 마진으로 스크롤바 트랙 가장자리 정렬 */
 .card .card-scroll {
