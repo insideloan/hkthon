@@ -160,7 +160,7 @@ def classify_system(stage: Stage, customer: CustomerCtx | None = None) -> str:
                 "- churn_adjust: 사전 점수 대비 의미 기반 보정 제안 (-10~+10)\n"
                 "- strategy: {tactic, headline} — tactic은 전략 카탈로그 라벨, headline은 카드 제목(.stx) 한 줄"
                 " (카드 부연 lead(.slead)는 tactic으로부터 자동 매핑되므로 생성 불필요)\n"
-                "- rationale: 판단 근거 한국어 1~2문장"
+                "- rationale: 판단 근거 한국어 한 문장(간결히, 40자 이내) — 라이브 레이턴시상 짧게"
             ),
         ]
     ).strip()
@@ -198,6 +198,15 @@ def respond_system(
             STAGE_GUIDE.get(stage, ""),
             _strategy_block(tactic, emotion),
             _customer_block(customer),
+            # 금지표현 사전주입(예방) — 컴플라이언스 룰 검수(_POLICY_PATTERNS)에 자주 걸리는
+            # 표현을 draft 단계에서 미리 차단해 redraft LLM 호출(턴당 ~2-5s)을 줄인다.
+            (
+                "[금지 표현 — 절대 출력 금지]\n"
+                "- 단정/약속: 무조건 / 반드시 됩니다 / 제가 해드릴게요 / 확정입니다 / 보장합니다·보장됩니다(약속 의미)\n"
+                "- 리스크 무마: 불이익 없 / 그럴 일 없 / 문제 전혀 없 / 걱정 안 하셔도 됩니다\n"
+                "- 금리 불변 단정: 금리는 안 오릅니다 / 절대 오르지 않습니다\n"
+                "- 수치(금리·한도·절감액·월 납입 등)는 단정 금지 — 반드시 '(예시)' 또는 '심사 결과에 따라 달라집니다'를 함께."
+            ),
             (
                 "[작업]\n"
                 "위 지침을 지켜 고객에게 들려줄 다음 한 마디를 한국어 존댓말로 생성하세요. "

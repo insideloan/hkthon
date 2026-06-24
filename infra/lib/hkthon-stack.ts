@@ -81,8 +81,9 @@ export class HkthonStack extends cdk.Stack {
     // langchain/langgraph/langchain-aws/pydantic/httpx for the real orchestrator.
     // Built out-of-band into infra/layers/orchestrator-deps/ (gitignored — 110MB)
     // by scripts/build-layer.sh, using x86_64-manylinux wheels to match the
-    // x86_64 Lambda. boto3/botocore omitted (in the runtime); amazon-transcribe
-    // omitted until the STT bridge (AGENT-008) lands. Synth fails if the dir is
+    // x86_64 Lambda. boto3/botocore omitted (in the runtime). amazon-transcribe
+    // (+awscrt) is included — the live STT bridge (transcribe_stt.py) imports it.
+    // Synth fails if the dir is
     // missing → run scripts/build-layer.sh first.
     const depsLayer = new lambda.LayerVersion(this, 'OrchestratorDeps', {
       code: lambda.Code.fromAsset(path.join(__dirname, '..', 'layers', 'orchestrator-deps')),
@@ -112,7 +113,10 @@ export class HkthonStack extends cdk.Stack {
       // ~20s) + TTS(Typecast, best-effort) 직렬 실행이라 30s는 빠듯하다.
       // 90s로 늘려 한 턴이 잘리지 않게 한다(TTS 자체는 코드에서 12s로 짧게 끊음).
       timeout: cdk.Duration.seconds(90),
-      memorySize: 256,
+      // 256MB는 ~0.15 vCPU라 LangGraph 노드 디스패치·Pydantic 직렬화·문자열 처리 등
+      // 파이썬 CPU 작업이 로컬 대비 4-7배 느리다(라이브 한 턴이 10개 노드 직렬이라 누적).
+      // 1024MB(~0.6 vCPU)로 올려 LLM 외 오버헤드를 줄인다(데모 규모 비용 영향 미미).
+      memorySize: 1024,
       environment: {
         TABLE_NAME: table.tableName,
         ASSETS_BUCKET: bucket.bucketName,

@@ -12,10 +12,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"          # infra/
 DEST="$ROOT/layers/orchestrator-deps/python"
-REQ_RUNTIME=(pydantic langchain langgraph langchain-aws httpx)
+REQ_RUNTIME=(pydantic langchain langgraph langchain-aws httpx amazon-transcribe)
 # boto3/botocore: provided by the Lambda runtime — do NOT bundle.
-# amazon-transcribe: pulls numpy/awscrt (~107MB), STT bridge (AGENT-008) not yet
-#   wired — add here when that lands.
+# amazon-transcribe: STT bridge (AGENT-008) is now wired (live mode). It only
+#   pulls awscrt (~26MB total, no numpy) → layer ~110MB→136MB, well under the
+#   250MB unzipped limit. Required at runtime by stt/transcribe_stt.py.
 
 echo "[build-layer] target: $DEST"
 rm -rf "$ROOT/layers/orchestrator-deps"

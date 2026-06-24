@@ -144,8 +144,12 @@ def _bedrock_guardrails(text: str) -> dict | None:
         logger.exception("apply_guardrail failed; falling back to rule guardrails")
         return None
 
-    blocked = resp.get("action") == "GUARDRAIL_INTERVENED"
+    # Guardrail이 개입(INTERVENED)했어도 그 사유가 전부 면제 PII(이름)뿐이면 실제 차단이
+    # 아니다 — _extract_violated가 면제분을 걸러낸 뒤 남은 위반이 있을 때만 blocked로 본다.
+    # (그렇지 않으면 이름 호명만으로 redraft 루프가 돌아 fallback까지 가는 버그가 재발한다.)
+    intervened = resp.get("action") == "GUARDRAIL_INTERVENED"
     violated = _extract_violated(resp.get("assessments", []))
+    blocked = intervened and bool(violated)
     return {
         "blocked": blocked,
         "violated": violated,
@@ -153,12 +157,21 @@ def _bedrock_guardrails(text: str) -> dict | None:
     }
 
 
+# Bedrock Guardrail PII 중 위반으로 보지 "않을" 엔티티.
+# 아웃바운드 상담봇은 고객 본인의 이름을 정당하게 부르고(인사·본인확인) 회사명을 말한다.
+# Guardrail의 PII NAME 필터는 봇 OUTPUT의 이런 이름까지 ANONYMIZED/BLOCKED로 잡아,
+# 인사/본인확인 멘트가 매 턴 redraft를 소진하고 결국 "정확한 내용은 상담원이…" fallback으로
+# 빠지게 만들었다(실측: live 통화 seq2). 이름 호명은 금소법 위반이 아니므로 위반에서 제외한다.
+# 단 전화번호·주민번호·이메일·주소·계좌 등 진짜 민감정보 PII는 그대로 위반 유지(차단).
+_PII_ALLOWED = frozenset({"NAME"})
+
+
 def _extract_violated(assessments: list) -> list[str]:
     """ApplyGuardrail assessments → 위반 정책명 목록.
 
     Bedrock 응답의 각 policy 유형(topic/content/word/sensitiveInformation)에서
     차단(action=BLOCKED/ANONYMIZED)된 항목의 식별자만 모은다. 응답 형태가 달라도
-    방어적으로 파싱(키 누락 시 건너뜀)한다.
+    방어적으로 파싱(키 누락 시 건너뜀)한다. PII 중 _PII_ALLOWED(이름)는 제외한다.
     """
     violated: list[str] = []
     for a in assessments:
@@ -173,13 +186,28 @@ def _extract_violated(assessments: list) -> list[str]:
                 violated.append(word.get("match", "WORD"))
         si = a.get("sensitiveInformationPolicy", {})
         for pii in si.get("piiEntities", []):
-            if pii.get("action") in ("BLOCKED", "ANONYMIZED"):
-                violated.append(pii.get("type", "PII"))
+            pii_type = pii.get("type", "PII")
+            if pii.get("action") in ("BLOCKED", "ANONYMIZED") and pii_type not in _PII_ALLOWED:
+                violated.append(pii_type)
     return violated
 
 
+# 수치 단정에 덧붙이는 예시/심사 고지 — _FIGURE_SAFE 키워드를 포함하므로 재검수 통과.
+_FIGURE_DISCLAIMER = " (안내드린 수치는 예시이며 실제 금리·한도는 심사 결과에 따라 달라질 수 있습니다.)"
+
+
 def _redraft(state: CallState, blocked_text: str, verdict: dict) -> str:
-    """위반 지적을 반영해 회피 지시와 함께 재생성."""
+    """위반 지적을 반영해 회피 지시와 함께 재생성.
+
+    최적화: 위반이 FIXED_FIGURE(수치 단정) 하나뿐이면, 예시/심사 고지 한 문장을 덧붙여
+    결정적으로 교정한다 — 재검수가 통과하면 LLM redraft 호출(~2-5s)을 생략한다.
+    (수치 자체는 보존하고 면제 단서만 추가하므로 의미 왜곡 없음. 통과 못 하면 LLM 폴백.)
+    """
+    if verdict.get("violated") == ["FIXED_FIGURE"]:
+        patched = blocked_text.rstrip() + _FIGURE_DISCLAIMER
+        if not _apply_guardrails(patched).get("blocked"):
+            return patched
+
     system = prompts.redraft_system(verdict.get("violated", []))
     stage_guide = prompts.STAGE_GUIDE.get(state.get("stage", Stage.IDENTIFY), "")
     user = f"{stage_guide}\n\n[직전(차단된) 응답]\n{blocked_text}\n\n위 응답을 정책에 맞게 다시 작성하세요."
