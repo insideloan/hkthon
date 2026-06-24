@@ -214,7 +214,7 @@ function EmoBins({ emotion }: { emotion: string | null }) {
         <div
           key={key}
           className={clsx(
-            'flex flex-col gap-1 rounded-xl border border-[var(--hair)] bg-[var(--card)] p-2',
+            'flex flex-col gap-1 rounded-xl border-[1.4px] border-solid border-[#2563EB] bg-[var(--card)] p-2',
             `bin bin--${key}`,
           )}
           data-cat={key}
@@ -247,7 +247,7 @@ function EmoBins({ emotion }: { emotion: string | null }) {
   );
 }
 
-// ── engineMode: SSOT 충실 카드① (bins + solveArrow + stratg) ──────────────────
+// ── engineMode: SSOT 충실 카드① (bins + stratg) ──────────────────
 // 시나리오 엔진(useConsultEngine)이 card1Store에 단계적으로 기록 → SSOT 마크업 그대로.
 const ENGINE_CATS = [
   { key: 'psy', ...CATS.psy },
@@ -319,52 +319,57 @@ function EngineCard1() {
 
   return (
     // SSOT docs/consult_redesigned-3.html #card-emo .card-scroll (lines 1080–1086):
-    // 발화분류 → bins → solvearrow(▼) → 대표 전략 20 → stratg.
+    // 발화분류 → bins → 대표 전략 20 → stratg.
     <div className="card-scroll" role="region" aria-label="고객발화분석" data-testid="speech-analysis">
-      {/* 첫 섹션 라벨 제거됨 */}
-
-      {/* orb bins — 감정/니즈/이용가능성 */}
-      <div className="bins" id="emoBins">
-        {ENGINE_CATS.map(({ key, label }) => {
-          const orb = orbByKey[key as 'psy' | 'intent' | 'obstacle'];
-          return (
-            <div className={clsx('bin', key)} key={key} data-cat={key}>
-              <div className="bin__h"><b>{label}</b></div>
-              <div className="bin__slot" id={`slot-${key}`}>
-                {orb && (
-                  <div className={clsx('orb', key, 'drop', orb.tone && 'eased')} data-testid={`orb-${key}`}>
-                    <span className="otag"><OtagText text={orb.dim} /></span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 발화분류 → 대표 전략 전이 화살표(▼) — PPTX 레이아웃 7번 */}
-      <div className="solvearrow on" id="solveArrow" aria-hidden="true"><span className="dn">▼</span></div>
-
-      <div className="cseclbl cseclbl--sec"><span>전략 선택 (20종)</span><span className="ln" /></div>
-
-      {/* 전략 그리드 20장 → swiping → resolved */}
-      <div
-        className={clsx('stratg', stratPhase === 'swiping' && 'swiping', resolved && 'resolved', resolved && picked.length === 1 && 'one')}
-        id="stratGrid"
-        data-testid="strat-grid"
-        data-phase={stratPhase}
-      >
-        <div className="strat-track">
-          {STRAT20.map((s, idx) => {
-            const isSel = resolved && picked.includes(idx);
+      {/* 카드 상단 영역(라벨 "전략 선택 (20종)" 위) — 세 카드 동일 고정 높이 */}
+      <div className="card-top">
+        {/* orb bins — 감정/니즈/이용가능성 */}
+        <div className="bins" id="emoBins">
+          {ENGINE_CATS.map(({ key, label }) => {
+            const orb = orbByKey[key as 'psy' | 'intent' | 'obstacle'];
             return (
-              <div className={clsx('scard', isSel && 'sel')} key={idx} data-i={idx} data-testid={isSel ? 'strat-sel' : undefined}>
-                <span className="sno">{String(idx + 1).padStart(2, '0')}</span>
-                <span className="stx">{s.name}</span>
-                <span className="slead">{s.lead}</span>
+              <div className={clsx('bin', key)} key={key} data-cat={key}>
+                <div className="bin__h"><b>{label}</b></div>
+                <div className="bin__slot" id={`slot-${key}`}>
+                  {orb && (
+                    <div className={clsx('orb', key, 'drop', orb.tone && 'eased')} data-testid={`orb-${key}`}>
+                      <span className="otag"><OtagText text={orb.dim} /></span>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* 카드 하단 영역(라벨 + 이하) */}
+      <div className="card-bottom">
+        <div className="cseclbl cseclbl--sec"><span>전략 선택 (20종)</span><span className="ln" /></div>
+
+        {/* 전략 그리드 20장 → swiping → resolved */}
+        <div
+          className={clsx('stratg', stratPhase === 'swiping' && 'swiping', resolved && 'resolved', resolved && picked.length === 1 && 'one')}
+          id="stratGrid"
+          data-testid="strat-grid"
+          data-phase={stratPhase}
+        >
+          <div className="strat-track">
+            {STRAT20.map((s, idx) => {
+              const isSel = resolved && picked.includes(idx);
+              return (
+                <div className={clsx('scard', isSel && 'sel')} key={idx} data-i={idx} data-testid={isSel ? 'strat-sel' : undefined}>
+                  <span className="sno">
+                    {/* 선택 전략 번호 왼쪽에 초록 V 박스(DB ok 배너 .dbic와 동일 모양) */}
+                    {isSel && <span className="check-badge" aria-hidden>✓</span>}
+                    {String(idx + 1).padStart(2, '0')}
+                  </span>
+                  <span className="stx">{s.name}</span>
+                  <span className="slead">{s.lead}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

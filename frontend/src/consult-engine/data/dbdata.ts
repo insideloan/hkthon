@@ -10,7 +10,7 @@ export const DBDATA: DbDataEntry[] = [
   {
     // custSeq 0 — 타사 금리 비교 (금리 부담 위험 방어)
     use: ['금융사명 · 일자 · 잔액', '신용등급별 공시금리'],
-    res: ['타사 13% · 납부이자 143만 → 자담 10% 전환 시 연 34만원 절감'],
+    res: ['타사 16% · 납부이자 400만 → 자담 10% 전환 시 연 150만원 절감'],
   },
   {
     // custSeq 1 — 우량 고객 ML 금리 최적화 (조건 의심 위험 방어)
@@ -31,13 +31,13 @@ export const DBDATA: DbDataEntry[] = [
 
 export const DIAG: DiagEntry[] = [
   {
-    // custSeq 0 — 타사 13% · 납부이자 143만 → 자담 10% 전환 시 연 34만원 절감
+    // custSeq 0 — 타사 16% · 납부이자 400만 → 자담 10% 전환 시 연 150만원 절감
     nodes: [
-      { val: '13%', label: '타사 금리', ic: '🔥', tone: 'hot' },
-      { val: '143만', label: '납부 이자', ic: '🧾', tone: 'warn' },
-      { val: '34만↓', label: '연 절감', ic: '💰', tone: 'go' },
+      { val: '16%', label: '타사 금리', ic: '🔥', tone: 'hot' },
+      { val: '400만', label: '납부 이자', ic: '🧾', tone: 'warn' },
+      { val: '150만↓', label: '연 절감', ic: '💰', tone: 'go' },
     ],
-    banner: { text: '타사 13% 확인 — 자담 10% 전환 시 연 34만원 절감', tone: 'ok' },
+    banner: { text: '타사 16% 확인 — 자담 10% 전환 시 연 150만원 절감', tone: 'ok' },
   },
   {
     // custSeq 1 — 고소득 · 자가 / 금리민감 HIGH · 연체 LOW → 추가할인 100bp 여력

@@ -92,6 +92,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [ended, setEnded] = useState(false);
   const [vadThreshold, setVadThreshold] = useState(initialVad);
+  // 고객이 말하는 중(VAD speech-start ~ 발화 종료) — "음성 인식 중" 말풍선 노출 신호.
+  const [userSpeaking, setUserSpeaking] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -129,6 +131,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   // audioUrl 비의존 단일 규칙 — 라이브/mock(audioUrl:null 단발) 모두 동일 동작.
   const handleTurn = (turn: Pick<Turn, 'seq' | 'speaker' | 'text'>) => {
     if (turn.speaker === 'customer') {
+      // 발화가 텍스트로 확정됨 → "음성 인식 중" 내리고 실제 고객 말풍선 + "발화 준비 중"으로 전환.
+      setUserSpeaking(false);
       pushTurn(turn);
       setTypingIndicatorActive(true);
       return;
@@ -201,7 +205,14 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
           // 발화 종료 침묵 대기 — 기본 1200ms는 종료 인식이 느려 700ms로 단축.
           silenceMs: SILENCE_MS,
           // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
-          onSpeechStart: () => stopBotAudio(),
+          // + "음성 인식 중" 말풍선 노출(발화 시작).
+          onSpeechStart: () => {
+            stopBotAudio();
+            setUserSpeaking(true);
+          },
+          // 발화 종료(침묵 flush/max-utterance) → "음성 인식 중" 말풍선 내림.
+          // 곧이어 onTurn(customer)이 도착해 실제 고객 말풍선 + "발화 준비 중"으로 이어진다.
+          onSpeechEnd: () => setUserSpeaking(false),
           // 에코 게이팅: 봇 음성이 스피커로 나가는 중(+꼬리 가드)에는 VAD 임계값을
           // 올려, 모바일 근접 배치에서 되먹임 에코가 유령 고객 발화로 잡히는 걸 막는다.
           // 큰 목소리의 진짜 barge-in은 그대로 통과(suppressGain 배수까지만 상향).
@@ -263,7 +274,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       captureRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
-      // 세션 전환 시 타이핑/타자기 상태 전부 리셋.
+      // 세션 전환 시 타이핑/타자기/발화 상태 전부 리셋.
+      setUserSpeaking(false);
       setTypingIndicatorActive(false);
       setRevealSeq(null);
       setRevealText('');
@@ -305,6 +317,9 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms));
+    // 백엔드가 없으므로 VAD speech-start/end도 없다 → "음성 인식 중" 말풍선을 데모에서도
+    // 보이도록 발화 구간을 흉내 낸다(말하는 중 → 텍스트 확정 순). 실 배포에선 실 VAD가 구동.
+    at(400, () => setUserSpeaking(true));
     at(900, () => handleTurn({ seq: 1, speaker: 'customer', text: '여보세요?' }));
     at(2200, () => handleTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성을 통해 제공되며, 상담내용은 녹음됨을 안내드립니다. 실례지만 ${custName} 고객님이 맞으세요?` }));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
@@ -317,7 +332,9 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
     if (el) el.scrollTop = el.scrollHeight;
   }, [bubbles, typingIndicatorActive, revealText]);
 
-  const hasTranscript = bubbles.length > 0;
+  // 트랜스크립트 영역 노출 조건 — 말풍선이 하나라도 있거나, 첫 발화를 인식하는 중(아직
+  // 텍스트 확정 전)이면 대기 화면 대신 대화 영역을 보여 "음성 인식 중" 말풍선이 뜨게 한다.
+  const hasTranscript = bubbles.length > 0 || userSpeaking;
 
   return (
     <section
@@ -446,16 +463,34 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
               );
             })}
 
-            {/* "..." 타이핑 인디케이터 — 고객 턴 직후 Agent 실행 중에만. 타자기 시작 시 사라짐. */}
+            {/* "음성 인식 중…" — 고객이 말하는 중(발화 종료 전). VAD speech-start~end 구간.
+                고객 측(왼쪽) 말풍선. onTurn(customer)으로 텍스트가 확정되면 사라진다. */}
+            {userSpeaking && (
+              <div data-testid="live-bubble-listening" className="flex flex-col gap-0.5 items-start">
+                <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>👤 고객</span>
+                <div
+                  className="flex max-w-[85%] items-center gap-2 rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
+                  style={{ background: 'var(--route)', color: '#fff' }}
+                  aria-label="고객 음성을 인식하고 있습니다"
+                >
+                  <TypingDots />
+                  <span className="text-[12px] font-semibold opacity-90">음성 인식 중…</span>
+                </div>
+              </div>
+            )}
+
+            {/* "발화 준비 중…" 타이핑 인디케이터 — 고객 턴 직후 Agent가 LLM 호출 중(타이핑 시작 전)에만.
+                타자기 reveal이 시작되면 사라짐. */}
             {typingIndicatorActive && revealSeq === null && (
               <div data-testid="live-bubble-typing" className="flex flex-col gap-0.5 items-end">
                 <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>🤖 AI</span>
                 <div
-                  className="max-w-[85%] rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
+                  className="flex max-w-[85%] items-center gap-2 rounded-[12px] px-[12px] py-[8px] text-[13px] leading-[1.45]"
                   style={{ background: 'rgba(255,255,255,.72)', color: 'var(--ink)', border: '1px solid var(--card-bd)' }}
                   aria-label="AI가 응답을 생성하고 있습니다"
                 >
                   <TypingDots />
+                  <span className="text-[12px] font-semibold text-ink-dim">발화 준비 중…</span>
                 </div>
               </div>
             )}

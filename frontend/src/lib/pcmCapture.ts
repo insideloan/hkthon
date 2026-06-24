@@ -60,6 +60,12 @@ export type PcmCaptureOptions = {
    * 나가는 중 고객이 다시 말하면 즉시 재생을 끊는 데 쓴다(onDebug와 달리 프로덕션 훅).
    */
   onSpeechStart?: () => void;
+  /**
+   * 진행 중이던 발화가 끝나(침묵 flush 또는 max-utterance) 종료될 때 1회 호출.
+   * "음성 인식 중" UI 표시를 발화 종료 시점에 내리는 데 쓴다(세션 정지(stop) flush는
+   * 컴포넌트 언마운트 경로라 호출하지 않는다). onSpeechStart와 짝을 이루는 프로덕션 훅.
+   */
+  onSpeechEnd?: () => void;
   /** 한 발화가 이 길이(ms)를 넘으면 침묵 없이도 강제 flush(끊김 방지 안전장치). */
   maxUtteranceMs?: number;
   /**
@@ -111,6 +117,7 @@ export function startPcmCapture(
   const maxUtteranceMs = options.maxUtteranceMs ?? 15000;
   const onDebug = options.onDebug;
   const onSpeechStart = options.onSpeechStart;
+  const onSpeechEnd = options.onSpeechEnd;
   const isSuppressed = options.isSuppressed;
   const suppressGain = options.suppressGain ?? 4;
 
@@ -141,7 +148,11 @@ export function startPcmCapture(
   let stopped = false;
 
   const flush = (reason: 'silence' | 'max-utterance' | 'stop') => {
+    const wasSpeaking = speaking;
     speaking = false;
+    // 발화 종료 알림 — 한 발화가 실제로 진행 중이었을 때만. stop(언마운트)은 UI가
+    // 사라지는 경로라 제외해 종료 콜백이 마운트 해제 후 상태를 건드리지 않게 한다.
+    if (wasSpeaking && reason !== 'stop') onSpeechEnd?.();
     if (buffer.length === 0) return;
     const samples = buffer.length;
     const down = downsample(Float32Array.from(buffer), ctx.sampleRate);

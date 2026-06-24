@@ -142,8 +142,9 @@
   background: linear-gradient(to right, #FFFFFF, #FAF9F6);
 }
 
-/* 카드 타이틀(.card__h) — 얇은 회색 단일 색상 테두리.
-   배경색 없음(투명), 그라데이션·chevron·그림자 제거. */
+/* 카드 타이틀(.card__h) — PPT 레이아웃처럼 화살표 모양 테두리.
+   얇은 회색 단색 외곽선(fill=none SVG stroke)을 배경에 깔고 텍스트는 그 위에.
+   카드②③ = chevron(양쪽 화살표), 카드① = homePlate(왼쪽 평평·오른쪽 뾰족). */
 .cc__cards .card__h {
   position: relative;
   /* 카드 폭 전체에 맞춰 타이틀 테두리 확장 */
@@ -151,8 +152,23 @@
   width: 100%;
   padding: 6px 28px 6px 26px;
   background: transparent;
-  border: 1px solid #E5E7EB;
-  border-radius: 6px;
+}
+/* 기본(카드②③) — 양쪽 chevron 외곽선. preserveAspectRatio=none 으로 폭에 맞춰 늘림. */
+.cc__cards .card__h::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H180 L196 20 L180 38 H2 L16 20 Z' fill='none' stroke='%23C9CDD6' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+/* 카드① — homePlate(왼쪽 평평, 오른쪽만 뾰족). 왼쪽 꼬리는 없지만, 넘버 배지(1/2/3)
+   시작점을 카드②③과 동일하게 맞춰 세 카드가 같은 들여쓰기로 정렬되도록 26px 유지. */
+#card-emo .card__h { padding-left: 26px; }
+#card-emo .card__h::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H180 L196 20 L180 38 H2 Z' fill='none' stroke='%23C9CDD6' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 /* .card .card-scroll — SSOT line 670–671: flex 레이아웃 + 네거티브 마진으로 스크롤바 트랙 가장자리 정렬 */
 .card .card-scroll {
@@ -373,9 +389,6 @@
 /* 선택 전략 카드 팝인 (SSOT 293) */
 @keyframes cellpop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1.04); } }
 
-/* solveArrow / usedivider 화살표 bob (SSOT 728) */
-@keyframes arrbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
-
 /* 다이어그램 노드 팝인 (SSOT 802 — 다이어그램용; dial용 dpop과 별개) */
 @keyframes dpop { 0% { transform: scale(.5); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
@@ -453,26 +466,50 @@
 .cseclbl span:not(.ln) { font-size: 12.5px; font-weight: 900; color: #4A515E; }
 .cseclbl .ln { flex: 1; height: 1px; background: var(--hair); }
 
-/* 섹션 라벨(대표 전략 20 / 데이터 분석 결과 / 최종 발화) — 회색 둥근 테두리.
-   회색 둥근 모서리 사각형으로 감싸고, 구분선(.ln)은 숨긴다. */
+/* 섹션 라벨(대표 전략 20 / 데이터 분석 결과 / 최종 발화) — 테두리 제거.
+   구분선(.ln)은 숨긴다. */
 .cc__cards .cseclbl--sec {
-  border: 1.4px solid #C9CDD6;
+  border: none;
   border-radius: 8px;
   padding: 4px 10px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.05);
   box-sizing: border-box;
 }
 .cc__cards .cseclbl--sec .ln { display: none; }
-/* 높이 정렬 — 세 카드의 첫 콘텐츠 영역(.bins / .usebox / .cmp-checks)을
-   동일 높이로 통일 → 아래 섹션 라벨이 한 줄로 정렬.
-   기존 161px의 절반(80px)로 축소. (#card-db margin-top 스페이서 핵 제거.) */
-.cc__cards .bins,
-.cc__cards .usebox,
-.cc__cards .cmp-checks { height: 80px; min-height: 80px; overflow: hidden; }
 
-/* 카드① 내부 세로 간격 제거 — .bins → ▼ → 전략라벨 → .stratg 를 빈틈 없이 붙임. */
+/* ── 카드 2분할 (.card-top / .card-bottom) ──
+   세 카드(#card-emo/#card-db/#card-strat)를 세로로 2분할한다.
+   · .card-top: 섹션 라벨("전략 선택 (20종)"/"분석 결과"/"최종 발화…") 위 요소를
+     담는 상단 영역. 세 카드 동일 고정 높이(100px)로 통일 → 라벨이 한 줄로 정렬.
+     내부 콘텐츠(.bins / .usebox / .cmp-checks)가 넘치면 잘라낸다.
+   · .card-bottom: 라벨 + 이하 콘텐츠. 남은 높이를 채우는 flex 컬럼
+     (stratg.resolved 등 flex:1 자식이 부모 높이를 받도록). */
+.cc__cards .card-top {
+  height: 100px;
+  min-height: 100px;
+  overflow: hidden;
+  flex: none;
+  border-bottom: 1px solid var(--hair);
+  padding-bottom: 8px;
+}
+.cc__cards .card-bottom {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 하단 영역을 약 20px 낮춤(콘텐츠 박스 높이 축소). */
+  margin-bottom: 20px;
+  /* 파란 프레임 — 세 카드(#card-emo/#card-db/#card-strat .cmp)의 하단 영역을
+     하나의 강조 패널로. (기존 DB .dbanner.ok 프레임을 카드 하단으로 승격.) */
+  border: 1.5px solid #3551d6;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3);
+}
+
+/* 카드① 내부 세로 간격 제거 — 라벨 → .stratg 를 빈틈 없이 붙임. */
 #card-emo .card-scroll { gap: 0; }
-#card-emo .solvearrow { margin: 0; }
+#card-emo .card-bottom { gap: 0; }
 #card-emo .cseclbl { margin: 0; }
 #card-emo .stratg { padding: 0; }
 
@@ -485,10 +522,6 @@
 .usecard .di { width: 16px; height: 16px; flex: none; color: var(--route); }
 .usecard b { font-family: var(--disp); font-size: 12.5px; font-weight: 800; color: var(--title); letter-spacing: -.01em; line-height: 1.25; word-break: keep-all; text-align: center; }
 .usecard.flash { border-color: var(--route); background: #EAF0FF; box-shadow: 0 0 0 3px rgba(53,81,214,.16); }
-.usedivider { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-3px); transition: opacity .3s, transform .3s; }
-.usedivider.on { opacity: 1; transform: none; }
-.usedivider .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
-.usedivider .dn svg { width: 26px; height: 26px; display: block; }
 .resbox { display: flex; flex-direction: column; gap: 4px; }
 
 .diag { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
@@ -506,6 +539,13 @@
 .dbanner .dbic { flex: none; width: 17px; height: 17px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
 .dbanner.ok { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
 .dbanner.ok .dbic { background: #2E9E6E; color: #fff; }
+/* DB 분석결과 ok 배너("✓ 타사 13% 확인 …")는 숨긴다 — 강조 프레임을 카드 하단(.card-bottom)
+   으로 올렸으므로 배너 자체는 표시하지 않는다(초록 ✓ 박스 그림은 아래 .check-badge로 재사용). */
+.dbanner.ok.on { display: none; }
+
+/* check-badge — DB ok 배너의 .dbic(초록 V 박스)와 동일한 모양.
+   선택 전략 번호(.scard.sel .sno) 왼쪽, 최종 발화(.cmp-final) 왼쪽에 재사용한다. */
+.check-badge { flex: none; width: 17px; height: 17px; border-radius: 6px; display: inline-grid; place-items: center; font-size: 11px; background: #2E9E6E; color: #fff; }
 .dbanner.alert { background: #fff; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); }
 .dbanner.alert .dbic { background: rgba(255,255,255,.22); }
 @media (prefers-reduced-motion: reduce) { .dnode.on { animation: none; } }
@@ -533,7 +573,10 @@
 /* cdesc(설명)을 claw(법명)와 같은 x에서 시작하게 들여쓰기 — cbx(18px)+gap(6px)=24px */
 .cmp-chk .cdesc { flex-basis: 100%; padding-left: 24px; font-size: 9px; font-weight: 600; color: #111827; line-height: 1.2; word-break: keep-all; text-align: left; }
 .cmp-chk .cflag { display: none; }
-.cmp-final { background: #fff; color: #000; border: 1px solid #C9CDD6; box-shadow: none; font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
+.cmp-final-row { display: flex; align-items: flex-start; gap: 8px; }
+.cmp-final-row .check-badge { margin-top: 11px; }
+.cmp-final-row .cmp-final { flex: 1; min-width: 0; }
+.cmp-final { background: #fff; color: #000; border: none; box-shadow: none; font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
 .cmp-final del { color: #9aa0ac; text-decoration: line-through; text-decoration-color: #c9b3b2; font-weight: 500; margin-right: 2px; }
 .cmp-final ins { color: #D6322E; font-weight: 700; text-decoration: none; background: none; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .cmp-final ins.add::before { content: "＋"; font-size: .78em; font-weight: 800; margin-right: 1px; opacity: .8; }
@@ -578,7 +621,7 @@
 
 /* ── 카드① 발화분석: orb bins + 전략 그리드 (SSOT 684–766) ── */
 .bins { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; position: relative; align-content: start; }
-.bin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 11px 11px 13px 13px; padding: 4px 4px 7px; height: 78px; flex: none; min-width: 0; border: none; background: linear-gradient(180deg, #F2F6FF 0%, #E2EAFF 100%); box-shadow: 0 6px 14px -4px rgba(0,75,145,.35), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -3px 6px -3px rgba(0,75,145,.25); }
+.bin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 11px 11px 13px 13px; padding: 4px 4px 7px; height: 78px; flex: none; min-width: 0; border: 1.4px solid #2563EB; background: linear-gradient(180deg, #F2F6FF 0%, #E2EAFF 100%); box-shadow: 0 6px 14px -4px rgba(0,75,145,.35), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -3px 6px -3px rgba(0,75,145,.25); }
 .bin__h { display: flex; flex-direction: column; align-items: center; line-height: 1.05; text-align: center; padding: 2px 8px; border: 1px solid #C3D0EA; border-radius: 7px; background: rgba(255,255,255,.6); }
 .bin__h b { font-family: var(--disp); font-size: 12px; font-weight: 800; letter-spacing: -.01em; color: #5E6678; }
 .bin__h i { font-style: normal; font-family: var(--mono); font-size: 6.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin-top: 1px; }
@@ -587,11 +630,6 @@
 .orb.drop { animation: orbDrop .72s cubic-bezier(.34,1.5,.5,1) forwards; }
 .orb .otag { font-family: var(--disp); font-size: 12.5px; font-weight: 800; line-height: 1.18; letter-spacing: -.02em; padding: 2px 1px; width: 100%; text-align: center; word-break: keep-all; color: #1d3a8f; }
 .orb.eased .otag { color: #1d3a8f; }
-
-.solvearrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 1px 0 0; font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--route); text-transform: uppercase; opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; }
-.solvearrow.on { opacity: 1; transform: none; }
-.solvearrow .dn { display: inline-grid; place-items: center; width: 26px; height: 26px; color: #9CA3AF; }
-.solvearrow .dn svg { width: 26px; height: 26px; display: block; }
 
 .stratg { position: relative; overflow: hidden; border-radius: 10px; padding: 2px 0; }
 .strat-track { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3,auto); align-content: start; gap: 5px; width: max-content; transition: transform .9s cubic-bezier(.22,.61,.36,1); }
@@ -603,8 +641,8 @@
 .stratg.resolved { flex: 1; min-height: 0; height: 100%; overflow: hidden; display: flex; padding: 2px 0; }
 .stratg.resolved .strat-track { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 8px; width: 100%; height: 100%; min-height: 0; grid-template-rows: none; grid-template-columns: none; transform: none !important; animation: none; }
 .stratg.resolved .scard { display: none; }
-.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: 1px solid #C9CDD6; background: #fff; box-shadow: none; transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
-.stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.stratg.resolved .scard.sel { display: flex; flex: 1 1 0; min-height: 0; width: 100%; opacity: 1; overflow: hidden; justify-content: center; padding: 10px 13px; border: none; background: #fff; box-shadow: none; transform: none; animation: cellpop .55s cubic-bezier(.2,1.4,.4,1); }
+.stratg.resolved .scard.sel .sno { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; display: inline-flex; align-items: center; gap: 6px; }
 .stratg.resolved .scard.sel .stx { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; }
 .stratg.resolved .scard.sel .slead { color: #000; font-size: 12.5px; font-weight: 800; line-height: 1.3; -webkit-line-clamp: 3; line-clamp: 3; margin-top: 3px; }
 .stratg.resolved.one .scard.sel .slead { -webkit-line-clamp: 4; line-clamp: 4; }

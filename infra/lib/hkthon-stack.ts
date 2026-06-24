@@ -223,12 +223,13 @@ export class HkthonStack extends cdk.Stack {
     // 임포트: langgraph/langchain/amazon-transcribe 등 수백ms~수초)를 제거한다.
     // 콜드스타트가 사라지면 startAudio prewarm + STT 클라이언트 캐시도 워밍 인스턴스에
     // 항상 적중한다. PC는 alias에만 걸 수 있고 $LATEST에는 안 되므로, version→alias를
-    // 만들고 AppSync 데이터소스가 alias를 호출하게 한다. 데모 규모라 1로 충분(동시 통화
-    // 1~2건). 비용은 상시 1개 워밍분 — 데모 시간대 한정이면 미미.
+    // 만들고 AppSync 데이터소스가 alias를 호출하게 한다. 2로 둬서 동시 통화 2건까지
+    // 콜드스타트 없이 받는다(부스에서 2명 동시 체험 대비). 비용은 상시 2개 워밍분 —
+    // 데모 시간대 한정이면 미미. 데모 종료 후엔 0으로 내리거나 alias 제거 권장.
     const orchestratorAlias = new lambda.Alias(this, 'OrchestratorLive', {
       aliasName: 'live',
       version: orchestrator.currentVersion,
-      provisionedConcurrentExecutions: 1,
+      provisionedConcurrentExecutions: 2,
     });
 
     // Lambda data source: the orchestrator resolves every query/mutation.

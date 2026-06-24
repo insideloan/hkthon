@@ -243,9 +243,10 @@ def _token_inputs(tokens: list) -> list[dict]:
 
 
 def _result_type(meta: dict) -> str | None:
-    """종료된 콜 META → onCallEnded resultType(한도조회_상담원연결|가입승인|거절).
+    """종료된 콜 META → onCallEnded resultType(AI_본심사|가입승인|거절 등).
 
-    AGENT가 result_type을 직접 기록하면 그대로 쓰고, 없으면 핸드오프/승인 흔적으로 추론.
+    AGENT가 result_type을 직접 기록하면 그대로 쓰고(AI 본심사 전환 시 intake_node가 기록),
+    없으면 핸드오프/승인 흔적으로 추론. handoff_reason 분기는 레거시 수동 이관 전용.
     """
     explicit = meta.get("result_type")
     if explicit:

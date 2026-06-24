@@ -44,9 +44,9 @@ const DEMO_PROFILES: Record<string, CustomerProfile> = {
     name: '박서준',
     genderAge: '41세',
     kcb: 'KCB 744 (준우량)',
-    loan: '삼성 카드론 2,000만',
+    loan: 'A저축 3,000만',
     rateLabel: '타사 금리 (추정)',
-    rate: '약 13%',
+    rate: '약 16%',
     rateVariant: 'hot',
     asset: '차량 보유 (담보 가능)',
     churnLabel: 'HIGH → LOW (전환 완료)',
@@ -196,13 +196,39 @@ export function profileFromExperience(c: ExperienceCustomer): CustomerProfile {
  * callId(+선택적 큐 행/체험 고객)로 고객 프로필을 해석한다.
  * 우선순위: 체험 고객(exp-*) > 데모 fixture > 큐 행 신원 폴백.
  */
+// 발신(dialCall)으로 새로 생성된 콜의 callId → 데모 fixture 키 매핑.
+// 데모를 세그먼트→발신→상담→CRM 흐름으로 끝까지 타면 마지막 CRM은 c-demo-01이
+// 아니라 새 발신 콜 id(mock: "mock-call-cust-001", 라이브: "c{ts}")로 들어온다.
+// 그 콜이 박서준(cust-001) 발신이면 c-demo-01 프로필을 그대로 보여준다.
+// customerId가 callId에 박히는 mock/세그먼트 경로를 substring으로 매칭한다.
+const CUSTOMER_ID_TO_FIXTURE: Record<string, string> = {
+  'cust-001': 'c-demo-01',
+};
+
+// 박서준 데모 시나리오의 단 하나의 발신 고객 fixture.
+const SCENARIO_DEMO_FIXTURE = 'c-demo-01';
+
+function fixtureKeyFor(callId: string): string | undefined {
+  if (DEMO_PROFILES[callId]) return callId;
+  for (const [custId, key] of Object.entries(CUSTOMER_ID_TO_FIXTURE)) {
+    if (callId.includes(custId)) return key;
+  }
+  // 데모 고정행(c-demo-*)도 체험(exp-*)도 아닌 callId = 발신(dialCall)으로 생성된 콜.
+  // 시연에서 AI가 전화상담하는 고객은 박서준뿐이므로, 그 발신 흐름의 마지막 상담
+  // 요약 CRM은 mock·라이브 모두 무조건 박서준 데모 프로필을 보여준다.
+  if (!callId.startsWith('c-demo-') && !callId.startsWith('exp-')) {
+    return SCENARIO_DEMO_FIXTURE;
+  }
+  return undefined;
+}
+
 export function resolveCustomerProfile(
   callId: string,
   row?: QueueRow,
   experience?: ExperienceCustomer,
 ): CustomerProfile {
   if (experience) return profileFromExperience(experience);
-  const fixture = DEMO_PROFILES[callId];
+  const fixture = DEMO_PROFILES[fixtureKeyFor(callId) ?? callId];
   if (!fixture) return fallbackProfile(callId, row);
   // fixture 우선. 단, 큐 행에 신원 값이 있으면(이름/이탈위험) 실제 레코드로 보정.
   // churnLocked fixture(전환 서사 행)는 큐 churnRisk로 덮어쓰지 않고 문구를 유지한다.

@@ -28,10 +28,17 @@ const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const stopCapture = vi.fn();
-// startPcmCapture에 넘어온 옵션(특히 함수형 vadThreshold)을 캡처해 슬라이더 연동 검증.
-let lastCaptureOpts: { vadThreshold?: number | (() => number) } | undefined;
+// startPcmCapture에 넘어온 옵션(함수형 vadThreshold + 발화 시작/종료 훅)을 캡처해
+// 슬라이더 연동/"음성 인식 중" 말풍선 검증에 쓴다.
+let lastCaptureOpts:
+  | { vadThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
+  | undefined;
 vi.mock('@/lib/pcmCapture', () => ({
-  startPcmCapture: (_s: unknown, _cb: unknown, opts?: { vadThreshold?: number | (() => number) }) => {
+  startPcmCapture: (
+    _s: unknown,
+    _cb: unknown,
+    opts?: { vadThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
+  ) => {
     lastCaptureOpts = opts;
     return { stop: stopCapture };
   },
@@ -176,6 +183,29 @@ describe('LiveSession', () => {
       await act(async () => { vi.runAllTimers(); });
       expect(screen.getByTestId('live-bubble-bot')).toHaveTextContent('ABCDEFG');
       vi.useRealTimers();
+    });
+
+    it('VAD 발화 시작 시 "음성 인식 중" 말풍선 노출, 고객 턴 확정 시 사라진다', async () => {
+      await renderLive();
+      // 발화 시작 전에는 listening 말풍선 없음.
+      expect(screen.queryByTestId('live-bubble-listening')).not.toBeInTheDocument();
+      // VAD speech-start → "음성 인식 중" 노출.
+      await act(async () => { lastCaptureOpts?.onSpeechStart?.(); });
+      expect(screen.getByTestId('live-bubble-listening')).toBeInTheDocument();
+      expect(screen.getByTestId('live-bubble-listening')).toHaveTextContent('음성 인식 중');
+      // onTurn(customer)으로 텍스트 확정 → listening 사라지고 실제 고객 말풍선 + "발화 준비 중".
+      await act(async () => { emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' }); });
+      expect(screen.queryByTestId('live-bubble-listening')).not.toBeInTheDocument();
+      expect(screen.getByTestId('live-bubble-customer')).toHaveTextContent('여보세요?');
+      expect(screen.getByTestId('live-bubble-typing')).toHaveTextContent('발화 준비 중');
+    });
+
+    it('VAD 발화 종료(onSpeechEnd) 시 "음성 인식 중" 말풍선이 사라진다', async () => {
+      await renderLive();
+      await act(async () => { lastCaptureOpts?.onSpeechStart?.(); });
+      expect(screen.getByTestId('live-bubble-listening')).toBeInTheDocument();
+      await act(async () => { lastCaptureOpts?.onSpeechEnd?.(); });
+      expect(screen.queryByTestId('live-bubble-listening')).not.toBeInTheDocument();
     });
 
     it('MODIFY 재발화(같은 seq + audioUrl)는 타자기를 재시작하거나 말풍선을 복제하지 않는다', async () => {

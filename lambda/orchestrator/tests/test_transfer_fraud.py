@@ -1,67 +1,58 @@
-"""AGENT-006 (#14) — transfer/fraud 노드 검증.
+"""AGENT — intake/fraud 노드 검증.
 
-- transfer_node: call_status → TRANSFER_PENDING (상담원 이관 = 성공경로)
+- intake_node: AI 본심사 접수(사람 상담원 연결 폐기). call_status는 ACTIVE 유지,
+  result_type="AI_본심사" 기록, 전략은 AI 접수 전환.
 - detect_fraud: fraud_suspected 플래그만 세팅, 라우팅·통화 종료에 영향 없음
 """
 
-from orchestrator.agent import nodes
+from orchestrator.agent import nodes, signals
 from orchestrator.agent.state import CallStatus, Intent, Route, Stage
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# transfer_node — 상태 전이
+# intake_node — AI 본심사 전환 (상담원 연결 대체)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_transfer_sets_transfer_pending():
-    """transfer 시 call_status가 TRANSFER_PENDING으로 전이 (Acceptance #1)."""
-    out = nodes.transfer_node({"history": []})
-    assert out["call_status"] == CallStatus.TRANSFER_PENDING
-    assert out["route"] == Route.TRANSFER
-    assert out["bot_text"]  # 이관 멘트 존재
+def test_intake_stays_active():
+    """AI 본심사는 통화 계속 — call_status ACTIVE 유지(TRANSFER_PENDING 아님)."""
+    out = nodes.intake_node({"history": []})
+    assert out["call_status"] == CallStatus.ACTIVE
+    assert out["route"] == Route.TRANSFER  # 라우팅 경로명은 재사용
+    assert out["bot_text"]  # 본심사 안내 멘트 존재
 
 
-def test_transfer_is_not_ended():
-    """이관은 종료(ENDED)가 아니다 — 성공경로."""
-    out = nodes.transfer_node({"history": []})
+def test_intake_is_not_ended():
+    """본심사 접수는 종료(ENDED)가 아니다 — 성공경로."""
+    out = nodes.intake_node({"history": []})
     assert out["call_status"] != CallStatus.ENDED
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# transfer_node — 핸드오프 요약 (상담원 이관 맥락 전달)
-# ─────────────────────────────────────────────────────────────────────────────
+def test_intake_records_ai_result_type():
+    """종료 후 resultType 분류용으로 result_type=AI_본심사를 남긴다."""
+    out = nodes.intake_node({"history": []})
+    assert out["result_type"] == "AI_본심사"
+    # 사람 이관 폐기 — 핸드오프 요약을 만들지 않는다.
+    assert "handoff_summary" not in out
 
 
-def test_transfer_handoff_summary_is_rule_based_no_llm(monkeypatch):
-    """핸드오프 요약은 룰 기반(결정적)으로 즉시 생성 — 이관 임계 경로에서 LLM 호출 안 함.
-
-    요약은 상담원 CRM 탭 표시용 사후 정보라, 라이브 이관 지연을 줄이려 LLM을 쓰지 않는다.
-    (맥락은 단계/의도/이탈위험/직전 발화로 전달되며, 더 풍부한 요약은 통화 종료 후 보강.)
-    """
-    from orchestrator.llm import router
-
-    def _boom(*a, **k):  # LLM이 호출되면 실패시켜 '호출 안 함'을 강제 검증
-        raise AssertionError("handoff summary must not call the LLM on the transfer path")
-
-    monkeypatch.setattr(router, "converse", _boom)
-    out = nodes.transfer_node({
-        "history": [{"seq": 1, "speaker": "customer", "text": "금리가 너무 높아요", "node": None}],
-        "customer_text": "사람 바꿔주세요",
-        "stage": Stage.PROPOSE,
-        "intent": Intent.TRANSFER_INTENT,
-        "churn_after": 55,
-    })
-    s = out["handoff_summary"]
-    assert "상담원 연결 요청" in s
-    assert "사람 바꿔주세요" in s  # 직전 발화 포함
-    assert "55" in s              # 이탈위험 포함
+def test_intake_strategy_is_ai_intake_pivot():
+    """전략은 AI 접수 전환 전략."""
+    out = nodes.intake_node({"history": [], "intent": Intent.TRANSFER_INTENT})
+    assert out["strategy"]["tactic"] == signals.Tactic.AI_INTAKE_PIVOT.value
 
 
-def test_transfer_handoff_summary_fallback_when_no_context():
-    """대화 맥락이 전혀 없어도 결정적 요약을 반환한다."""
-    out = nodes.transfer_node({"history": []})
-    assert out["handoff_summary"]
-    assert "상담원 연결 요청" in out["handoff_summary"]
+def test_intake_bot_text_mentions_ai_screening():
+    """안내 멘트에 AI 본심사 진행이 드러난다(사람 상담원 연결 멘트 아님)."""
+    out = nodes.intake_node({"history": [], "intent": Intent.TRANSFER_INTENT})
+    assert "본심사" in out["bot_text"]
+    assert "상담원에게 연결" not in out["bot_text"]
+
+
+def test_intake_limit_inquiry_mentions_limit():
+    """한도조회 의도면 한도 확인 맥락의 멘트를 쓴다."""
+    out = nodes.intake_node({"history": [], "intent": Intent.LIMIT_INQUIRY})
+    assert "한도" in out["bot_text"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

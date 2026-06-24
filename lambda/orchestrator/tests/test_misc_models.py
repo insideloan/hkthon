@@ -23,7 +23,7 @@ def _fake_table():
 
 def test_result_type_values():
     assert {r.value for r in ResultType} == {
-        "한도조회_상담원연결", "가입승인", "거절"}
+        "한도조회_상담원연결", "AI_본심사", "가입승인", "거절"}
 
 
 def test_summary_roundtrip_with_crm_stages():

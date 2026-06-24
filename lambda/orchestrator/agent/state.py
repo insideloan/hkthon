@@ -39,8 +39,8 @@ class Intent(str, Enum):
     INTEREST = "INTEREST"
     QUESTION_TERMS = "QUESTION_TERMS"        # 금리/한도/조건/리스크/비용 질문
     FRAUD_DOUBT = "FRAUD_DOUBT"              # 보이스피싱 의심 (+fraud 플래그)
-    TRANSFER_INTENT = "TRANSFER_INTENT"      # 상담원 연결 요청
-    LIMIT_INQUIRY = "LIMIT_INQUIRY"          # 한도조회 (성공경로 → transfer)
+    TRANSFER_INTENT = "TRANSFER_INTENT"      # 상담원 요청 → AI 본심사 접수로 전환(사람 이관 폐기)
+    LIMIT_INQUIRY = "LIMIT_INQUIRY"          # 한도조회 (성공경로 → AI 본심사 접수)
     BUYING_INTENT = "BUYING_INTENT"          # 셀프 디지털 진행
     OPT_OUT = "OPT_OUT"                      # 마케팅 동의 철회
     REJECTION = "REJECTION"                  # 명시적 거절/즉시종료/욕설
@@ -53,7 +53,7 @@ class Route(str, Enum):
     """다음 노드 라우팅 결정 (LANGGRAPH-DESIGN §5)."""
 
     RESPOND = "RESPOND"        # 정상 응답 생성
-    TRANSFER = "TRANSFER"      # 상담원 이관 → TRANSFER_PENDING
+    TRANSFER = "TRANSFER"      # AI 본심사 접수(intake_node)로 전환 — 사람 이관 아님(통화 ACTIVE 유지)
     CLOSE = "CLOSE"            # 정중히 종료
     SILENCE = "SILENCE"        # 10초 재확인
     NEEDS_LLM = "NEEDS_LLM"    # fast_route가 판단 못 함 → classify 노드로
@@ -186,7 +186,8 @@ class CallState(TypedDict, total=False):
     intent: Intent
     route: Route
     classified_by: Literal["rule", "llm"]
-    handoff_summary: str   # transfer_node가 채움: 상담원 이관용 1~2문장 핸드오프 요약
+    handoff_summary: str   # (레거시) 수동 상담원 이관용 핸드오프 요약 — 자동 흐름 미사용
+    result_type: str       # intake_node가 채움: "AI_본심사" — onCallEnded resultType 분류용
     emotion: Optional[Emotion]       # 신호축1 (signals.Emotion, 15종)
     need: Optional[Need]             # 신호축2 (signals.Need, 15종)
     usability: Optional[Usability]   # 신호축3 (signals.Usability, 20종)

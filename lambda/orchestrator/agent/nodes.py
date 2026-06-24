@@ -87,7 +87,9 @@ def fast_route(state: CallState) -> CallState:
     # 공통요건: 거절 최우선
     if any(k in text for k in _REJECTION_KW):
         intent, route = Intent.REJECTION, Route.CLOSE
-    # 공통요건: 상담원 연결 우선 처리 (단계 무시 즉시 이관)
+    # 공통요건: AI 본심사 우선 처리. 상담원 요청·한도조회·진행 의향은 모두 단계 무시
+    # 즉시 AI 본심사 접수(intake_node)로 전환. 사람 상담원 연결 시나리오는 폐기 —
+    # 상담원 요청이 와도 AI가 직접 본심사를 진행한다.
     elif any(k in low for k in _TRANSFER_KW):
         intent, route = Intent.TRANSFER_INTENT, Route.TRANSFER
     elif any(k in text for k in _LIMIT_KW):
@@ -173,7 +175,8 @@ def classify(state: CallState) -> CallState:
     응답, _compliance_confidence) respond는 그 draft를 재사용하고 compliance는 신뢰도로
     Guardrail 스킵을 판단한다. SPECULATIVE_RESPOND=1이면 classify와 blind respond를 병렬 실행.
     """
-    history = _render_history(state)
+    # 멀티턴 메시지로 전달 — 마지막 user = 현재 발화, 앞선 turn = history.
+    history = _render_history_messages(state)
     stage = state.get("stage", Stage.IDENTIFY)
     customer = state.get("customer")
 
@@ -212,7 +215,7 @@ def route_intent(state: CallState) -> str:
     """classify/churn 이후 최종 라우팅 (LANGGRAPH-DESIGN §5)."""
     route = state.get("route")
     if route == Route.TRANSFER:
-        return "transfer_node"
+        return "intake_node"
     if route == Route.CLOSE:
         return "close_node"
     if route == Route.SILENCE:
@@ -258,12 +261,41 @@ def churn_score(state: CallState) -> CallState:
 # 5. respond — 봇 응답 draft 생성 (LLM gen)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# 마케팅·개인정보 활용 동의 고지(고정). 신원고지(IDENTIFY)→고객 본인확인 응답 직후,
+# CONSENT 단계 첫 봇 발화로 반드시 정확히 나가야 하는 법적 고지라 LLM에 맡기지 않는다.
+_CONSENT_DISCLOSURE = (
+    "마케팅 및 개인정보 활용에 동의해주셔서 대출상품 안내차 연락드렸어요. "
+    "지금 통화 잠깐 괜찮으실까요?"
+)
+# history에서 "이미 동의 고지를 했는지" 판정하는 표지 문구(부분 일치).
+_DISCLOSURE_MARK = "동의해주셔서 대출상품 안내"
+
+
+def _consent_disclosure(state: CallState) -> Optional[str]:
+    """CONSENT 진입 첫 봇 발화면 고정 동의 고지 멘트를 반환, 아니면 None.
+
+    조건: 이번 턴 stage가 CONSENT이고, 봇이 아직 동의 고지를 하지 않았을 때(history에
+    표지 문구 없음). IDENTIFY 단계나 이미 고지한 뒤에는 None(평소 LLM 경로).
+    """
+    if state.get("stage") != Stage.CONSENT:
+        return None
+    for msg in state.get("history", []):
+        if msg.get("speaker") == "bot" and _DISCLOSURE_MARK in (msg.get("text") or ""):
+            return None  # 이미 고지함 → 중복 금지
+    return _CONSENT_DISCLOSURE
+
 
 def respond(state: CallState) -> CallState:
     """Bedrock Converse로 응답 생성. 시스템 프롬프트 = stage 대응전략 + 공통요건 가드.
 
     공통요건 강제: 확정멘트 금지(수치→예시/가정+심사), 중요사항 누락금지, 선택권 존중, 재설득 금지.
     """
+    # CONSENT 진입 첫 발화는 마케팅·개인정보 활용 동의 고지를 반드시 정확히 해야 한다.
+    # LLM 생성에 맡기면 누락·변형되므로 결정론적 고정 멘트로 반환(고지 정확성 보장).
+    fixed = _consent_disclosure(state)
+    if fixed is not None:
+        return {"bot_draft": fixed}
+
     # speculative 모드: classify와 병렬로 만든 blind draft가 있으면 재사용(직렬 1콜 절감).
     # FALLBACK_TEXT(생성 실패)면 신뢰 못 하므로 아래 정식 경로로 재생성한다.
     blind_draft = state.get("_blind_draft")
@@ -276,7 +308,7 @@ def respond(state: CallState) -> CallState:
         tactic=signals.to_tactic((state.get("strategy") or {}).get("tactic")),
         emotion=state.get("emotion"),
     )
-    draft = router.converse(system, _render_history(state), stream=False)
+    draft = router.converse(system, _render_history_messages(state), stream=False)
     return {"bot_draft": draft}
 
 
@@ -309,57 +341,36 @@ def detect_mot(state: CallState) -> CallState:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def transfer_node(state: CallState) -> CallState:
-    """상담원 이관. transferToAgent 경로 → call_status=TRANSFER_PENDING (성공경로). 이관 멘트 준비.
+def intake_node(state: CallState) -> CallState:
+    """AI 본심사 접수. 고객이 한도조회/진행 의향/상담원 요청을 보이면 사람 이관이 아니라
+    AI 상담사가 직접 본심사를 진행한다(사람 상담원 연결 시나리오 폐기).
 
-    Acceptance(AGENT-006): transfer 시 call_status가 TRANSFER_PENDING으로 전이.
-
-    이관 시 지금까지의 대화를 1~2문장 핸드오프 요약(handoff_summary)으로 만들어
-    상담원이 맥락을 즉시 파악하게 한다(persist가 Call META에 기록 → CRM 표시).
-    고객에겐 추가 질문으로 시간을 끌지 않는다(요약은 백그라운드 산출물).
+    통화는 계속되므로 call_status는 ACTIVE 유지(TRANSFER_PENDING 미사용). 종료 후
+    onCallEnded resultType 분류를 위해 result_type="AI_본심사"를 남긴다(persist가 기록).
+    intent별로 멘트를 살짝 달리해 한도조회/진행/상담원요청 맥락에 맞춘다.
     """
+    intent = state.get("intent")
+    if intent == Intent.LIMIT_INQUIRY:
+        bot_text = (
+            "네, 지금 바로 AI 본심사로 한도를 확인해 드리겠습니다. 별도 서류 제출 없이 "
+            "진행되며, 최종 한도와 조건은 심사 결과에 따라 달라질 수 있습니다."
+        )
+    else:
+        bot_text = (
+            "네, AI 상담사가 직접 본심사를 진행해 드리겠습니다. 별도 서류 제출 없이 "
+            "지금 바로 접수되며, 한도와 조건은 심사 결과에 따라 안내드립니다."
+        )
     return {
         "route": Route.TRANSFER,
-        "call_status": CallStatus.TRANSFER_PENDING,
-        "bot_text": "네, 바로 상담원에게 연결해 드리겠습니다. 잠시만 기다려 주세요.",
-        "handoff_summary": _build_handoff_summary(state),
+        "call_status": CallStatus.ACTIVE,
+        "result_type": "AI_본심사",
+        "bot_text": bot_text,
         "strategy": {
-            "tactic": "즉시 이관",
-            "headline": "상담원 연결 요청 — 단계 무시 즉시 이관",
-            "lead": signals.tactic_lead(signals.Tactic.HANDOFF_PROTECT),
+            "tactic": signals.Tactic.AI_INTAKE_PIVOT.value,
+            "headline": "AI 본심사 전환 — 무서류 즉시 접수",
+            "lead": signals.tactic_lead(signals.Tactic.AI_INTAKE_PIVOT),
         },
     }
-
-
-def _build_handoff_summary(state: CallState) -> str:
-    """상담원 이관용 핸드오프 요약. 룰 기반(결정적) 한 줄을 즉시 반환.
-
-    핸드오프 요약은 실시간 통화 흐름이 아니라 상담원 CRM 탭에 표시되는 사후 정보다.
-    과거엔 이관마다 LLM(converse)을 동기 호출(~2-5s)했지만, 이관은 고객을 기다리게 하는
-    구간이라 라이브 지연에 직접 영향을 준다 — 이미 state에 쌓인 단계/의도/이탈위험/직전
-    발화로 충분히 맥락이 전달되므로 LLM 없이 폴백 요약을 쓴다. 더 풍부한 요약이 필요하면
-    통화 종료 후 비동기로 보강하는 것이 맞다(임계 경로 분리).
-    """
-    return _fallback_handoff_summary(state)
-
-
-def _fallback_handoff_summary(state: CallState) -> str:
-    """LLM 없이 state 신호로 구성하는 결정적 핸드오프 요약."""
-    parts = []
-    stage = _enum_value(state.get("stage"))
-    if stage:
-        parts.append(f"단계 {stage}")
-    intent = _enum_value(state.get("intent"))
-    if intent:
-        parts.append(f"의도 {intent}")
-    churn = state.get("churn_after", state.get("churn_before"))
-    if churn is not None:
-        parts.append(f"이탈위험 {churn}")
-    last = (state.get("customer_text") or "").strip()
-    head = "상담원 연결 요청"
-    detail = f" — {', '.join(parts)}" if parts else ""
-    tail = f' 직전 발화: "{last}"' if last else ""
-    return f"{head}{detail}.{tail}".strip()
 
 
 def close_node(state: CallState) -> CallState:
@@ -649,13 +660,18 @@ def _persist_call_meta(call_id, state, emotion, ts, dynamo) -> None:
     if state.get("fraud_suspected"):
         fields["fraud_suspected"] = True
 
+    # AI 본심사 전환(intake_node)이 남긴 결과 유형 — onCallEnded resultType 분류용.
+    # 통화 상태는 ACTIVE 유지(상담원 이관 아님)이고, result_type만 META에 기록한다.
+    if state.get("result_type"):
+        fields["result_type"] = state["result_type"]
+
     # 상태 전이: TRANSFER_PENDING / ENDED (call_status). ACTIVE면 state 미변경.
+    # TRANSFER_PENDING은 이제 자동 흐름이 아니라 수동 이관(resolve_transfer_to_agent)
+    # 전용이다 — AI 본심사 흐름은 ACTIVE를 유지한다.
     status = _enum_value(state.get("call_status"))
     if status == "TRANSFER_PENDING":
         fields["state"] = "TRANSFER_PENDING"
         fields["agent_joined_at"] = ts
-        # 상담원 핸드오프 요약 — CRM/상담원이 맥락 즉시 파악(handoff_reason 키로 통일,
-        # summaries.write_summary 및 CallSummaryResult.handoffReason과 동일 소스).
         if state.get("handoff_summary"):
             fields["handoff_reason"] = state["handoff_summary"]
     elif status == "ENDED":
@@ -738,3 +754,31 @@ def _render_history(state: CallState) -> str:
         lines.append(f"{role}: {m['text']}")
     lines.append(f"고객: {state.get('customer_text', '')}")
     return "\n".join(lines)
+
+
+def _render_history_messages(state: CallState) -> list[dict]:
+    """LLM 프롬프트용 history를 멀티턴 메시지 리스트로 직렬화.
+
+    _render_history(단일 문자열)와 달리 turn을 role별 메시지로 분리한다:
+      - 고객 발화 → user 메시지
+      - 상담봇/상담원 발화 → assistant 메시지
+      - 마지막에 **지금 답해야 할** 고객 발화(customer_text)를 user 메시지로 덧붙인다.
+    이렇게 하면 모델이 "마지막 user = 현재 질문, 앞선 turn = 맥락"으로 인식해, 과거 발화에
+    뒤늦게 답하던 문제가 사라진다(전 발화를 한 user 블록에 뭉뚱그리던 것을 교체).
+    화자 라벨은 텍스트 앞에 유지해(고객:/상담봇:) 누가 한 말인지 모델이 또렷이 알게 한다.
+
+    윈도잉(_HISTORY_WINDOW)은 _render_history와 동일하게 적용한다(입력 토큰 상한).
+    연속 동일 role은 Converse가 허용하므로 병합하지 않는다(원 turn 경계 보존).
+    """
+    history = state.get("history", [])
+    if _HISTORY_WINDOW > 0 and len(history) > _HISTORY_WINDOW:
+        history = history[-_HISTORY_WINDOW:]
+    label = {"customer": "고객", "bot": "상담봇", "agent": "상담원"}
+    msgs: list[dict] = []
+    for m in history:
+        speaker = m["speaker"]
+        role = "user" if speaker == "customer" else "assistant"
+        msgs.append({"role": role, "content": f"{label.get(speaker, speaker)}: {m['text']}"})
+    # 지금 답할 발화 — 항상 마지막 user 메시지.
+    msgs.append({"role": "user", "content": f"고객: {state.get('customer_text', '')}"})
+    return msgs
