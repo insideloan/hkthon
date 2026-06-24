@@ -377,6 +377,8 @@ const ON_INDEX_UPDATE_SUB = /* GraphQL */ `
       callId
       churnRisk
       emotion
+      dbChips
+      dbNodes { label val tone }
     }
   }
 `;

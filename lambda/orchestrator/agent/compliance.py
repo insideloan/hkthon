@@ -66,12 +66,46 @@ _POLICY_PATTERNS: list[tuple[str, re.Pattern]] = [
 _FIGURE_SAFE = re.compile(r"예시|가정|심사\s*(?:결과|후|를\s*거)|달라질\s*수|예상")
 
 
+def _experience_compliance_draft(state: CallState) -> tuple[str | None, list[str]]:
+    """체험(exp-*) 콜이면 (preset 가안 텍스트, 위반표현 목록), 아니면 (None, [])."""
+    call_id = state.get("call_id")
+    if not call_id or not str(call_id).startswith("exp-"):
+        return None, []
+    try:
+        from . import exp_presets
+
+        preset = exp_presets.preset_for(state.get("intent"))
+        if preset is None or not preset.compliance_draft:
+            return None, []
+        return preset.compliance_draft, list(preset.compliance_violations)
+    except Exception:  # noqa: BLE001 — preset 실패가 컴플라이언스 루프를 막지 않게
+        logger.exception("experience compliance draft lookup failed")
+        return None, []
+
+
 def review_loop(draft: str, state: CallState) -> tuple[list[ComplianceStep], str]:
     """Guardrails 루프 실행 → (단계 로그, 최종 승인 텍스트).
+
+    체험(exp-*) 시나리오: 카드③ '가안(수정 전)'은 intent preset의 위반 표현이 든
+    연출용 draft를 쓰고, '최종(수정 후)'은 실제 LLM이 만든 응답(draft 인자)을 그대로
+    승인 결과로 쓴다. preset의 수정 후 텍스트는 사용하지 않는다(요구사항). 박서준은 분기 안 탐.
 
     Returns:
         (compliance_log, approved_text)
     """
+    preset_draft, preset_violations = _experience_compliance_draft(state)
+    if preset_draft is not None:
+        # 가안(연출)=preset, 최종=실 LLM 응답(draft). 한 번의 redacting→approved로 표현.
+        log: list[ComplianceStep] = [
+            _step("drafting", preset_draft, None, [], 0),
+            _step("reviewing", preset_draft, "blocked", preset_violations, 0),
+            _step("redacting", preset_draft, "blocked", preset_violations, 0),
+            _step("redrafting", draft, None, [], 1),
+            _step("reviewing", draft, "approved", [], 1),
+            _step("approved", preset_draft, "approved", [], 1, final_text=draft),
+        ]
+        return log, draft
+
     log: list[ComplianceStep] = []
     original = draft  # FRONTEND diff(cmpFinal)용 원문 — 재작성돼도 보존
     current = draft

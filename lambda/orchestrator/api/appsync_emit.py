@@ -27,7 +27,8 @@ _EMIT_ARGS: dict[str, dict[str, str]] = {
     "_emitTurn": {"callId": "ID!", "seq": "Int", "speaker": "String",
                   "text": "String", "flag": "TurnFlag", "audioUrl": "String",
                   "tokens": "[TokenInput!]"},
-    "_emitIndexUpdate": {"callId": "ID!", "churnRisk": "Int", "emotion": "String"},
+    "_emitIndexUpdate": {"callId": "ID!", "churnRisk": "Int", "emotion": "String",
+                         "dbChips": "[String!]", "dbNodes": "[DbNodeInput!]"},
     "_emitSpeechAnalysis": {"callId": "ID!", "turnSeq": "Int", "tokens": "[TokenInput!]"},
     "_emitStrategyUpdate": {"callId": "ID!", "turnSeq": "Int",
                             "strategyHeadline": "String!", "rationale": "String!"},
@@ -48,7 +49,7 @@ _EMIT_ARGS: dict[str, dict[str, str]] = {
 # 프론트 스키마 검증(Zod)이 깨진다. 각 payload 타입의 모든 필드를 골라야 한다.
 _RETURN_FIELDS: dict[str, str] = {
     "_emitTurn": "callId seq speaker text flag tokens { text polarity reason } audioUrl",
-    "_emitIndexUpdate": "callId churnRisk emotion",
+    "_emitIndexUpdate": "callId churnRisk emotion dbChips dbNodes { label val tone }",
     "_emitSpeechAnalysis": "callId turnSeq tokens { text polarity reason }",
     "_emitStrategyUpdate": "callId turnSeq strategyHeadline rationale",
     "_emitComplianceState": ("callId phase draft violations "

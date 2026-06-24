@@ -430,7 +430,7 @@ function LiveSpeechAnalysis({
     if (typeof sub !== 'function') return;
     const unsub = sub(
       callId,
-      (index) => setEmotion(index.emotion),
+      (index) => { if (index.emotion != null) setEmotion(index.emotion); },
       (err) => console.error('onIndexUpdate(SpeechAnalysis) 구독 오류', err),
     );
     return unsub;
