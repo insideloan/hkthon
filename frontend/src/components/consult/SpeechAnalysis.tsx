@@ -221,7 +221,6 @@ function EmoBins({ emotion }: { emotion: string | null }) {
         >
           <div className="bin__h flex items-baseline gap-1">
             <b className="font-disp text-[11px] font-bold text-ink">{label}</b>
-            <i className="font-mono text-[9px] not-italic text-ink-faint">{en}</i>
           </div>
           <div
             className="min-h-[28px]"
@@ -255,6 +254,63 @@ const ENGINE_CATS = [
   { key: 'obstacle', ...CATS.obstacle },
 ] as const;
 
+// 발화분류 키워드 띄어쓰기 사전 — 붙어있는 합성 키워드를 자연스러운 단어로 분리한다.
+// (주로 이용가능성(obstacle) 칸의 긴 키워드. 예: 월납입확인후판단 → 월 납입 확인 후 판단)
+const KEYWORD_SPACING: Record<string, string> = {
+  대출거부: '대출 거부',
+  금리확인후판단: '금리 확인 후 판단',
+  월납입확인후판단: '월 납입 확인 후 판단',
+  기존대출비교후판단: '기존 대출 비교 후 판단',
+  설명추가필요: '설명 추가 필요',
+  상품부적합: '상품 부적합',
+  상담원연결필요: '상담원 연결 필요',
+};
+
+// 띄어쓰기된 문장을 단어 단위로 두 줄로 나눈다. 줄당 글자 수가 균형잡히도록
+// (공백 제외) 누적 글자 수가 절반에 가장 가까운 단어 경계에서 끊는다.
+// 예: "월 납입 확인 후 판단" → "월 납입"(3자) / "확인 후 판단"(5자).
+function splitWordsBalanced(spaced: string): [string, string] | null {
+  const words = spaced.split(' ');
+  if (words.length < 2) return null;
+  const total = words.reduce((n, w) => n + w.length, 0);
+  let acc = 0;
+  let best = { idx: 1, diff: Infinity };
+  for (let i = 1; i < words.length; i++) {
+    acc += words[i - 1].length;
+    const diff = Math.abs(acc - total / 2);
+    if (diff < best.diff) best = { idx: i, diff };
+  }
+  return [words.slice(0, best.idx).join(' '), words.slice(best.idx).join(' ')];
+}
+
+// 발화분류 칸 텍스트 렌더. 띄어쓰기 사전에 있으면 단어 단위로 두 줄(가운데 정렬),
+// 없고 5글자 초과면 글자 가운데에서 두 줄, 5글자 이하는 한 줄.
+export function OtagText({ text }: { text: string }) {
+  const spaced = KEYWORD_SPACING[text];
+  if (spaced) {
+    const lines = splitWordsBalanced(spaced);
+    if (lines) {
+      return (
+        <>
+          {lines[0]}
+          <br />
+          {lines[1]}
+        </>
+      );
+    }
+    return <>{spaced}</>;
+  }
+  if (text.length <= 5) return <>{text}</>;
+  const mid = Math.ceil(text.length / 2);
+  return (
+    <>
+      {text.slice(0, mid)}
+      <br />
+      {text.slice(mid)}
+    </>
+  );
+}
+
 function EngineCard1() {
   const { psy, intent, obstacle, stratPhase, picked, solveArrow } = useCard1Store();
   const orbByKey = { psy, intent, obstacle } as const;
@@ -268,15 +324,15 @@ function EngineCard1() {
 
       {/* orb bins — 감정/니즈/이용가능성 */}
       <div className="bins" id="emoBins">
-        {ENGINE_CATS.map(({ key, label, en }) => {
+        {ENGINE_CATS.map(({ key, label }) => {
           const orb = orbByKey[key as 'psy' | 'intent' | 'obstacle'];
           return (
             <div className={clsx('bin', key)} key={key} data-cat={key}>
-              <div className="bin__h"><b>{label}</b><i>{en}</i></div>
+              <div className="bin__h"><b>{label}</b></div>
               <div className="bin__slot" id={`slot-${key}`}>
                 {orb && (
                   <div className={clsx('orb', key, 'drop', orb.tone && 'eased')} data-testid={`orb-${key}`}>
-                    <span className="otag">{orb.dim}</span>
+                    <span className="otag"><OtagText text={orb.dim} /></span>
                   </div>
                 )}
               </div>

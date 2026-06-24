@@ -374,7 +374,7 @@
 .cmp-draft { background: rgba(255,255,255,.72); border: 1.4px solid #C9D3E8; color: #5b4a48; }
 .cmp-draft .risk { color: #C5302D; font-weight: 700; background: none; text-decoration: line-through; text-decoration-color: rgba(197,48,45,.5); }
 .cmp-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.cmp-chk { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px 6px; border: 1.4px solid #C9D3E8; border-radius: 8px; text-align: center; background: rgba(255,255,255,.72); padding: 5px 7px; opacity: .4; transition: opacity .3s, border-color .3s, background .3s; }
+.cmp-chk { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 3px 6px; border: 1.4px solid #C9D3E8; border-radius: 8px; text-align: left; background: rgba(255,255,255,.72); padding: 5px 7px; opacity: .4; transition: opacity .3s, border-color .3s, background .3s; }
 .cmp-chk.run { opacity: 1; border-color: #C9D3E8; background: rgba(255,255,255,.72); }
 .cmp-chk.ok { opacity: 1; border-color: #C9D3E8; background: rgba(255,255,255,.72); }
 .cmp-chk .cbx { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 9px; font-weight: 700; background: var(--badge-bg); color: var(--badge-ink); transition: all .3s; }
@@ -388,7 +388,7 @@
 .cmp-chk.ok.fix .cbx::after { content: "✕"; font-size: 14px; font-weight: 800; line-height: 1; }
 .cmp-chk .claw { font-family: var(--disp); font-size: 10.5px; font-weight: 800; color: var(--ink); flex: none; }
 .cmp-chk.ok .claw { color: #5A3E22; }
-.cmp-chk .cdesc { flex-basis: 100%; font-size: 9px; font-weight: 600; color: #5A6170; line-height: 1.2; word-break: keep-all; text-align: center; }
+.cmp-chk .cdesc { flex-basis: 100%; font-size: 9px; font-weight: 600; color: #5A6170; line-height: 1.2; word-break: keep-all; text-align: left; }
 .cmp-chk .cflag { display: none; }
 .cmp-final { background: #fff; color: #000; border: 1.5px solid #3551D6; box-shadow: 0 6px 14px -4px rgba(53,81,214,.45), inset 0 2px 0 0 rgba(255,255,255,.7), inset 0 -7px 12px -8px rgba(53,81,214,.3); font-size: 11.5px; line-height: 1.65; padding: 11px 13px; min-height: 64px; }
 .cmp-final del { color: #9aa0ac; text-decoration: line-through; text-decoration-color: #c9b3b2; font-weight: 500; margin-right: 2px; }

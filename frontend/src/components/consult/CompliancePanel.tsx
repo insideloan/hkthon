@@ -171,27 +171,6 @@ function ChkSvg() {
   );
 }
 
-// 가안 발화: violations substring을 .risk(빨강 취소선)로 감싼다 (SSOT .cmp-draft .risk).
-function renderCmpDraft(draft: string, violations: string[]) {
-  if (violations.length === 0) return draft;
-  const sorted = [...violations].sort((a, b) => b.length - a.length);
-  let parts: Array<{ text: string; risk: boolean }> = [{ text: draft, risk: false }];
-  for (const v of sorted) {
-    const next: Array<{ text: string; risk: boolean }> = [];
-    for (const part of parts) {
-      if (part.risk || !part.text.includes(v)) { next.push(part); continue; }
-      const idx = part.text.indexOf(v);
-      if (part.text.slice(0, idx)) next.push({ text: part.text.slice(0, idx), risk: false });
-      next.push({ text: v, risk: true });
-      if (part.text.slice(idx + v.length)) next.push({ text: part.text.slice(idx + v.length), risk: false });
-    }
-    parts = next;
-  }
-  return parts.map((p, i) =>
-    p.risk ? <span key={i} className="risk" data-testid="cmp-violation">{p.text}</span> : <span key={i}>{p.text}</span>,
-  );
-}
-
 // 엔진 모드: consultStore.compliance를 SSOT 카드③ 마크업(.cmp)으로 렌더.
 function EngineCompliancePanel() {
   const state = useConsultStore((s) => s.compliance);
@@ -206,9 +185,10 @@ function EngineCompliancePanel() {
 }
 
 // SSOT docs/consult_redesigned-3.html #card-strat .cmp (lines 1111–1118):
-//   가안 발화(.cmp-draft) → 컴플라이언스 규제 검토(.cmp-checks 2×2) → 최종 발화(.cmp-final diff)
+//   컴플라이언스 규제 검토(.cmp-checks 2×2) → 최종 발화(.cmp-final diff)
+//   (가안 발화 섹션은 제거됨)
 function EngineComplianceView({ state }: { state: ComplianceState }) {
-  const { phase, draft, violations, checks, final } = state;
+  const { phase, checks, final } = state;
   const showFinal = (phase === 'redrafting' || phase === 'approved') && final.length > 0;
 
   return (
@@ -220,11 +200,7 @@ function EngineComplianceView({ state }: { state: ComplianceState }) {
       data-phase={phase}
     >
       <div className="cmp">
-        {/* 가안 발화 */}
-        <div className="cseclbl"><span>가안 발화</span><span className="ln" /></div>
-        <div className="cmp-utter cmp-draft" id="cmpDraft" data-testid="cmp-draft">
-          {renderCmpDraft(draft, violations)}
-        </div>
+        {/* 가안 발화 섹션 제거됨 — 규제 검토 + 최종 발화만 표시. */}
 
         {/* 컴플라이언스 규제 검토 — 4규제 2×2 */}
         <div className="cseclbl"><span>컴플라이언스 규제 검토</span><span className="ln" /></div>

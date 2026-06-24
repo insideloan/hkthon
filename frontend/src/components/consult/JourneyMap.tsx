@@ -69,11 +69,12 @@ const MOT_MARKER_COORDS: Record<MotMarkerId, { x: number; y: number; label: stri
   'rz-avoid':    { x: 1300, y: 322, label: 'MOT_5' },
 };
 
-// MOT markers are offset downward so they don't overlap the car circle (r=38).
-// The car sits ON the route; markers are shifted into the 이탈위험 lower zone.
-// Gap required: car r(38) + marker r(33) = 71px minimum. 85px gives clear separation.
-// cautionCoords receives the SAME offset so the "!" pop-up stays above the moved marker.
-const MOT_Y_OFFSET = 85;
+// MOT markers are flat hz-style ellipses (rx46 ry16, SSOT #hz) shifted below the
+// route so they (a) stay inside the frame rect (y 30–408: max 336+56+16=408) and
+// (b) clear the car circle (r=38) on the route: marker top(cy-16) ≥ car bottom.
+// cautionCoords receives the SAME offset so the "!" pop-up stays above the marker.
+const MOT_Y_OFFSET = 56;
+const MOT_RY = 16;
 
 // SSOT animationDelay 순서 대로 (rz-rate 0s, rz-compare 0.6s, rz-pay 1.1s, rz-security 1.6s, rz-avoid 2.1s)
 const ANIMATION_DELAY: Record<MotMarkerId, string> = {
@@ -91,10 +92,10 @@ function seqToMarkerId(seq: number): MotMarkerId | null {
 }
 
 // ── RzMarker — SSOT .rz SVG 그룹 ─────────────────────────────────────────────
-// rz-compare는 SSOT에서 ellipse(rx=44 ry=30), 나머지는 circle(r=33).
+// MOT 마커는 SSOT #hz 언더글로와 같은 평평한 타원(rx46 ry19)으로 통일한다.
+// 낮고 넓은 형태라 프레임 안에 들어가고 경로 위 차량 원과도 거의 겹치지 않는다.
 // rz-core class kept as harmless string for SSOT lineage; no external CSS needed.
 function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerState }) {
-  const isEllipse = id === 'rz-compare';
   const delay = ANIMATION_DELAY[id];
 
   // Stroke color: alert/show→hazard, blocked→go
@@ -104,24 +105,11 @@ function RzCore({ id, state: markerState }: { id: MotMarkerId; state: MarkerStat
   const fillColor =
     markerState === 'blocked' ? 'var(--cmp-final, #f5fbf8)' : '#fff';
 
-  if (isEllipse) {
-    return (
-      <ellipse
-        className="rz-core"
-        rx={44}
-        ry={30}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={2.4}
-        strokeDasharray={markerState === 'blocked' ? 'none' : '4 5'}
-        style={{ animationDelay: delay }}
-      />
-    );
-  }
   return (
-    <circle
+    <ellipse
       className="rz-core"
-      r={33}
+      rx={46}
+      ry={MOT_RY}
       fill={fillColor}
       stroke={strokeColor}
       strokeWidth={2.4}
@@ -674,13 +662,14 @@ export const JourneyMap = forwardRef<JourneyMapHandle, JourneyMapProps>(function
           ))}
         </g>
 
-        {/* 체크포인트 노드 (능선) */}
+        {/* 체크포인트 노드 (능선) — 경로 위(전환가능 쪽)로 올려 차량 원과 겹치지 않게.
+            차량은 경로(y≈178–232)를 달리고, cp(core r=42)는 cpCy+42 ≤ 경로y−38 이 되도록 배치. */}
         <g fontFamily="Pretendard,sans-serif" fontSize={19} fontWeight={800}>
-          <CpNode id="cp-interest" x={70}   y={232} label="시작"/>
-          <CpNode id="cp-trust"    x={575}  y={205} label="신뢰확보"/>
-          <CpNode id="cp-cond"     x={800}  y={212} label="조건이해"/>
-          <CpNode id="cp-limit"    x={1095} y={214} label="한도조회"/>
-          <CpNode id="cp-review"   x={1410} y={178} label="신청검토"/>
+          <CpNode id="cp-interest" x={70}   y={150} label="시작"/>
+          <CpNode id="cp-trust"    x={575}  y={123} label="신뢰확보"/>
+          <CpNode id="cp-cond"     x={800}  y={131} label="조건이해"/>
+          <CpNode id="cp-limit"    x={1095} y={131} label="한도조회"/>
+          <CpNode id="cp-review"   x={1410} y={97}  label="신청검토"/>
         </g>
 
         {/* 목적지 */}
