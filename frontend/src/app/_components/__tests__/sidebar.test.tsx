@@ -38,7 +38,7 @@ describe('Sidebar', () => {
 
   it('renders 3 nav links', () => {
     render(<Sidebar />);
-    // nav 내부 링크만 카운트 — footer의 모바일 체험 QR 링크(/m)는 네비게이션이
+    // nav 내부 링크만 카운트 — footer의 모바일 체험 링크(/m)는 네비게이션이
     // 아니므로 제외한다.
     const nav = screen.getByRole('navigation');
     const links = within(nav).getAllByRole('link');

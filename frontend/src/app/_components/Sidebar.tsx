@@ -40,6 +40,15 @@ const CrmIcon = () => (
   </svg>
 );
 
+// 모바일 체험(/m) 진입용 스마트폰 아이콘 — 기존 QR 이미지 대체.
+const SmartphoneIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" width={24} height={24}>
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M10 5.3h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M10.5 18.7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
 interface NavItem {
   href: string;
   icon: React.ReactNode;
@@ -170,31 +179,30 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* 모바일 체험(/m) QR — LIVE 인디케이터 바로 위에 배치. mt-auto로 nav 아래
-          공간을 밀어 QR+LIVE를 카드 하단부에 모은다. 좌우는 aside 패딩(8px)을 상쇄해
-          가장자리까지 풀블리드 유지하되, 더 이상 카드 최하단이 아니므로 하단 모서리
-          라운드/네거티브 마진은 빼고 LIVE와 8px 간격을 둔다.
-          클릭 시 데스크탑에서도 /m을 새 탭으로 연다. QR 흰 모듈은 투명이라 카드
-          배경이 비치고 파랑(rgb(37,99,235)) 모듈과 대비되어 스캔 가능. */}
+      {/* 모바일 체험(/m) — LIVE 인디케이터 바로 위에 배치. mt-auto로 nav 아래 공간을
+          밀어 체험 진입 + LIVE를 카드 하단부에 모은다. 기존 QR 이미지 대신 스마트폰
+          아이콘을 쓴다(nav 항목과 동일한 아이콘+라벨 스타일). 클릭 시 데스크탑에서도
+          /m을 새 탭으로 연다. */}
       <Link
         href="/m"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="모바일 체험 QR — 휴대폰으로 스캔하세요"
-        title="모바일 체험 QR"
-        className="mt-auto block cursor-pointer transition-opacity duration-200 hover:opacity-80"
-        style={{
-          // 좌우 aside 패딩(8px)만 상쇄해 가장자리까지 꽉 채운다(상하는 일반 간격).
-          margin: '0 -8px 8px',
-          overflow: 'hidden',
-        }}
+        aria-label="모바일 체험 — 휴대폰으로 열기"
+        title="모바일 체험"
+        className={[
+          'mt-auto mb-2 flex flex-col items-center gap-1 w-full text-center cursor-pointer',
+          'font-kr text-[10.5px] font-bold leading-[1.15]',
+          'rounded-[11px] transition-all duration-200 no-underline',
+          'border border-transparent bg-transparent text-ink-dim hover:bg-white/50 hover:text-ink',
+        ].join(' ')}
+        style={{ padding: '9px 4px' }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/qr.png"
-          alt="모바일 체험 QR 코드"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
-        />
+        <SmartphoneIcon />
+        <span className="block" style={{ lineHeight: '1.25', wordBreak: 'keep-all' }}>
+          모바일
+          <br />
+          체험
+        </span>
       </Link>
 
       {/* SSOT .sb-foot: flex-col; align-center; font-mono; 7.5px; font-weight:700;
