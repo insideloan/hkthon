@@ -55,14 +55,17 @@
   body {
     font-family: var(--kr);
     color: var(--ink);
-    /* glassy 배경 — 은은한 컬러 블롭(radial)을 깔아 카드 유리의 blur/투과가 드러나게 한다.
-       카드가 반투명이라 이 배경이 비쳐 보이고, 카드끼리 겹치는 영역도 들여다보인다. */
-    background-color: var(--canvas);
+    /* glossy 배경 — 베이스 #f6f7f9 위에 #dedee3 톤을 옅게 얹어 은은한 명암/광택을 준다.
+       (멀티컬러 블롭 대신 두 뉴트럴 톤 조합) 카드가 반투명이라 이 명암이 비쳐 보인다. */
+    background-color: #f6f7f9;
     background-image:
-      radial-gradient(38rem 38rem at 30% 25%, rgba(99,102,241,.22), transparent 62%),
-      radial-gradient(36rem 36rem at 78% 30%, rgba(56,189,248,.22), transparent 62%),
-      radial-gradient(42rem 42rem at 65% 80%, rgba(45,158,110,.18), transparent 62%),
-      radial-gradient(34rem 34rem at 22% 78%, rgba(244,114,182,.16), transparent 62%);
+      /* 상단 하이라이트 — 위쪽을 더 밝게(흰빛) 띄워 glossy한 광택감 */
+      linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 38%),
+      /* #dedee3 음영 블롭 — 모서리 쪽으로 옅게 깔아 입체감 */
+      radial-gradient(60rem 60rem at 82% 88%, #dedee3, transparent 60%),
+      radial-gradient(52rem 52rem at 16% 14%, #dedee3, transparent 58%),
+      /* 전체 베이스→#dedee3 대각 그라데이션(아주 옅게) */
+      linear-gradient(135deg, #f6f7f9 0%, #dedee3 100%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
@@ -139,14 +142,17 @@
 .cc__cards .card__h {
   position: relative;
   align-self: flex-start;
-  width: fit-content;
+  /* 세 타이틀 폭을 동일하게 통일 — 가장 긴 카드(컴플라이언스 체크) 기준 고정폭.
+     폭이 같으면 SVG stroke(테두리 굵기)도 동일하게 보인다. */
+  width: 184px;
   max-width: 100%;
   padding: 6px 26px 6px 13px;
   background: transparent;
   /* 그림자 음영 — chevron 모양(::before)을 따라가도록 drop-shadow */
-  filter: drop-shadow(0 2px 4px rgba(44,91,214,.45));
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.18));
 }
-/* chevron 외곽선만(배경 투명) — SVG stroke, fill=none. preserveAspectRatio=none 으로 폭에 맞춰 늘림. */
+/* chevron 외곽선만(배경 투명) — SVG stroke, fill=none. preserveAspectRatio=none 으로 폭에 맞춰 늘림.
+   폭이 모두 같으므로 stroke-width(테두리 굵기)도 카드마다 동일하게 렌더된다. */
 .cc__cards .card__h::before {
   content: "";
   position: absolute;
@@ -156,6 +162,10 @@
   background-size: 100% 100%;
   background-repeat: no-repeat;
   pointer-events: none;
+}
+/* 카드③ 컴플라이언스 체크 — 타이틀 화살표 테두리 색을 회색(#9CA3AF)으로 */
+#card-strat .card__h::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none' viewBox='0 0 200 40'%3E%3Cpath d='M2 2 H178 L196 20 L178 38 H2 Z' fill='none' stroke='%239CA3AF' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /* .card .card-scroll — SSOT line 670–671: flex 레이아웃 + 네거티브 마진으로 스크롤바 트랙 가장자리 정렬 */
