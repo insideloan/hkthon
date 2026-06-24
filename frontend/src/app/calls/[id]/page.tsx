@@ -231,7 +231,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
       </div>
 
       {/* ═══ 우: rightcol ═══ */}
-      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '0px', height: 'max(560px, calc(100vh - 96px))' }}>
+      <div className="rightcol grid min-h-0" style={{ gridTemplateRows: '36fr 64fr', gap: '13px', height: 'max(560px, calc(100vh - 96px))' }}>
         {/* 우-상단: 여정 맵 */}
         <div className="map relative min-h-0 overflow-hidden" style={{ height: '100%', zIndex: 1, borderRadius: '18px', border: '1px solid var(--glass-bd)', background: 'var(--glass)', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="map__title absolute flex items-center z-[6]" style={{ top: '11px', left: '12px', gap: '8px' }}>
@@ -247,7 +247,7 @@ export default function ConsultCockpitPage({ params }: PageProps) {
         </div>
 
         {/* 우-하단: AI 응답 준비 */}
-        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: 'calc(100% + 13px)', marginTop: '-13px', position: 'relative', zIndex: 2, background: 'var(--glass)', border: '1px solid var(--glass-bd)', borderRadius: '18px', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
+        <div className="chaincard flex flex-col min-h-0 overflow-hidden" style={{ height: '100%', position: 'relative', zIndex: 2, background: 'var(--glass)', border: '1px solid var(--glass-bd)', borderRadius: '18px', backdropFilter: 'blur(22px) saturate(1.4)', WebkitBackdropFilter: 'blur(22px) saturate(1.4)', boxShadow: 'var(--shadow), inset 0 1px 0 rgba(255,255,255,.7)' }}>
           <div className="cc__head flex items-center" style={{ gap: '8px', padding: '3px 14px' }}>
             <span className="hicon inline-grid place-items-center flex-none" style={{ width: '27px', height: '27px', borderRadius: '8px', background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: '15px', height: '15px', display: 'block' }}>
