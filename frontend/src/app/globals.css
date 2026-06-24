@@ -454,13 +454,13 @@
 /* ── 카드 2분할 (.card-top / .card-bottom) ──
    세 카드(#card-emo/#card-db/#card-strat)를 세로로 2분할한다.
    · .card-top: 섹션 라벨("전략 선택 (20종)"/"분석 결과"/"최종 발화…") 위 요소를
-     담는 상단 영역. 세 카드 동일 고정 높이(80px)로 통일 → 라벨이 한 줄로 정렬.
+     담는 상단 영역. 세 카드 동일 고정 높이(100px)로 통일 → 라벨이 한 줄로 정렬.
      내부 콘텐츠(.bins / .usebox / .cmp-checks)가 넘치면 잘라낸다.
    · .card-bottom: 라벨 + 이하 콘텐츠. 남은 높이를 채우는 flex 컬럼
      (stratg.resolved 등 flex:1 자식이 부모 높이를 받도록). */
 .cc__cards .card-top {
-  height: 80px;
-  min-height: 80px;
+  height: 100px;
+  min-height: 100px;
   overflow: hidden;
   flex: none;
   border-bottom: 1px solid var(--hair);
