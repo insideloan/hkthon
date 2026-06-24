@@ -42,9 +42,9 @@ export type CustomerProfile = {
 const DEMO_PROFILES: Record<string, CustomerProfile> = {
   'c-demo-01': {
     name: '박서준',
-    genderAge: '남 · 38세',
-    kcb: 'KCB 744',
-    loan: '주택담보대출 2.4억',
+    genderAge: '41세',
+    kcb: 'KCB 744 (준우량)',
+    loan: '삼성 카드론 2,000만',
     rateLabel: '타사 금리 (추정)',
     rate: '약 13%',
     rateVariant: 'hot',
