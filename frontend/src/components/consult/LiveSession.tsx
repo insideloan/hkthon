@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { startAudio, audioChunk, subscribeTurns, subscribeCallEnded } from '@/lib/appsync';
 import { startPcmCapture, type PcmCaptureHandle, type PcmVadEvent } from '@/lib/pcmCapture';
+import { stopBotAudio } from '@/lib/botAudioControl';
 import { useExperienceStore } from '@/stores/experienceStore';
 import { SCENARIO_CUSTOMER_NAME } from '@/lib/customerProfiles';
 import type { Turn } from '@/types/realtime';
@@ -150,6 +151,8 @@ export function LiveSession({ callId }: LiveSessionProps) {
         {
           // 함수형 임계값 — 슬라이더가 바꾼 ref를 매 프레임 읽어 재시작 없이 반영.
           vadThreshold: () => vadThresholdRef.current,
+          // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
+          onSpeechStart: () => stopBotAudio(),
           ...(vadDebug
             ? {
                 onDebug: (ev: PcmVadEvent) => {
