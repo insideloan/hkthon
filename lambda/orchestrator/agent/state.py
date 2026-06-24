@@ -164,6 +164,28 @@ class MotResult(TypedDict, total=False):
     is_conversion: bool
 
 
+class ConvFlow(TypedDict, total=False):
+    """대출 상담 진행 단계 State (conversation_flow가 매 턴 재구성).
+
+    1~4는 순차 진행 — 앞 단계가 Y가 되어야 다음 단계로 넘어간다. 1~4가 모두 Y면
+    상담 목표 달성으로 통화를 종료하고, 5(loan_decision)에 따라 마무리 멘트를 고른다.
+    거절(rejection_count)은 별도 축: 0→1 전이 시 종료 방어를 1회 하고, 2회 이상이면 종료.
+    """
+
+    # 1. 본인 확인 응답을 받았는지 (고객이 본인이 맞다고 답함)
+    identity_confirmed: bool
+    # 2. 통화 가능한지 묻고 답을 들었는지
+    availability_confirmed: bool
+    # 3. 대출 상담 오퍼를 했는지
+    offer_made: bool
+    # 4. 대출할 건지 답을 들었는지
+    loan_interest_answered: bool
+    # 5. 대출 진행할지 말지 — 4가 Y일 때의 고객 결정 ("proceed" | "decline" | "")
+    loan_decision: str
+    # 6. 통화 거부(종료 시도) 횟수
+    rejection_count: int
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CallState — LangGraph 메인 상태
 # ─────────────────────────────────────────────────────────────────────────────
@@ -209,3 +231,7 @@ class CallState(TypedDict, total=False):
 
     # detect_mot
     mot: Optional[MotResult]
+
+    # 대출 상담 진행 단계 State (conversation_flow). 매 턴 history에서 재구성(stateless).
+    # 1~4는 순차 진행(앞 단계가 Y여야 다음으로). 1~4 전부 Y면 종료하고 5(loan_decision)대로 응답.
+    flow: ConvFlow

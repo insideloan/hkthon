@@ -105,9 +105,10 @@ def test_respond_node_passes_signals_to_prompt(monkeypatch):
     """nodes.respond가 state의 strategy.tactic/emotion을 respond_system에 전달."""
     captured = {}
 
-    def fake_respond_system(stage, customer=None, *, tactic=None, emotion=None):
+    def fake_respond_system(stage, customer=None, *, tactic=None, emotion=None, flow=None):
         captured["tactic"] = tactic
         captured["emotion"] = emotion
+        captured["flow"] = flow
         return "SYS"
 
     monkeypatch.setattr(nodes.prompts, "respond_system", fake_respond_system)

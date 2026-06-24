@@ -47,10 +47,12 @@ STAGE_GUIDE: dict[Stage, str] = {
     Stage.IDENTIFY: """\
 [STEP 1 — 신원고지/녹취고지]
 목표: 본인 확인과 녹취 고지를 마치고 다음 단계로 자연스럽게 연결.
+★ 이 통화는 당사가 먼저 건 아웃바운드 전화이므로, 고객 정보를 이미 보유하고 있다.
+  [고객 정보]의 이름을 그대로 불러 본인 확인을 한다 — 고객에게 이름을 되묻지 않는다.
 ★ 첫 인사(통화 연결 직후 첫 봇 발화)에는 다음 3가지를 반드시 모두 포함한다(하나라도 누락 금지):
   ① 신원: "현대캐피탈 AI 상담원"임을 밝힘
   ② AI 음성·녹취 고지: "AI가 생성한 음성으로 안내되며 상담 내용은 녹음됨"을 안내
-  ③ 본인 확인: 고객 이름을 들어 "○○○ 고객님이 맞으세요?"로 본인 확인 요청
+  ③ 본인 확인: [고객 정보]의 이름으로 "○○○ 고객님이 맞으세요?"라고 확인 요청(이름 되묻기 금지)
   예시(이 방향으로 자연스럽게): "안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성으로 제공되며 상담 내용은 녹음됨을 안내드립니다. 실례지만 ○○○ 고객님이 맞으세요?"
 대응전략(케이스별):
 - 본인확인됨: 확인 감사 인사 후 바로 다음 단계로 자연스럽게 연결.
@@ -249,19 +251,63 @@ def _strategy_block(tactic: Tactic | None, emotion: Emotion | None) -> str:
     return "\n".join(lines)
 
 
+def _flow_block(flow: dict | None) -> str:
+    """대출 상담 진행 단계(ConvFlow)를 프롬프트 지시로 렌더 — 다음에 할 행동을 못박는다.
+
+    1~4 순차 진행을 LLM이 따르도록, 현재 어느 단계인지와 '다음 한 마디로 무엇을 해야
+    하는지'를 명시한다. 첫 거절 방어 상황이면 공감 후 1회만 전환을 시도하도록 지시한다.
+    """
+    if not flow:
+        return ""
+    done = (
+        flow.get("identity_confirmed")
+        and flow.get("availability_confirmed")
+        and flow.get("offer_made")
+        and flow.get("loan_interest_answered")
+    )
+    # 다음에 수행할 단계 결정.
+    if not flow.get("identity_confirmed"):
+        nxt = "본인 확인 — [고객 정보] 이름으로 '○○○ 고객님 맞으세요?'를 묻는다(이름 되묻기 금지)."
+    elif not flow.get("availability_confirmed"):
+        nxt = "통화 가능 확인 — 연락 근거(마케팅·개인정보 동의)를 밝히고 '지금 통화 잠깐 괜찮으실까요?'를 묻는다."
+    elif not flow.get("offer_made"):
+        nxt = "대출 상담 오퍼 — 기존 대출 대비 비교/대환 관점으로 안내 제안을 한 마디로 한다(확정 금지, 예시·심사 동반)."
+    elif not flow.get("loan_interest_answered"):
+        nxt = "대출 의향 확인 — 진행을 원하시는지 부담 없이 한 번 여쭌다."
+    else:
+        nxt = "마무리 — 고객 결정에 따라 정중히 마무리한다."
+    lines = [
+        "[대출 상담 진행 단계 — 이 순서대로만 진행. 한 번에 한 단계만]",
+        f"- 1 본인확인 응답: {'완료' if flow.get('identity_confirmed') else '미완'}",
+        f"- 2 통화가능 확인: {'완료' if flow.get('availability_confirmed') else '미완'}",
+        f"- 3 대출상담 오퍼: {'완료' if flow.get('offer_made') else '미완'}",
+        f"- 4 대출의향 답변: {'완료' if flow.get('loan_interest_answered') else '미완'}",
+        f"- 거절 횟수: {flow.get('rejection_count', 0)}",
+        f"▶ 다음 한 마디로 할 일: {nxt}",
+    ]
+    if flow.get("rejection_count", 0) == 1 and not done:
+        lines.append(
+            "▶ 고객이 통화를 끊으려 합니다(첫 거절). 우려를 먼저 짧게 공감·인정한 뒤, "
+            "부담 낮은 다음 행동으로 1회만 자연스럽게 전환을 시도하세요(강요·반복 금지)."
+        )
+    return "\n".join(lines)
+
+
 def respond_system(
     stage: Stage,
     customer: CustomerCtx | None = None,
     *,
     tactic: Tactic | None = None,
     emotion: Emotion | None = None,
+    flow: dict | None = None,
 ) -> str:
-    """nodes.respond용 — 실제 봇 발화 생성 지시. classify 신호(전략/감정)를 반영."""
+    """nodes.respond용 — 실제 봇 발화 생성 지시. classify 신호(전략/감정) + 진행 단계 반영."""
     return "\n\n".join(
         [
             PERSONA,
             COMMON_RULES,
             STAGE_GUIDE.get(stage, ""),
+            _flow_block(flow),
             _strategy_block(tactic, emotion),
             _customer_block(customer),
             # 금지표현 사전주입(예방) — 컴플라이언스 룰 검수(_POLICY_PATTERNS)에 자주 걸리는

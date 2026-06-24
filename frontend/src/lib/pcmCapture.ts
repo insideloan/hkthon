@@ -77,9 +77,16 @@ export type PcmCaptureOptions = {
    */
   isSuppressed?: () => boolean;
   /**
-   * isSuppressed가 true일 때 VAD 임계값에 곱하는 배수(기본 4). 클수록 봇 발화 중
-   * 끼어들기가 어려워지지만 에코 오탐은 줄어든다. barge-in을 살리려 무한대(완전 차단)
-   * 대신 유한 배수를 쓴다.
+   * isSuppressed가 true(봇 발화 중)일 때 사용할 **절대** VAD 임계값(0~1).
+   * 지정하면 suppressGain 곱셈 대신 이 값을 그대로 쓴다 — 봇 발화 중 마이크 감도를
+   * 명시값으로 고정하고 싶을 때(예: 평상시 0.13, 봇 발화 중 0.19). 함수로 주면
+   * 매 프레임 현재값을 읽는다(슬라이더 연동). 미지정 시 suppressGain 곱셈 폴백.
+   */
+  suppressedThreshold?: number | (() => number);
+  /**
+   * isSuppressed가 true이고 suppressedThreshold가 없을 때 VAD 임계값에 곱하는 배수(기본 4).
+   * 클수록 봇 발화 중 끼어들기가 어려워지지만 에코 오탐은 줄어든다. barge-in을 살리려
+   * 무한대(완전 차단) 대신 유한 배수를 쓴다.
    */
   suppressGain?: number;
   /**
@@ -120,6 +127,9 @@ export function startPcmCapture(
   const onSpeechEnd = options.onSpeechEnd;
   const isSuppressed = options.isSuppressed;
   const suppressGain = options.suppressGain ?? 4;
+  const st = options.suppressedThreshold;
+  const getSuppressedThreshold =
+    st === undefined ? null : typeof st === "function" ? st : () => st;
 
   type WindowWithWebkit = Window & { webkitAudioContext?: typeof AudioContext };
   const Ctx = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
@@ -171,7 +181,13 @@ export function startPcmCapture(
     // suppressGain 배로 올려 되먹임 에코를 발화로 오인하지 않게 한다. 이미 발화 중인
     // 고객의 말꼬리는 게이팅하지 않는다(말 도중 봇 클립이 시작돼도 발화가 끊기지 않게).
     const suppress = !speaking && isSuppressed?.() === true;
-    const threshold = getThreshold() * (suppress ? suppressGain : 1);
+    // 봇 발화 중(suppress): 절대 임계값(suppressedThreshold)이 있으면 그 값으로 고정,
+    // 없으면 기존 동작(평상시 임계값 × suppressGain). 평상시에는 평상시 임계값.
+    const threshold = suppress
+      ? getSuppressedThreshold
+        ? getSuppressedThreshold()
+        : getThreshold() * suppressGain
+      : getThreshold();
     onDebug?.({ type: 'frame', rms: level, speaking, threshold });
 
     if (level >= threshold) {
