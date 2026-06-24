@@ -20,7 +20,8 @@ from ..api import dynamo
 class ResultType(str, Enum):
     """통화 종료 결과 유형."""
 
-    HANDOFF = "한도조회_상담원연결"
+    HANDOFF = "한도조회_상담원연결"   # (레거시) 수동 상담원 이관 — 자동 흐름 미사용
+    AI_INTAKE = "AI_본심사"           # AI가 직접 본심사 접수·진행(상담원 연결 대체)
     APPROVED = "가입승인"
     REJECTED = "거절"
 

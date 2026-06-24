@@ -87,7 +87,9 @@ def fast_route(state: CallState) -> CallState:
     # 공통요건: 거절 최우선
     if any(k in text for k in _REJECTION_KW):
         intent, route = Intent.REJECTION, Route.CLOSE
-    # 공통요건: 상담원 연결 우선 처리 (단계 무시 즉시 이관)
+    # 공통요건: AI 본심사 우선 처리. 상담원 요청·한도조회·진행 의향은 모두 단계 무시
+    # 즉시 AI 본심사 접수(intake_node)로 전환. 사람 상담원 연결 시나리오는 폐기 —
+    # 상담원 요청이 와도 AI가 직접 본심사를 진행한다.
     elif any(k in low for k in _TRANSFER_KW):
         intent, route = Intent.TRANSFER_INTENT, Route.TRANSFER
     elif any(k in text for k in _LIMIT_KW):
@@ -212,7 +214,7 @@ def route_intent(state: CallState) -> str:
     """classify/churn 이후 최종 라우팅 (LANGGRAPH-DESIGN §5)."""
     route = state.get("route")
     if route == Route.TRANSFER:
-        return "transfer_node"
+        return "intake_node"
     if route == Route.CLOSE:
         return "close_node"
     if route == Route.SILENCE:
@@ -309,57 +311,36 @@ def detect_mot(state: CallState) -> CallState:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def transfer_node(state: CallState) -> CallState:
-    """상담원 이관. transferToAgent 경로 → call_status=TRANSFER_PENDING (성공경로). 이관 멘트 준비.
+def intake_node(state: CallState) -> CallState:
+    """AI 본심사 접수. 고객이 한도조회/진행 의향/상담원 요청을 보이면 사람 이관이 아니라
+    AI 상담사가 직접 본심사를 진행한다(사람 상담원 연결 시나리오 폐기).
 
-    Acceptance(AGENT-006): transfer 시 call_status가 TRANSFER_PENDING으로 전이.
-
-    이관 시 지금까지의 대화를 1~2문장 핸드오프 요약(handoff_summary)으로 만들어
-    상담원이 맥락을 즉시 파악하게 한다(persist가 Call META에 기록 → CRM 표시).
-    고객에겐 추가 질문으로 시간을 끌지 않는다(요약은 백그라운드 산출물).
+    통화는 계속되므로 call_status는 ACTIVE 유지(TRANSFER_PENDING 미사용). 종료 후
+    onCallEnded resultType 분류를 위해 result_type="AI_본심사"를 남긴다(persist가 기록).
+    intent별로 멘트를 살짝 달리해 한도조회/진행/상담원요청 맥락에 맞춘다.
     """
+    intent = state.get("intent")
+    if intent == Intent.LIMIT_INQUIRY:
+        bot_text = (
+            "네, 지금 바로 AI 본심사로 한도를 확인해 드리겠습니다. 별도 서류 제출 없이 "
+            "진행되며, 최종 한도와 조건은 심사 결과에 따라 달라질 수 있습니다."
+        )
+    else:
+        bot_text = (
+            "네, AI 상담사가 직접 본심사를 진행해 드리겠습니다. 별도 서류 제출 없이 "
+            "지금 바로 접수되며, 한도와 조건은 심사 결과에 따라 안내드립니다."
+        )
     return {
         "route": Route.TRANSFER,
-        "call_status": CallStatus.TRANSFER_PENDING,
-        "bot_text": "네, 바로 상담원에게 연결해 드리겠습니다. 잠시만 기다려 주세요.",
-        "handoff_summary": _build_handoff_summary(state),
+        "call_status": CallStatus.ACTIVE,
+        "result_type": "AI_본심사",
+        "bot_text": bot_text,
         "strategy": {
-            "tactic": "즉시 이관",
-            "headline": "상담원 연결 요청 — 단계 무시 즉시 이관",
-            "lead": signals.tactic_lead(signals.Tactic.HANDOFF_PROTECT),
+            "tactic": signals.Tactic.AI_INTAKE_PIVOT.value,
+            "headline": "AI 본심사 전환 — 무서류 즉시 접수",
+            "lead": signals.tactic_lead(signals.Tactic.AI_INTAKE_PIVOT),
         },
     }
-
-
-def _build_handoff_summary(state: CallState) -> str:
-    """상담원 이관용 핸드오프 요약. 룰 기반(결정적) 한 줄을 즉시 반환.
-
-    핸드오프 요약은 실시간 통화 흐름이 아니라 상담원 CRM 탭에 표시되는 사후 정보다.
-    과거엔 이관마다 LLM(converse)을 동기 호출(~2-5s)했지만, 이관은 고객을 기다리게 하는
-    구간이라 라이브 지연에 직접 영향을 준다 — 이미 state에 쌓인 단계/의도/이탈위험/직전
-    발화로 충분히 맥락이 전달되므로 LLM 없이 폴백 요약을 쓴다. 더 풍부한 요약이 필요하면
-    통화 종료 후 비동기로 보강하는 것이 맞다(임계 경로 분리).
-    """
-    return _fallback_handoff_summary(state)
-
-
-def _fallback_handoff_summary(state: CallState) -> str:
-    """LLM 없이 state 신호로 구성하는 결정적 핸드오프 요약."""
-    parts = []
-    stage = _enum_value(state.get("stage"))
-    if stage:
-        parts.append(f"단계 {stage}")
-    intent = _enum_value(state.get("intent"))
-    if intent:
-        parts.append(f"의도 {intent}")
-    churn = state.get("churn_after", state.get("churn_before"))
-    if churn is not None:
-        parts.append(f"이탈위험 {churn}")
-    last = (state.get("customer_text") or "").strip()
-    head = "상담원 연결 요청"
-    detail = f" — {', '.join(parts)}" if parts else ""
-    tail = f' 직전 발화: "{last}"' if last else ""
-    return f"{head}{detail}.{tail}".strip()
 
 
 def close_node(state: CallState) -> CallState:
@@ -649,13 +630,18 @@ def _persist_call_meta(call_id, state, emotion, ts, dynamo) -> None:
     if state.get("fraud_suspected"):
         fields["fraud_suspected"] = True
 
+    # AI 본심사 전환(intake_node)이 남긴 결과 유형 — onCallEnded resultType 분류용.
+    # 통화 상태는 ACTIVE 유지(상담원 이관 아님)이고, result_type만 META에 기록한다.
+    if state.get("result_type"):
+        fields["result_type"] = state["result_type"]
+
     # 상태 전이: TRANSFER_PENDING / ENDED (call_status). ACTIVE면 state 미변경.
+    # TRANSFER_PENDING은 이제 자동 흐름이 아니라 수동 이관(resolve_transfer_to_agent)
+    # 전용이다 — AI 본심사 흐름은 ACTIVE를 유지한다.
     status = _enum_value(state.get("call_status"))
     if status == "TRANSFER_PENDING":
         fields["state"] = "TRANSFER_PENDING"
         fields["agent_joined_at"] = ts
-        # 상담원 핸드오프 요약 — CRM/상담원이 맥락 즉시 파악(handoff_reason 키로 통일,
-        # summaries.write_summary 및 CallSummaryResult.handoffReason과 동일 소스).
         if state.get("handoff_summary"):
             fields["handoff_reason"] = state["handoff_summary"]
     elif status == "ENDED":

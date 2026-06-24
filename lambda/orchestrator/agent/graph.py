@@ -29,7 +29,7 @@ def _timed(name, fn):
     """노드 실행 시간(ms)을 구조화 로그로 남기는 래퍼.
 
     라이브 한 턴(~20-37s)의 노드별 분해를 CloudWatch에서 바로 볼 수 있게 한다.
-    LLM 노드(classify/respond/compliance/transfer_node)가 대부분의 시간을 쓰므로,
+    LLM 노드(classify/respond/compliance)가 대부분의 시간을 쓰므로,
     이 로그로 어느 호출이 느린지 즉시 식별된다. 로그 형식(고정 prefix + key=val)은
     CloudWatch Logs Insights 파싱을 쉽게 하려는 것.
     """
@@ -58,7 +58,7 @@ def build_graph():
     g.add_node("respond", _timed("respond", nodes.respond))
     g.add_node("compliance", _timed("compliance", nodes.compliance))
     g.add_node("detect_mot", _timed("detect_mot", nodes.detect_mot))
-    g.add_node("transfer_node", _timed("transfer_node", nodes.transfer_node))
+    g.add_node("intake_node", _timed("intake_node", nodes.intake_node))
     g.add_node("close_node", _timed("close_node", nodes.close_node))
     g.add_node("silence", _timed("silence", nodes.silence))
     g.add_node("persist", _timed("persist", nodes.persist))
@@ -84,7 +84,7 @@ def build_graph():
         nodes.route_intent,
         {
             "respond": "respond",
-            "transfer_node": "transfer_node",
+            "intake_node": "intake_node",
             "close_node": "close_node",
             "silence": "silence",
         },
@@ -96,7 +96,7 @@ def build_graph():
     g.add_edge("detect_mot", "persist")
 
     # 종단 노드는 detect_mot를 거쳐(전환 MOT 기록) persist로 수렴
-    g.add_edge("transfer_node", "detect_mot")
+    g.add_edge("intake_node", "detect_mot")
     g.add_edge("close_node", "persist")
     g.add_edge("silence", "persist")
 
