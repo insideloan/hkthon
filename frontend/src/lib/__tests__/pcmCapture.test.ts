@@ -60,6 +60,22 @@ describe('startPcmCapture VAD endpointing', () => {
     expect(onChunk).not.toHaveBeenCalled(); // 잔여 버퍼도 없음
   });
 
+  it('함수형 vadThreshold: 매 프레임 현재값을 읽어 실시간 반영(슬라이더 연동)', () => {
+    let threshold = 0.1; // 처음엔 둔감 — 0.05 발화를 무시
+    const onChunk = vi.fn();
+    const h = startPcmCapture({} as MediaStream, onChunk, {
+      vadThreshold: () => threshold, silenceMs: 800,
+    });
+    feed(0.05); // 0.05 < 0.1 → 발화로 안 잡힘
+    nowMs += 900; feed(0.0);
+    expect(onChunk).not.toHaveBeenCalled();
+    // 슬라이더를 낮춤 → 같은 0.05 발화가 이제 잡힌다(재시작 없이).
+    threshold = 0.02;
+    feed(0.05); nowMs += 900; feed(0.0);
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    h.stop();
+  });
+
   it('발화 후 침묵 ≥ silenceMs면 한 발화로 flush한다', () => {
     const onChunk = vi.fn();
     const h = startPcmCapture({} as MediaStream, onChunk, { vadThreshold: 0.01, silenceMs: 800 });

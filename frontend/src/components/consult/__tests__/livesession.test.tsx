@@ -1,7 +1,7 @@
 // LiveSession 단위 테스트 — 마이크 권한, onTurn 트랜스크립트 렌더, mock 시뮬레이션.
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LiveSession } from '@/components/consult/LiveSession';
 
 // onTurn 구독을 손으로 구동할 수 있게 콜백을 보관.
@@ -28,8 +28,13 @@ const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const stopCapture = vi.fn();
+// startPcmCapture에 넘어온 옵션(특히 함수형 vadThreshold)을 캡처해 슬라이더 연동 검증.
+let lastCaptureOpts: { vadThreshold?: number | (() => number) } | undefined;
 vi.mock('@/lib/pcmCapture', () => ({
-  startPcmCapture: () => ({ stop: stopCapture }),
+  startPcmCapture: (_s: unknown, _cb: unknown, opts?: { vadThreshold?: number | (() => number) }) => {
+    lastCaptureOpts = opts;
+    return { stop: stopCapture };
+  },
 }));
 
 const getUserMedia = vi.fn();
@@ -104,5 +109,35 @@ describe('LiveSession', () => {
     expect(screen.getByTestId('live-session')).toHaveTextContent('상담 종료');
     endBtn.click();
     expect(push).toHaveBeenCalledWith('/crm/exp-9');
+  });
+
+  it('VAD 감도 슬라이더: listening 중 노출, 기본 0.006, 함수형 임계값으로 전달', async () => {
+    await renderLive();
+    const slider = screen.getByTestId('vad-threshold-slider') as HTMLInputElement;
+    expect(slider).toBeInTheDocument();
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.006');
+    // startPcmCapture는 함수형 vadThreshold를 받아 매 프레임 현재값을 읽어야 한다.
+    expect(typeof lastCaptureOpts?.vadThreshold).toBe('function');
+    expect((lastCaptureOpts!.vadThreshold as () => number)()).toBeCloseTo(0.006, 3);
+  });
+
+  it('슬라이더를 낮추면 임계값이 즉시(재시작 없이) 낮아진다', async () => {
+    await renderLive();
+    const slider = screen.getByTestId('vad-threshold-slider');
+    const getThreshold = lastCaptureOpts!.vadThreshold as () => number;
+    await act(async () => {
+      fireEvent.change(slider, { target: { value: '0.003' } });
+    });
+    expect(screen.getByTestId('vad-threshold-value')).toHaveTextContent('0.003');
+    // 동일 함수가 갱신된 값을 반환(캡처 재시작 없음 → stopCapture 미호출).
+    expect(getThreshold()).toBeCloseTo(0.003, 3);
+    expect(stopCapture).not.toHaveBeenCalled();
+  });
+
+  it('통화 종료 후에는 슬라이더가 숨겨진다', async () => {
+    await renderLive('exp-end');
+    expect(screen.getByTestId('vad-threshold-control')).toBeInTheDocument();
+    await act(async () => { emitEnded?.(); });
+    expect(screen.queryByTestId('vad-threshold-control')).not.toBeInTheDocument();
   });
 });
