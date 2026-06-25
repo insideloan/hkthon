@@ -12,6 +12,7 @@ import {
   type Gender, type LoanType, type AssetType,
 } from '@/lib/experience';
 import { useExperienceStore } from '@/stores/experienceStore';
+import { VadPreloader } from '@/components/VadPreloader';
 
 const FIELD_STYLE: React.CSSProperties = {
   border: '1px solid var(--card-bd)',
@@ -74,6 +75,8 @@ export default function MobileExperiencePage() {
 
   return (
     <main className="flex flex-1 flex-col px-5 pb-8 pt-7">
+      {/* 랜딩 idle 시점에 라이브 상담용 VAD/DNF 에셋(~35MB)을 미리 받아둔다(통화 시작 즉시화). */}
+      <VadPreloader />
       {/* 헤더 */}
       <header className="mb-6">
         <h1 className="font-disp" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>
