@@ -9,6 +9,7 @@ import { OutboundQueueTable } from '@/components/queue/OutboundQueueTable';
 import { ExperienceModal } from '@/components/queue/ExperienceModal';
 import { buildExperienceCustomer, experienceQueueRow, type ExperienceForm } from '@/lib/experience';
 import { useExperienceStore } from '@/stores/experienceStore';
+import { VadPreloader } from '@/components/VadPreloader';
 import type { CallState } from '@/types/queue';
 
 // ─── Filter definition ───────────────────────────────────────────────────────
@@ -159,6 +160,8 @@ export default function Home() {
 
   return (
     <main className="w-full p-0">
+      {/* 랜딩 idle 시점에 라이브 상담용 VAD/DNF 에셋(~35MB)을 미리 받아둔다(통화 시작 즉시화). */}
+      <VadPreloader />
       {/* ── sum-head ── */}
       <div className="flex items-baseline gap-3 mb-3">
         <h1
