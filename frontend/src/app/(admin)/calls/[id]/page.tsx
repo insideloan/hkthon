@@ -1,8 +1,9 @@
 // ConsultCockpit — AI 상담 코파일럿 화면 (FRONTEND-007 / #36).
 // SSOT: docs/consult_redesigned-3.html #view-consult — 실제 React 구현.
 //
-// 18턴 시나리오 엔진(useConsultEngine)이 '다음 발화' 클릭마다 STT·여정맵·3카드를
-// SSOT와 동일한 타이밍으로 채운다. 백엔드 불필요(추후 데이터 연동 시 엔진 교체).
+// 18턴 시나리오 엔진(useConsultEngine)이 재생(play) 시 턴을 순차 자동 진행하며
+// STT·여정맵·3카드를 SSOT와 동일한 타이밍으로 채운다. 중앙 버튼은 진짜 play/pause
+// 토글 — 언제든 일시정지/재생 가능. 백엔드 불필요(추후 데이터 연동 시 엔진 교체).
 //   · STT 말풍선·word reveal·차량 주행: imperative(ref) — 타이밍 핵심
 //   · 카드 애니메이션: store 구독 → 선언적 렌더(engineMode)
 'use client';
@@ -75,26 +76,26 @@ function FlowArrow({ leftPct }: { leftPct: number }) {
 }
 
 // ── 중앙 원형 재생/일시정지 버튼 ────────────────────────────────────────────
-// 발화 진행 컨트롤. 미디어 플레이어 메타포: 클릭 가능하면 ▶(play), 재생 중이면
-// ❚❚(pause, dim). 상담 종료 시에는 초록 ✓(check) — 클릭하면 상담 CRM 화면으로
-// 이동한다. 회색 원형 — SSOT 토큰 사용.
+// 진짜 미디어 플레이어 토글. 재생 중이면 ❚❚(pause), 멈춰 있으면 ▶(play) — 언제든
+// 클릭해 재생/일시정지를 전환할 수 있다(애니메이션 진행 중에도 클릭 가능). 상담
+// 종료 시에는 초록 ✓(check) — 클릭하면 상담 CRM 화면으로 이동한다. 회색 원형.
 type PlayPauseButtonProps = {
   /** 시나리오 종료(모든 턴 소진). */
   ended: boolean;
-  /** 재생/애니메이션 진행 중(클릭 비활성). */
-  busy: boolean;
-  /** 접근성 라벨(engine.btnLabel — 상담 시작/다음 발화/재생 중/상담 종료). */
+  /** 자동 진행(재생) 중 — true면 ❚❚(pause) 아이콘. */
+  playing: boolean;
+  /** 접근성 라벨(engine.btnLabel — 상담 시작/재생/일시정지/상담 종료). */
   label: string;
-  /** 진행 클릭(advance). */
+  /** 재생/일시정지 토글(engine.toggle). */
   onClick: () => void;
   /** 종료 후 클릭 — 상담 CRM 화면으로 이동. */
   onEnded: () => void;
 };
 
-function PlayPauseButton({ ended, busy, label, onClick, onEnded }: PlayPauseButtonProps) {
-  // 종료 시 버튼은 비활성이 아니라 CRM 이동 액션으로 전환된다(재생 중일 때만 비활성).
-  const disabled = busy;
-  const icon: 'play' | 'pause' | 'check' = ended ? 'check' : busy ? 'pause' : 'play';
+function PlayPauseButton({ ended, playing, label, onClick, onEnded }: PlayPauseButtonProps) {
+  // 종료 시에만 토글 대신 CRM 이동 액션. 그 외에는 항상 클릭 가능(disabled 없음).
+  const disabled = false;
+  const icon: 'play' | 'pause' | 'check' = ended ? 'check' : playing ? 'pause' : 'play';
   const ariaLabel = ended ? '상담 CRM 화면으로 이동' : label;
   return (
     <button
@@ -102,9 +103,7 @@ function PlayPauseButton({ ended, busy, label, onClick, onEnded }: PlayPauseButt
       id="next"
       className={clsx(
         'pointer-events-auto inline-grid place-items-center rounded-full cursor-pointer',
-        'transition-all duration-200',
-        !disabled && 'hover:scale-105 active:scale-95',
-        disabled && 'cursor-default',
+        'transition-all duration-200 hover:scale-105 active:scale-95',
       )}
       onClick={ended ? onEnded : onClick}
       disabled={disabled}
@@ -119,8 +118,9 @@ function PlayPauseButton({ ended, busy, label, onClick, onEnded }: PlayPauseButt
         border: '1px solid rgba(255,255,255,.5)',
         boxShadow: ended
           ? '0 8px 20px -6px rgba(46,158,110,.55)'
-          : disabled ? '0 2px 8px -3px rgba(0,0,0,.25)' : '0 8px 20px -6px rgba(0,0,0,.4)',
-        opacity: busy ? 0.6 : 1,
+          : '0 8px 20px -6px rgba(0,0,0,.4)',
+        // 재생 중(❚❚)에는 살짝 dim해 "진행 중" 느낌을 주되 클릭은 가능.
+        opacity: playing ? 0.78 : 1,
         backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
       }}
     >
@@ -237,9 +237,9 @@ export default function ConsultCockpitPage({ params }: PageProps) {
               >
                 <PlayPauseButton
                   ended={engine.ended}
-                  busy={engine.btnDisabled && !engine.ended}
+                  playing={engine.playing}
                   label={engine.btnLabel}
-                  onClick={engine.advance}
+                  onClick={engine.toggle}
                   onEnded={() => router.push(`/crm/${callId}`)}
                 />
               </div>
