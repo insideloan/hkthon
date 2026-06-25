@@ -68,8 +68,13 @@ const VAD_DEFAULT = 0.5;
 // 발화 종료 유예(ms). Silero가 무음 판정 후 이만큼 더 기다렸다가 발화 종료로 본다
 // (redemptionMs). 숨 고르기 정도의 짧은 멈춤에 발화가 쪼개지지 않게 800ms.
 const REDEMPTION_MS = 800;
-// 발화 앞단 패딩(ms) — 첫 음절("안녕"의 "안") 잘림 방지.
-const PRE_SPEECH_PAD_MS = 300;
+// 발화 앞단 패딩(ms) — 첫 음절("안녕"의 "안") 잘림 방지. 단답("네")은 발화가 짧아
+// 감지 시점 앞 오디오 비중이 커, 패딩을 400으로 올려 첫 음절 유실을 더 줄인다.
+const PRE_SPEECH_PAD_MS = 400;
+// 최소 발화 길이(ms). 이보다 짧으면 misfire로 폐기된다. 기본 250은 "네"·"예"·"음"
+// 같은 단음절 응답(~150~200ms)을 통째로 떨궈, 단답형 인식이 안 되던 원인. 150으로
+// 낮춰 단답을 살리되, 100 미만의 클릭/숨소리성 초단발은 계속 misfire로 거른다.
+const MIN_SPEECH_MS = 150;
 
 // "..." 타이핑 인디케이터 — Agent가 응답을 생성 중일 때(고객 턴 직후) AI 말풍선에 노출.
 // 점 3개가 stagger 애니메이션으로 깜빡인다(키프레임 typingDot은 LiveSession이 <style>로 주입).
@@ -231,6 +236,8 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
           // 발화 종료 유예 + 첫 음절 패딩 — 말끝 잘림/첫 마디 누락 방지.
           redemptionMs: REDEMPTION_MS,
           preSpeechPadMs: PRE_SPEECH_PAD_MS,
+          // 단답("네") 유실 방지 — 기본 250ms는 단음절 응답을 misfire로 떨군다.
+          minSpeechMs: MIN_SPEECH_MS,
           // barge-in: 고객이 다시 말하기 시작하면 재생 중인 봇 음성을 즉시 끊는다.
           // + "음성 인식 중" 말풍선 노출(발화 시작).
           onSpeechStart: () => {
