@@ -105,9 +105,11 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
         audioRef.current.pause();
         audioRef.current.src = '';
       }
-      const a = new Audio(`/tts/seg${seq}.mp3`);
+      const a = new Audio(`/tts/seg${seq}.mp3`) as HTMLAudioElement & { _blocked?: boolean };
       audioRef.current = a;
-      void a.play().catch(() => {});
+      // 재생 실패(자동재생 차단 등)는 'ended'가 영영 오지 않으므로 차단 플래그를 세워
+      // awaitSeg가 음성 없이도 즉시 다음으로 진행하게 한다.
+      void a.play().catch(() => { a._blocked = true; });
     } catch {
       /* 오디오 미지원/차단 — 자막만으로 진행 */
     }
@@ -119,6 +121,22 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
       audioRef.current.src = '';
       audioRef.current = null;
     }
+  }, []);
+
+  // ── awaitSeg (SSOT) — 현재 TTS 재생이 끝난 뒤 cb 실행 ──
+  // 자막(revealWords)은 음성보다 먼저 끝나므로, 세그먼트 전환을 음성 완주에 맞춘다.
+  // 음성이 없거나(자동재생 차단·src 없음) 이미 끝났으면 즉시 cb. reset/stopSeg로
+  // audioRef가 교체되면(=다른 오디오/null) 묵은 콜백이 실행되지 않도록 가드한다.
+  const awaitSeg = useCallback((cb: () => void) => {
+    const a = audioRef.current as (HTMLAudioElement & { _blocked?: boolean }) | null;
+    if (!a || !a.src || a.ended || a._blocked) { cb(); return; }
+    const done = () => {
+      a.removeEventListener('ended', done);
+      a.removeEventListener('error', done);
+      if (audioRef.current === a) cb();
+    };
+    a.addEventListener('ended', done, { once: true });
+    a.addEventListener('error', done, { once: true });
   }, []);
 
   // ── 버튼 라벨 갱신 (SSOT setBtn) ──
@@ -383,11 +401,12 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     const speak = (b: HTMLElement) => {
       try { stageEffects(aiS); } catch (err) { console.error('stage error', err); }
       playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
-      revealWords(b, () => {
+      // 자막은 음성보다 먼저 끝나므로, 음성 완주까지 기다린 뒤 다음 발화로 넘어간다.
+      revealWords(b, () => awaitSeg(() => {
         if (aiS.last) { endedRef.current = true; }
         iRef.current++;
         produceAI();
-      });
+      }));
     };
     const gatedSpeak = () => speak(bubble(aiS));
     const inS = lastCustRef.current && !lastCustUsedRef.current ? lastCustRef.current : null;
@@ -405,7 +424,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     } else {
       typing('ai', () => gatedSpeak());
     }
-  }, [scheduleNext, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing, playSeg]);
+  }, [scheduleNext, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing, playSeg, awaitSeg]);
 
   // advance를 가리키는 ref — scheduleNext(자동 진행)가 advance 선언 전에 정의되므로
   // ref로 우회 호출한다. advance가 매 렌더 갱신되면 최신 값을 가리키도록 동기화.
@@ -425,29 +444,29 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
         const b = bubble(s);
         try { stageEffects(s); } catch (err) { console.error('stage error', err); }
         playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
-        revealWords(b, () => {
+        revealWords(b, () => awaitSeg(() => {
           iRef.current++;
           produceAI();
-        });
+        }));
       });
     } else if (s.who === 'cust') {
       typing('cust', () => {
         const b = bubble(s);
         try { stageEffects(s); } catch (err) { console.error('stage error', err); }
         playSeg(iRef.current);  // 자막 타이핑과 동시에 TTS 재생
-        revealWords(b, () => {
+        revealWords(b, () => awaitSeg(() => {
           lastCustRef.current = s;
           lastCustUsedRef.current = false;
           lastCustBubbleRef.current = b;
           custSeqRef.current++;
           iRef.current++;
           produceAI();
-        });
+        }));
       });
     } else {
       produceAI();
     }
-  }, [setBtn, typing, bubble, stageEffects, revealWords, produceAI, playSeg]);
+  }, [setBtn, typing, bubble, stageEffects, revealWords, produceAI, playSeg, awaitSeg]);
   advanceRef.current = advance;
 
   // ── 타이머 시작 ──
