@@ -123,6 +123,13 @@ def resolve_audio_chunk(event: dict, args: dict) -> bool:
         logger.info("audioChunk: STT 무음/잡음 스킵 call=%s text=%r", call_id, text)
         return False
 
+    # 순수 망설임 추임새("음"·"어"·"저"…)는 발화 글자는 있어 _has_speech는 통과하나
+    # 의미가 없어 그래프(classify ~3s)를 돌릴 가치가 없다. 프론트 VAD가 민감해 추임새
+    # 청크까지 흘려보내도 여기서 드롭한다("네"·"예"는 _FILLER_ONLY에 없어 통과 → 단답 인식 유지).
+    if _is_filler_only(text):
+        logger.info("audioChunk: 추임새 스킵 call=%s text=%r", call_id, text)
+        return False
+
     # Turn 목록은 에코 판별과 seq 계산 양쪽에 필요하다. 예전엔 둘이 따로 query해
     # 청크마다 DynamoDB를 2번 긁었다 — 첫 발화 표시 지연에 그대로 얹히던 비용이라
     # 한 번만 조회해 공유한다(쓰기 충돌 재시도 때만 _write_customer_turn이 재조회).
@@ -246,6 +253,26 @@ def _has_speech(text: str) -> bool:
     import re
 
     return bool(text and re.search(r"[0-9A-Za-z가-힣]", text))
+
+
+# 순수 망설임 추임새 — 발화로는 통과(_has_speech)하지만 의미가 없어 그래프를 돌릴
+# 가치가 없는 단독 필러. 프론트 VAD가 민감해 "음/어/저" 같은 추임새 청크가 STT까지
+# 흘러도, 여기서 걸러 그래프(classify ~3s)를 트리거하지 않고 조용히 드롭한다.
+# 주의: "네"·"예"는 의미 있는 긍정 응답이라 여기 포함하지 않는다(반드시 통과시켜
+# 단답 인식을 살린다 — nodes._MIN_RESPONSE의 SILENCE 처리와 역할이 다르다).
+_FILLER_ONLY = frozenset({"음", "어", "저", "그", "에", "아", "응", "엄", "흠"})
+
+
+def _is_filler_only(text: str) -> bool:
+    """STT 텍스트가 순수 망설임 추임새뿐인지 — 구두점/공백/말줄임표는 무시하고 판정.
+
+    "음", "어…", "저, " 처럼 추임새 한 토큰에 구두점만 붙은 경우 True.
+    "음 그게요", "어 한도가" 처럼 뒤에 실제 발화가 이어지면 False(통과).
+    """
+    import re
+
+    core = re.sub(r"[\s.,…?!~]+", "", text)
+    return bool(core) and core in _FILLER_ONLY
 
 
 def _stt_chunk_to_text(data_b64: str) -> str:

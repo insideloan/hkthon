@@ -100,11 +100,74 @@ def test_has_speech_helper():
     """의미 글자(한/영/숫자)가 있으면 True, 구두점·공백뿐이면 False."""
     assert audio._has_speech("여보세요") is True
     assert audio._has_speech("네") is True
-    assert audio._has_speech("음.") is True       # 의미 글자 '음' 포함 → 통과(silence 노드가 처리)
+    assert audio._has_speech("음.") is True       # 의미 글자 '음' 포함 → _has_speech는 통과(필러 드롭은 _is_filler_only가 별도 처리)
     assert audio._has_speech(".") is False
     assert audio._has_speech("...") is False
     assert audio._has_speech("  ?  ") is False
     assert audio._has_speech("") is False
+
+
+def test_is_filler_only_helper():
+    """순수 망설임 추임새만 True. '네'·'예'와 실발화가 이어진 추임새는 False(통과)."""
+    # 드롭 대상: 단독 추임새(구두점/공백 무시).
+    assert audio._is_filler_only("음") is True
+    assert audio._is_filler_only("어…") is True
+    assert audio._is_filler_only("저, ") is True
+    assert audio._is_filler_only("응") is True
+    # 통과 대상: 의미 있는 단답.
+    assert audio._is_filler_only("네") is False
+    assert audio._is_filler_only("예") is False
+    # 통과 대상: 추임새 뒤에 실제 발화가 이어지는 복합 발화.
+    assert audio._is_filler_only("음 그게요") is False
+    assert audio._is_filler_only("어 한도가 얼마예요") is False
+    assert audio._is_filler_only("") is False
+
+
+def test_live_mode_filler_only_no_turn(monkeypatch):
+    """STT가 순수 추임새('음')를 돌려주면 Turn도 그래프도 트리거 안 함(민감 VAD 방어)."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    async def fake_stream_chunks(chunks, **kw):
+        async for _ in chunks:
+            pass
+        return []
+
+    async def fake_accumulate(results):
+        return "음…"  # VAD가 추임새를 발화로 잡아 STT까지 흘러온 케이스
+
+    ran = {"agent": False}
+    monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
+    monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: ran.__setitem__("agent", True))
+    assert audio.resolve_audio_chunk({}, {"callId": "cf", "data": "AAAA"}) is False
+    assert dynamo.query(dynamo.pk_call("cf"), dynamo.SK_PREFIX_TURN) == []
+    assert ran["agent"] is False  # 그래프 미실행
+
+
+def test_live_mode_short_answer_records_turn(monkeypatch):
+    """'네' 단답은 추임새 드롭에 걸리지 않고 Turn 기록 + 그래프 실행(단답 인식 보장)."""
+    monkeypatch.setenv("ORCHESTRATOR_MODE", "live")
+    config.get_settings.cache_clear()
+    from orchestrator.stt import transcribe_stt
+
+    async def fake_stream_chunks(chunks, **kw):
+        async for _ in chunks:
+            pass
+        return []
+
+    async def fake_accumulate(results):
+        return "네"
+
+    ran = {"agent": False}
+    monkeypatch.setattr(transcribe_stt, "stream_chunks", fake_stream_chunks)
+    monkeypatch.setattr(transcribe_stt, "best_effort_text", fake_accumulate)
+    monkeypatch.setattr(audio, "_run_agent_turn", lambda *a, **k: ran.__setitem__("agent", True))
+    assert audio.resolve_audio_chunk({}, {"callId": "cs", "data": "AAAA"}) is True
+    turns = dynamo.query(dynamo.pk_call("cs"), dynamo.SK_PREFIX_TURN)
+    assert [t["text"] for t in turns] == ["네"]
+    assert ran["agent"] is True  # 그래프 실행됨
 
 
 def test_audio_chunk_uses_max_seq_not_count(monkeypatch):
