@@ -37,9 +37,10 @@ export type ConsultEngineHandles = {
 };
 
 type EngineState = {
-  /** 다음 발화 버튼 라벨 + disabled. */
+  /** 버튼 접근성 라벨(상담 시작/일시정지/재생/상담 종료). */
   btnLabel: string;
-  btnDisabled: boolean;
+  /** 자동 진행(재생) 중 여부 — 버튼 아이콘(▶/❚❚)을 결정한다. */
+  playing: boolean;
   ended: boolean;
   /** 통화 타이머 (mm:ss). */
   timer: string;
@@ -47,16 +48,26 @@ type EngineState = {
 
 const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+// 자동 진행 시 한 턴이 끝나고 다음 고객 발화를 시작하기 전 호흡(ms). 직전 교환을
+// 읽을 여유를 주고, 일시정지 클릭이 경계에서 반영될 틈을 만든다.
+const TURN_GAP_MS = 650;
+
 export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customerName }: ConsultEngineHandles) {
   // 표시값(리렌더 필요).
   const [state, setState] = useState<EngineState>({
-    btnLabel: '상담 시작', btnDisabled: false, ended: false, timer: '00:00',
+    btnLabel: '상담 시작', playing: false, ended: false, timer: '00:00',
   });
 
   // 전역 가변 상태(리렌더 X) — SSOT let 변수.
   const iRef = useRef(0);
   const custSeqRef = useRef(-1);
   const busyRef = useRef(false);
+  // 자동 진행(재생) 의사. true면 한 턴이 끝날 때마다 다음 턴을 자동 실행한다.
+  // 일시정지는 이 값만 false로 — 현재 진행 중인 턴 애니메이션은 끝까지 재생되고
+  // 다음 턴 경계에서 멈춘다(busyRef와 독립).
+  const playingRef = useRef(false);
+  // 자동 진행 대기 타이머(턴 사이 호흡) — 일시정지 시 취소한다.
+  const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endedRef = useRef(false);
   const blockedRef = useRef(0);
   const secsRef = useRef(0);
@@ -111,16 +122,18 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   }, []);
 
   // ── 버튼 라벨 갱신 (SSOT setBtn) ──
+  // 버튼은 이제 진짜 play/pause 토글. 재생 중(playing)이면 ❚❚(일시정지), 멈춰 있으면
+  // ▶(재생). busyRef(턴 진행 여부)와 무관하게 언제든 클릭 가능하다.
   const setBtn = useCallback(() => {
     if (endedRef.current) {
-      setState((s) => ({ ...s, btnDisabled: true, ended: true, btnLabel: '✓ 상담 종료' }));
+      setState((s) => ({ ...s, playing: false, ended: true, btnLabel: '✓ 상담 종료' }));
       return;
     }
-    if (busyRef.current) {
-      setState((s) => ({ ...s, btnDisabled: true, btnLabel: '재생 중…' }));
+    if (playingRef.current) {
+      setState((s) => ({ ...s, playing: true, btnLabel: '일시정지' }));
       return;
     }
-    setState((s) => ({ ...s, btnDisabled: false, btnLabel: iRef.current === 0 ? '상담 시작' : '다음 발화' }));
+    setState((s) => ({ ...s, playing: false, btnLabel: iRef.current === 0 ? '상담 시작' : '재생' }));
   }, []);
 
   // ── STT DOM 헬퍼 (SSOT chatHolder/buildWords/bubble/typing/revealWords) ──
@@ -347,11 +360,23 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     }
   }, [mapRef, pT]);
 
+  // 한 턴(고객 발화 + 이어지는 AI 발화) 완료 시점. 턴 경계에서 호출되며,
+  // 재생(playing) 중이면 짧은 호흡 후 다음 턴을 자동 실행한다. 일시정지면 여기서 멈춘다.
+  const scheduleNext = useCallback(() => {
+    busyRef.current = false;
+    setBtn();
+    if (playingRef.current && !endedRef.current && iRef.current < S.length) {
+      gapTimerRef.current = setTimeout(() => {
+        gapTimerRef.current = null;
+        advanceRef.current();
+      }, TURN_GAP_MS);
+    }
+  }, [setBtn]);
+
   // ── produceAI (SSOT) — AI 발화 노출 (카드 준비 후) ──
   const produceAI = useCallback(() => {
     if (iRef.current >= S.length || S[iRef.current].who !== 'ai') {
-      busyRef.current = false;
-      setBtn();
+      scheduleNext();
       return;
     }
     const aiS = S[iRef.current];
@@ -380,7 +405,11 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     } else {
       typing('ai', () => gatedSpeak());
     }
-  }, [setBtn, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing, playSeg]);
+  }, [scheduleNext, stageEffects, revealWords, bubble, aiLoading, runChain, flyKeywords, typing, playSeg]);
+
+  // advance를 가리키는 ref — scheduleNext(자동 진행)가 advance 선언 전에 정의되므로
+  // ref로 우회 호출한다. advance가 매 렌더 갱신되면 최신 값을 가리키도록 동기화.
+  const advanceRef = useRef<() => void>(() => {});
 
   // ── advance (SSOT) — 버튼 클릭 1회 ──
   const advance = useCallback(() => {
@@ -419,6 +448,7 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
       produceAI();
     }
   }, [setBtn, typing, bubble, stageEffects, revealWords, produceAI, playSeg]);
+  advanceRef.current = advance;
 
   // ── 타이머 시작 ──
   const startTimer = useCallback(() => {
@@ -433,10 +463,12 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
   const reset = useCallback(() => {
     clearPipeTimers();
     stopSeg();  // 재생 중인 TTS 중단
+    if (gapTimerRef.current) { clearTimeout(gapTimerRef.current); gapTimerRef.current = null; }
     if (secHRef.current) { clearInterval(secHRef.current); secHRef.current = null; }
     iRef.current = 0;
     custSeqRef.current = -1;
     busyRef.current = false;
+    playingRef.current = false;
     endedRef.current = false;
     blockedRef.current = 0;
     secsRef.current = 0;
@@ -450,21 +482,39 @@ export function useConsultEngine({ chatRef, mapRef, cardEmoRef, callId, customer
     resetChain();
     consult.getState().setPipeSrc('상담 시작 대기');
     mapRef.current?.resetMap();
-    setState({ btnLabel: '상담 시작', btnDisabled: false, ended: false, timer: '00:00' });
+    setState({ btnLabel: '상담 시작', playing: false, ended: false, timer: '00:00' });
   }, [clearPipeTimers, stopSeg, chatRef, resetChain, consult, mapRef]);
 
-  // 클릭 핸들러 — 첫 클릭 시 타이머 시작.
-  const onAdvance = useCallback(() => {
+  // 클릭 핸들러 — 진짜 play/pause 토글.
+  //   · 멈춰 있을 때 클릭(재생): playing=true. 현재 턴이 진행 중이 아니면 즉시 다음 턴
+  //     실행, 진행 중이면 턴 경계에서 자동으로 이어진다. 첫 클릭 시 타이머 시작.
+  //   · 재생 중 클릭(일시정지): playing=false. 진행 중인 턴 애니메이션은 끝까지 재생되고
+  //     다음 턴 경계에서 멈춘다. 대기 중인 자동 진행 타이머는 즉시 취소.
+  const onToggle = useCallback(() => {
+    if (endedRef.current) return;
+    if (playingRef.current) {
+      // 일시정지 — 자동 진행 의사 해제. 대기 타이머가 떠 있으면 취소(아직 다음 턴
+      // 미시작 → 경계에서 바로 멈춤). 진행 중인 턴은 자연히 완주 후 경계에서 정지.
+      playingRef.current = false;
+      if (gapTimerRef.current) { clearTimeout(gapTimerRef.current); gapTimerRef.current = null; }
+      setBtn();
+      return;
+    }
+    // 재생 — 자동 진행 시작.
     startTimer();
-    advance();
-  }, [startTimer, advance]);
+    playingRef.current = true;
+    setBtn();
+    // 턴이 진행 중이 아닐 때만 즉시 다음 턴을 시작(진행 중이면 경계에서 이어짐).
+    if (!busyRef.current) advance();
+  }, [startTimer, advance, setBtn]);
 
   // 언마운트 정리.
   useEffect(() => () => {
     pipeTimers.current.forEach(clearTimeout);
+    if (gapTimerRef.current) clearTimeout(gapTimerRef.current);
     if (secHRef.current) clearInterval(secHRef.current);
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
   }, []);
 
-  return { ...state, advance: onAdvance, reset };
+  return { ...state, toggle: onToggle, reset };
 }
