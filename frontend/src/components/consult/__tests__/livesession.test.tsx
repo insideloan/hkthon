@@ -34,13 +34,17 @@ const stopCapture = vi.fn();
 let lastCaptureOpts:
   | { positiveSpeechThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void }
   | undefined;
+// onChunk(b64) 콜백도 캡처 — 발화 1건이 STT로 전송되는 순간을 흉내 내(recognizing on)
+// 발화 종료~텍스트 확정 사이 "음성 인식 중" 유지 검증에 쓴다.
+let lastChunkCb: ((b64: string) => void) | undefined;
 vi.mock('@/lib/sileroCapture', () => ({
   startSileroCapture: async (
     _s: unknown,
-    _cb: unknown,
+    cb: (b64: string) => void,
     opts?: { positiveSpeechThreshold?: number | (() => number); onSpeechStart?: () => void; onSpeechEnd?: () => void },
   ) => {
     lastCaptureOpts = opts;
+    lastChunkCb = cb;
     return { stop: stopCapture };
   },
 }));
@@ -215,6 +219,46 @@ describe('LiveSession', () => {
       expect(screen.getByTestId('live-bubble-listening')).toBeInTheDocument();
       await act(async () => { lastCaptureOpts?.onSpeechEnd?.(); });
       expect(screen.queryByTestId('live-bubble-listening')).not.toBeInTheDocument();
+    });
+
+    it('STT 처리중(청크 전송~텍스트 확정)에는 발화 종료 후에도 "음성 인식 중"이 유지되고 대기 화면이 돌아오지 않는다', async () => {
+      await renderLive();
+      // 발화 시작 → 청크 전송(STT로 보냄) → 발화 종료. 텍스트는 아직 미확정.
+      await act(async () => { lastCaptureOpts?.onSpeechStart?.(); });
+      await act(async () => { lastChunkCb?.('AAAA'); });
+      await act(async () => { lastCaptureOpts?.onSpeechEnd?.(); });
+      // userSpeaking이 내려갔어도 recognizing이 유지 → "음성 인식 중" 버블 + 대기 화면 미복귀.
+      expect(screen.getByTestId('live-bubble-listening')).toBeInTheDocument();
+      expect(screen.queryByText(/연결되었습니다/)).not.toBeInTheDocument();
+      // 고객 텍스트 확정 → 인식 버블 사라지고 실제 고객 말풍선.
+      await act(async () => { emitTurn?.({ seq: 1, speaker: 'customer', text: '여보세요?' }); });
+      expect(screen.queryByTestId('live-bubble-listening')).not.toBeInTheDocument();
+      expect(screen.getByTestId('live-bubble-customer')).toHaveTextContent('여보세요?');
+    });
+  });
+
+  describe('통화 연결중 오버레이', () => {
+    it('진입 시 "통화 연결중" 오버레이 + 3초 카운트다운을 보이고 3초 후 사라진다', async () => {
+      vi.useFakeTimers();
+      try {
+        await act(async () => {
+          render(<LiveSession callId="exp-conn" />);
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        expect(screen.getByTestId('live-connecting-overlay')).toBeInTheDocument();
+        expect(screen.getByTestId('live-connecting-countdown')).toHaveTextContent('3');
+        // 1초씩 카운트다운.
+        await act(async () => { vi.advanceTimersByTime(1000); });
+        expect(screen.getByTestId('live-connecting-countdown')).toHaveTextContent('2');
+        await act(async () => { vi.advanceTimersByTime(1000); });
+        expect(screen.getByTestId('live-connecting-countdown')).toHaveTextContent('1');
+        // 3초 경과 → 오버레이 제거.
+        await act(async () => { vi.advanceTimersByTime(1000); });
+        expect(screen.queryByTestId('live-connecting-overlay')).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('MODIFY 재발화(같은 seq + audioUrl)는 타자기를 재시작하거나 말풍선을 복제하지 않는다', async () => {

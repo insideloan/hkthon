@@ -105,6 +105,15 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   const [vadThreshold, setVadThreshold] = useState(initialVad);
   // 고객이 말하는 중(VAD speech-start ~ 발화 종료) — "음성 인식 중" 말풍선 노출 신호.
   const [userSpeaking, setUserSpeaking] = useState(false);
+  // STT 처리 중(발화 종료로 청크를 백엔드에 보냄 ~ 고객 텍스트 확정 전). userSpeaking이
+  // 내려간 뒤에도 이 구간 동안 "음성 인식 중" 말풍선을 유지해, (1) 첫 발화 직후 "여보세요"
+  // 대기 화면이 잠깐 되돌아오거나 (2) 인식 버블이 사라지는 깜빡임을 막는다. 고객 턴이
+  // 도착하면 내린다(misfire/에코 게이팅으로 청크가 안 나간 발화는 set되지 않음).
+  const [recognizing, setRecognizing] = useState(false);
+  // 진입 직후 모델 로드(DFN/Silero WASM·ONNX) 동안 음성 인식이 안 되는 공백을 가리는
+  // "통화 연결중" 오버레이 + 3초 카운트다운.
+  const [connecting, setConnecting] = useState(true);
+  const [connectCountdown, setConnectCountdown] = useState(3);
   const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<PcmCaptureHandle | null>(null);
   // DeepFilterNet denoise 핸들 — 마이크와 VAD 사이에 끼워 깨끗한 스트림을 만든다.
@@ -145,8 +154,10 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   // audioUrl 비의존 단일 규칙 — 라이브/mock(audioUrl:null 단발) 모두 동일 동작.
   const handleTurn = (turn: Pick<Turn, 'seq' | 'speaker' | 'text'>) => {
     if (turn.speaker === 'customer') {
-      // 발화가 텍스트로 확정됨 → "음성 인식 중" 내리고 실제 고객 말풍선 + "발화 준비 중"으로 전환.
+      // 발화가 텍스트로 확정됨 → "음성 인식 중"(발화중·STT 처리중 모두) 내리고 실제 고객
+      // 말풍선 + "발화 준비 중"으로 전환.
       setUserSpeaking(false);
+      setRecognizing(false);
       pushTurn(turn);
       setTypingIndicatorActive(true);
       return;
@@ -228,6 +239,10 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       const handle = await startSileroCapture(
         dfn.stream,
         (b64) => {
+          // 발화 1건이 STT로 전송됨 → 텍스트 확정(onTurn customer) 전까지 "음성 인식 중"
+          // 말풍선을 유지(userSpeaking이 내려가도 깜빡이지 않게). misfire/에코 게이팅으로
+          // 청크가 안 나간 발화는 여기 안 와서 recognizing이 켜지지 않는다.
+          setRecognizing(true);
           void audioChunk(callId, b64).catch(() => {});
         },
         {
@@ -315,6 +330,7 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       streamRef.current = null;
       // 세션 전환 시 타이핑/타자기/발화 상태 전부 리셋.
       setUserSpeaking(false);
+      setRecognizing(false);
       setTypingIndicatorActive(false);
       setRevealSeq(null);
       setRevealText('');
@@ -325,6 +341,18 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callId]);
+
+  // "통화 연결중" 오버레이 — 진입 직후 모델 로드(DFN/Silero WASM·ONNX) 동안 음성이 안
+  // 잡히는 공백을 가린다. 3초 카운트다운 후 오버레이를 내려 뒤의 통화 화면을 보인다.
+  // (실제 인식 준비 완료 신호 대신 고정 3초 — 데모/체험 흐름이 멈추지 않게.) 카운트다운
+  // 값에 의존하는 단발 setTimeout 체인 — 매 틱 1씩 줄이고 0에서 오버레이를 내린다
+  // (자기-clear setInterval은 clearInterval이 state 업데이터로 미뤄져 무한 틱 위험).
+  useEffect(() => {
+    if (!connecting) return;
+    if (connectCountdown <= 0) { setConnecting(false); return; }
+    const id = setTimeout(() => setConnectCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [connecting, connectCountdown]);
 
   // 타자기 효과: revealSeq가 설정되면 revealTarget을 한 글자씩(틱마다 몇 글자) 노출.
   // 완료 시 revealSeq=null로 되돌려 일반 bubble 렌더로 복귀하고, 완료 seq를 기록(MODIFY 재발화 차단).
@@ -350,7 +378,9 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
   // 실 배포(live 백엔드)에서는 onTurn 실데이터가 들어오므로 이 분기는 건너뛴다.
   // 인사말 이름은 체험 고객 입력값(experienceStore) 우선, 없으면 기본 박서준.
   useEffect(() => {
-    if (!IS_MOCK || micState !== 'listening') return;
+    // "통화 연결중" 오버레이가 내려간 뒤(connecting=false)에 시작 — 오버레이 뒤에서
+    // 캔드 교환이 먼저 흘러 흐름이 어긋나지 않게 한다.
+    if (!IS_MOCK || micState !== 'listening' || connecting) return;
     const custName =
       useExperienceStore.getState().getCustomer(callId)?.name || SCENARIO_CUSTOMER_NAME;
     let cancelled = false;
@@ -363,7 +393,7 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
     at(2200, () => handleTurn({ seq: 2, speaker: 'bot', text: `안녕하세요, 현대캐피탈 AI 상담원입니다. 본 서비스는 AI가 생성한 음성을 통해 제공되며, 상담내용은 녹음됨을 안내드립니다. 실례지만 ${custName} 고객님이 맞으세요?` }));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [micState, callId]);
+  }, [micState, callId, connecting]);
 
   // 새 말풍선/타이핑 인디케이터/타자기 진행 시 하단 스크롤.
   useEffect(() => {
@@ -371,9 +401,11 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
     if (el) el.scrollTop = el.scrollHeight;
   }, [bubbles, typingIndicatorActive, revealText]);
 
-  // 트랜스크립트 영역 노출 조건 — 말풍선이 하나라도 있거나, 첫 발화를 인식하는 중(아직
-  // 텍스트 확정 전)이면 대기 화면 대신 대화 영역을 보여 "음성 인식 중" 말풍선이 뜨게 한다.
-  const hasTranscript = bubbles.length > 0 || userSpeaking;
+  // 트랜스크립트 영역 노출 조건 — 말풍선이 하나라도 있거나, 첫 발화를 인식하는 중(발화중
+  // userSpeaking 또는 STT 처리중 recognizing — 둘 다 아직 텍스트 확정 전)이면 대기 화면
+  // 대신 대화 영역을 보여 "음성 인식 중" 말풍선이 끊김 없이 떠 있게 한다. recognizing을
+  // 포함하지 않으면 발화 종료~텍스트 확정 사이에 대기 화면이 잠깐 되돌아와 깜빡인다.
+  const hasTranscript = bubbles.length > 0 || userSpeaking || recognizing;
 
   return (
     <section
@@ -382,7 +414,40 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
       className="relative flex flex-1 flex-col min-h-0"
     >
       {/* 타이핑 인디케이터(점)·타자기 커서 키프레임 — 인라인 스타일 규약상 여기서 1회 주입. */}
-      <style>{`@keyframes typingDot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}@keyframes blinkCursor{50%{opacity:0}}`}</style>
+      <style>{`@keyframes typingDot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}@keyframes blinkCursor{50%{opacity:0}}@keyframes connectSpin{to{transform:rotate(360deg)}}`}</style>
+
+      {/* "통화 연결중" 오버레이 — 진입 직후 모델 로드 동안 음성이 안 잡히는 공백을 가린다.
+          3초 카운트다운이 끝나면 사라져 뒤의 통화 화면이 보인다. */}
+      {connecting && (
+        <div
+          data-testid="live-connecting-overlay"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 text-center"
+          style={{ background: 'var(--card, #ffffff)' }}
+          role="status"
+          aria-live="polite"
+        >
+          {/* 회전 스피너 */}
+          <div
+            className="rounded-full"
+            style={{
+              width: 56, height: 56,
+              border: '4px solid var(--badge-bg)',
+              borderTopColor: 'var(--route)',
+              animation: 'connectSpin 0.9s linear infinite',
+            }}
+            aria-hidden
+          />
+          <p className="font-disp text-[18px] font-extrabold text-ink">통화 연결중…</p>
+          <div
+            data-testid="live-connecting-countdown"
+            className="font-disp text-[40px] font-extrabold tabular-nums"
+            style={{ color: 'var(--route)', lineHeight: 1 }}
+          >
+            {connectCountdown}
+          </div>
+          <p className="text-[13px] text-ink-dim">잠시만 기다려 주세요. 곧 상담이 시작됩니다.</p>
+        </div>
+      )}
 
       {/* 상태 배지 */}
       <div className="flex items-center justify-center px-4 pt-3">
@@ -502,9 +567,10 @@ export function LiveSession({ callId, onEnded, initialVadThreshold, customerName
               );
             })}
 
-            {/* "음성 인식 중…" — 고객이 말하는 중(발화 종료 전). VAD speech-start~end 구간.
-                고객 측(왼쪽) 말풍선. onTurn(customer)으로 텍스트가 확정되면 사라진다. */}
-            {userSpeaking && (
+            {/* "음성 인식 중…" — 고객 발화중(VAD speech-start~end) 또는 그 직후 STT 처리중
+                (recognizing). 고객 측(왼쪽) 말풍선. onTurn(customer)으로 텍스트가 확정되면
+                사라진다. recognizing까지 포함해 발화 종료~텍스트 확정 사이 공백에도 유지. */}
+            {(userSpeaking || recognizing) && (
               <div data-testid="live-bubble-listening" className="flex flex-col gap-0.5 items-start">
                 <span className="text-[10px] font-bold" style={{ color: 'var(--ink-faint)' }}>👤 고객</span>
                 <div
