@@ -280,45 +280,14 @@ def churn_score(state: CallState) -> CallState:
 # 5. respond — 봇 응답 draft 생성 (LLM gen)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 마케팅·개인정보 활용 동의 고지(고정). 신원고지(IDENTIFY)→고객 본인확인 응답 직후,
-# CONSENT 단계 첫 봇 발화로 반드시 정확히 나가야 하는 법적 고지라 LLM에 맡기지 않는다.
-_CONSENT_DISCLOSURE = (
-    "마케팅 및 개인정보 활용에 동의해주셔서 대출상품 안내차 연락드렸어요. "
-    "지금 통화 잠깐 괜찮으실까요?"
-)
-# history에서 "이미 동의 고지를 했는지" 판정하는 표지 문구(부분 일치).
-_DISCLOSURE_MARK = "동의해주셔서 대출상품 안내"
-
-
-def _consent_disclosure(state: CallState) -> Optional[str]:
-    """CONSENT 진입 첫 봇 발화면 고정 동의 고지 멘트를 반환, 아니면 None.
-
-    조건: 이번 턴 stage가 CONSENT이고, 봇이 아직 동의 고지를 하지 않았을 때(history에
-    표지 문구 없음). IDENTIFY 단계나 이미 고지한 뒤에는 None(평소 LLM 경로).
-
-    ⚠️ 데드코드(의도된 폐기): Stage 4단계 전진을 폐기해(LANGGRAPH-DESIGN §0.1 구현 현황)
-    stage가 CONSENT에 도달하지 못하므로 이 함수는 항상 None을 반환한다. 동의 고지는
-    respond 프롬프트(공통요건)와 ConvFlow 처리로 대체한다. Stage 모델 재도입 시에만 의미.
-    """
-    if state.get("stage") != Stage.CONSENT:
-        return None
-    for msg in state.get("history", []):
-        if msg.get("speaker") == "bot" and _DISCLOSURE_MARK in (msg.get("text") or ""):
-            return None  # 이미 고지함 → 중복 금지
-    return _CONSENT_DISCLOSURE
-
-
 def respond(state: CallState) -> CallState:
     """Bedrock Converse로 응답 생성. 시스템 프롬프트 = stage 대응전략 + 공통요건 가드.
 
     공통요건 강제: 확정멘트 금지(수치→예시/가정+심사), 중요사항 누락금지, 선택권 존중, 재설득 금지.
-    """
-    # CONSENT 진입 첫 발화는 마케팅·개인정보 활용 동의 고지를 반드시 정확히 해야 한다.
-    # LLM 생성에 맡기면 누락·변형되므로 결정론적 고정 멘트로 반환(고지 정확성 보장).
-    fixed = _consent_disclosure(state)
-    if fixed is not None:
-        return {"bot_draft": fixed}
 
+    연락 근거(마케팅수신동의) 고지는 별도 고정 멘트가 아니라 IDENTIFY stage 지침 +
+    공통요건 프롬프트로 LLM이 생성한다(STEP 1에 흡수, CONSENT 단계 폐기).
+    """
     # speculative 모드: classify와 병렬로 만든 blind draft가 있으면 재사용(직렬 1콜 절감).
     # FALLBACK_TEXT(생성 실패)면 신뢰 못 하므로 아래 정식 경로로 재생성한다.
     blind_draft = state.get("_blind_draft")

@@ -56,7 +56,7 @@ _SPEAKERS = {"bot", "customer", "agent"}
 # 턴 node = AGENT 4단계 + 종료(agent/state.py:Stage). AGENT가 마지막 봇 Turn의
 # node에서 stage를 역추론하므로(LANGGRAPH-DESIGN §4 _infer_stage) 값이 정합해야 한다.
 # mot.py가 wire enum을 자체 상수로 두는 선례처럼, 모듈 결합을 피해 값만 복제.
-_NODES = {"IDENTIFY", "CONSENT", "PROPOSE", "CHANNEL", "CLOSING"}
+_NODES = {"IDENTIFY", "PROPOSE", "CHANNEL", "CLOSING"}
 _FLAGS = {"risk", "def", None}
 _POLARITIES = {"PRO", "CONS", None}
 _MOT_MARKERS = {"rz-rate", "rz-compare", "rz-pay", "rz-security", "rz-avoid"}
@@ -238,7 +238,7 @@ def _validate_turn(turn: dict, index: int) -> None:
     if turn["node"] not in _NODES:
         raise ScenarioValidationError(
             f"turn {index}: invalid node {turn['node']!r} "
-            f"(Stage: IDENTIFY|CONSENT|PROPOSE|CHANNEL|CLOSING)")
+            f"(Stage: IDENTIFY|PROPOSE|CHANNEL|CLOSING)")
     if turn["flag"] not in _FLAGS:
         raise ScenarioValidationError(
             f"turn {index}: invalid flag {turn['flag']!r} (risk|def|null)")

@@ -20,12 +20,15 @@ from .signals import Emotion, Need, Usability
 
 
 class Stage(str, Enum):
-    """xlsx 4단계 (LANGGRAPH-DESIGN §0.1). ARCHITECTURE.md S1 노드와 매핑."""
+    """상담 단계 (LANGGRAPH-DESIGN §0.1). ARCHITECTURE.md S1 노드와 매핑.
 
-    IDENTIFY = "IDENTIFY"      # STEP 1 신원고지/녹취고지  (≈ GREETING)
-    CONSENT = "CONSENT"        # STEP 2 동의/목적안내       (≈ INTRO_PRODUCT)
-    PROPOSE = "PROPOSE"        # STEP 3 상품제안            (≈ HANDLE_OBJECTION + OFFER_SIGNUP)
-    CHANNEL = "CHANNEL"        # STEP 4 채널선택            (≈ OFFER_SIGNUP 종단)
+    동의/목적안내 단계(CONSENT)는 폐기됨 — 연락 근거(마케팅수신동의)는 IDENTIFY의
+    번호출처 응대로 흡수했다. 진입 시점 진행 모델은 ConvFlow(conversation_flow.py).
+    """
+
+    IDENTIFY = "IDENTIFY"      # STEP 1 신원고지/녹취고지 + 연락 근거 안내  (≈ GREETING)
+    PROPOSE = "PROPOSE"        # STEP 2 상품제안            (≈ HANDLE_OBJECTION + OFFER_SIGNUP)
+    CHANNEL = "CHANNEL"        # STEP 3 채널선택            (≈ OFFER_SIGNUP 종단)
     CLOSING = "CLOSING"        # 종료 마무리
 
 
@@ -197,8 +200,8 @@ class CallState(TypedDict, total=False):
     # load_context
     call_id: str
     customer: CustomerCtx
-    stage: Stage   # ⚠️ vestigial: 4단계 전진 폐기. 통화 내내 IDENTIFY 고정(종료 시만 CLOSING).
-                   #   실제 진행 모델은 flow(ConvFlow). 자세히 LANGGRAPH-DESIGN §0.1 구현 현황.
+    stage: Stage   # 진입 단계 추론값. 실제 상담 진행 SSOT는 flow(ConvFlow). 통화 내내
+                   # IDENTIFY에서 시작(종료 시만 CLOSING). 자세히 LANGGRAPH-DESIGN §0.1.
     history: list[TurnMsg]
     customer_text: str
     churn_before: int

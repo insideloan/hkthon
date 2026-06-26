@@ -61,7 +61,7 @@ def test_intake_limit_inquiry_mentions_limit():
 
 
 def _state(text, **kw):
-    base = {"customer_text": text, "history": [], "route": Route.RESPOND, "stage": Stage.CONSENT}
+    base = {"customer_text": text, "history": [], "route": Route.RESPOND, "stage": Stage.IDENTIFY}
     base.update(kw)
     return base
 
@@ -74,7 +74,7 @@ def test_fraud_keyword_sets_flag():
 
 def test_fraud_flag_does_not_change_route_or_stage():
     """fraud 플래그가 라우팅/단계를 바꾸지 않는다 — 통화 계속(Acceptance #2)."""
-    out = nodes.detect_fraud(_state("보이스피싱 아니에요?", route=Route.RESPOND, stage=Stage.CONSENT))
+    out = nodes.detect_fraud(_state("보이스피싱 아니에요?", route=Route.RESPOND, stage=Stage.IDENTIFY))
     # detect_fraud는 fraud_suspected만 반환 — route/stage/call_status 키를 건드리지 않음
     assert "route" not in out
     assert "stage" not in out

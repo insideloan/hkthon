@@ -43,7 +43,7 @@
 그리고 선택 `expected_turns`(턴 수가 18이 아니면 **필수 선언**). 각 턴:
 
 - 필수: `seq`(0..n), `speaker`(`bot`|`customer`|`agent`),
-  `node`(`IDENTIFY`|`CONSENT`|`PROPOSE`|`CHANNEL`|`CLOSING` — AGENT `Stage` enum.
+  `node`(`IDENTIFY`|`PROPOSE`|`CHANNEL`|`CLOSING` — AGENT `Stage` enum.
   AGENT가 마지막 봇 Turn의 node에서 stage를 역추론하므로 정합 필수), `text`,
   `tokens[]`, `churn_after`(0-100), `flag`(`risk`|`def`|`null`)
 - `tokens[]`: `{text, polarity(PRO|CONS|null), reason}` — polarity는 색상용이
