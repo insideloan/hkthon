@@ -295,6 +295,10 @@ def _consent_disclosure(state: CallState) -> Optional[str]:
 
     조건: 이번 턴 stage가 CONSENT이고, 봇이 아직 동의 고지를 하지 않았을 때(history에
     표지 문구 없음). IDENTIFY 단계나 이미 고지한 뒤에는 None(평소 LLM 경로).
+
+    ⚠️ 데드코드(의도된 폐기): Stage 4단계 전진을 폐기해(LANGGRAPH-DESIGN §0.1 구현 현황)
+    stage가 CONSENT에 도달하지 못하므로 이 함수는 항상 None을 반환한다. 동의 고지는
+    respond 프롬프트(공통요건)와 ConvFlow 처리로 대체한다. Stage 모델 재도입 시에만 의미.
     """
     if state.get("stage") != Stage.CONSENT:
         return None

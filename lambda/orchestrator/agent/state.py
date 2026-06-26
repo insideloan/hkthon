@@ -197,7 +197,8 @@ class CallState(TypedDict, total=False):
     # load_context
     call_id: str
     customer: CustomerCtx
-    stage: Stage
+    stage: Stage   # ⚠️ vestigial: 4단계 전진 폐기. 통화 내내 IDENTIFY 고정(종료 시만 CLOSING).
+                   #   실제 진행 모델은 flow(ConvFlow). 자세히 LANGGRAPH-DESIGN §0.1 구현 현황.
     history: list[TurnMsg]
     customer_text: str
     churn_before: int
