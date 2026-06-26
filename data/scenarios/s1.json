@@ -84,7 +84,7 @@
     {
       "seq": 3,
       "speaker": "bot",
-      "node": "CONSENT",
+      "node": "IDENTIFY",
       "text": "바쁘신데 불쑥 연락드려 죄송해요. 마케팅 및 개인정보 활용에 동의해주셔서 대출상품을 안내드리려고 연락드렸는데요. 오늘은 신청이 아니라 기존 대출 유지가 나은지 비교만 도와드리려는 거예요. 잠깐 괜찮으실까요?",
       "tokens": [
         {
@@ -111,7 +111,7 @@
     {
       "seq": 4,
       "speaker": "customer",
-      "node": "CONSENT",
+      "node": "IDENTIFY",
       "text": "결국 갈아타라는 거잖아요. 막상 해보면 조건 다를 수도 있고요.",
       "tokens": [
         {

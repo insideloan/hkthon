@@ -72,7 +72,7 @@
     {
       "seq": 3,
       "speaker": "bot",
-      "node": "CONSENT",
+      "node": "IDENTIFY",
       "text": "고객님 대출 가능 여부 확인 가능하신데요. 상세한 상담을 위해 대출 용도 확인 부탁드려도 될까요?",
       "tokens": [
         {
@@ -94,7 +94,7 @@
     {
       "seq": 4,
       "speaker": "customer",
-      "node": "CONSENT",
+      "node": "IDENTIFY",
       "text": "그냥 필요해서요. 개인사정입니다. 빨리 좀 해주세요. 오늘 되는 거죠?",
       "tokens": [
         {

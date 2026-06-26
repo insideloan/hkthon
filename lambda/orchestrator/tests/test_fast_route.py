@@ -101,41 +101,16 @@ def test_silence_node_terminates_after_repeated_silence():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONSENT 동의 고지 (고정 멘트) — 신원고지→본인확인 응답 후 첫 봇 발화
+# 연락 근거 고지 — CONSENT 단계 폐기. 마케팅수신동의 근거는 IDENTIFY stage 지침 +
+# 공통요건으로 LLM이 생성한다(별도 고정 멘트 주입 없음).
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_consent_disclosure_fires_on_consent_entry():
-    """CONSENT 단계 첫 봇 발화면 마케팅·개인정보 활용 동의 고지를 고정 멘트로 반환."""
-    out = nodes.respond({
-        "stage": Stage.CONSENT,
-        "history": [
-            {"seq": 1, "speaker": "bot", "text": "안녕하세요, 현대캐피탈 AI 상담원입니다. 박서준 고객님이 맞으세요?", "node": "IDENTIFY"},
-            {"seq": 2, "speaker": "customer", "text": "네 맞아요", "node": "IDENTIFY"},
-        ],
-    })
-    assert "마케팅 및 개인정보 활용에 동의" in out["bot_draft"]
-    assert "통화" in out["bot_draft"]
-
-
-def test_consent_disclosure_skipped_in_identify():
-    """IDENTIFY 단계에서는 고정 동의 고지가 나오지 않는다(평소 LLM 경로)."""
+def test_respond_uses_blind_draft_in_identify():
+    """IDENTIFY 단계 응답은 LLM 경로(speculative blind draft 재사용) — 고정 멘트 주입 없음."""
     out = nodes.respond({
         "stage": Stage.IDENTIFY,
         "history": [{"seq": 1, "speaker": "customer", "text": "여보세요", "node": None}],
         "_blind_draft": "안녕하세요, 현대캐피탈 AI 상담원입니다.",  # LLM 경로 진입 확인용
     })
-    assert "마케팅 및 개인정보 활용에 동의" not in out["bot_draft"]
-
-
-def test_consent_disclosure_not_repeated():
-    """이미 동의 고지를 한 뒤(history에 표지)에는 중복 고지하지 않는다."""
-    out = nodes.respond({
-        "stage": Stage.CONSENT,
-        "history": [
-            {"seq": 3, "speaker": "bot", "text": "마케팅 및 개인정보 활용에 동의해주셔서 대출상품 안내차 연락드렸어요. 지금 통화 괜찮으실까요?", "node": "CONSENT"},
-            {"seq": 4, "speaker": "customer", "text": "네 괜찮아요", "node": "CONSENT"},
-        ],
-        "_blind_draft": "네, 감사합니다. 그럼 상품을 안내드릴게요.",
-    })
-    assert out["bot_draft"] == "네, 감사합니다. 그럼 상품을 안내드릴게요."
+    assert out["bot_draft"] == "안녕하세요, 현대캐피탈 AI 상담원입니다."
